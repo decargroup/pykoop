@@ -1,7 +1,8 @@
 import pytest
 import numpy as np
 from scipy import integrate, linalg
-from pykoop import dmd
+import pykoop.dmd
+import pykoop.lmi
 from dynamics import mass_spring_damper
 
 
@@ -42,19 +43,27 @@ def test_msd_data(msd):
     assert np.allclose(msd['X_valid'][:, 1:], msd['Xp_valid'][:, :-1])
 
 
-def test_edmd_msd_fit(msd):
+@pytest.mark.parametrize('reg,rtol,atol', [
+    (pykoop.dmd.EdmdRegressor(), 1e-5, 1e-8),
+    (pykoop.lmi.LmiKoopBaseRegressor(), 1e-4, 1e-8),
+    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='inv'), 1e-3, 1e-8),
+])
+def test_msd_fit(msd, reg, rtol, atol):
     # Fit regressor
-    edmd = dmd.EdmdRegressor()
-    edmd.fit(msd['X_train'].T, msd['Xp_train'].T)
+    reg.fit(msd['X_train'].T, msd['Xp_train'].T)
     # Test value of Koopman operator
-    U_fit = edmd.U_
-    assert np.allclose(msd['Ad'], U_fit)
+    U_fit = reg.U_
+    assert np.allclose(msd['Ad'], U_fit, rtol, atol)
 
 
-def test_edmd_msd_predict(msd):
+@pytest.mark.parametrize('reg,rtol,atol', [
+    (pykoop.dmd.EdmdRegressor(), 1e-5, 1e-8),
+    (pykoop.lmi.LmiKoopBaseRegressor(), 1e-3, 1e-8),
+    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='inv'), 1e-2, 1e-8),
+])
+def test_msd_predict(msd, reg, rtol, atol):
     # Fit regressor
-    edmd = dmd.EdmdRegressor()
-    edmd.fit(msd['X_train'].T, msd['Xp_train'].T)
+    reg.fit(msd['X_train'].T, msd['Xp_train'].T)
     # Test prediction
-    Xp_pred = edmd.predict(msd['X_valid'].T).T
-    assert np.allclose(msd['Xp_valid'], Xp_pred)
+    Xp_pred = reg.predict(msd['X_valid'].T).T
+    assert np.allclose(msd['Xp_valid'], Xp_pred, rtol, atol)
