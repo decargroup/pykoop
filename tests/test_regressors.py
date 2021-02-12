@@ -47,6 +47,7 @@ def test_msd_data(msd):
     (pykoop.dmd.EdmdRegressor(), 1e-5, 1e-8),
     (pykoop.lmi.LmiKoopBaseRegressor(), 1e-4, 1e-8),
     (pykoop.lmi.LmiKoopBaseRegressor(inv_method='inv'), 1e-3, 1e-8),
+    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='ldl'), 1e-4, 1e-8),
 ])
 def test_msd_fit(msd, reg, rtol, atol):
     # Fit regressor
@@ -60,6 +61,7 @@ def test_msd_fit(msd, reg, rtol, atol):
     (pykoop.dmd.EdmdRegressor(), 1e-5, 1e-8),
     (pykoop.lmi.LmiKoopBaseRegressor(), 1e-3, 1e-8),
     (pykoop.lmi.LmiKoopBaseRegressor(inv_method='inv'), 1e-2, 1e-8),
+    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='ldl'), 1e-3, 1e-8),
 ])
 def test_msd_predict(msd, reg, rtol, atol):
     # Fit regressor
