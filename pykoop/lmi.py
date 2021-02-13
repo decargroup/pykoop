@@ -5,8 +5,16 @@ import numpy as np
 from scipy import linalg
 
 
-class LmiKoopBaseRegressor(sklearn.base.BaseEstimator,
-                           sklearn.base.RegressorMixin):
+class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
+
+    # TODO: The real number of minimum samples is based on the data. But this
+    # value shuts up pytest for now.
+    _check_X_y_params = {
+        'multi_output': True,
+        'y_numeric': True,
+        'dtype': 'float64',
+        'ensure_min_samples': 2,
+    }
 
     def __init__(self, solver='mosek', inv_method='eig', picos_eps=1e-9):
         self.solver = solver
@@ -14,44 +22,61 @@ class LmiKoopBaseRegressor(sklearn.base.BaseEstimator,
         self.picos_eps = picos_eps
 
     def fit(self, X, y):
+        self._validate_parameters()
+        X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
+        problem = self._base_problem(X, y)
+        problem.solve(solver=self.solver)
+        self.U_ = self._extract_solution(problem)
+        return self
+
+    def predict(self, X):
+        X = self._validate_data(X, reset=False)
+        sklearn.utils.validation.check_is_fitted(self)
+        Psi = X.T
+        Theta_p = self.U_.T @ Psi
+        return Theta_p.T
+
+    def _validate_parameters(self):
         # Validate solver
         valid_solvers = [None, 'mosek']
         if self.solver not in valid_solvers:
             raise ValueError('`solver` must be one of: '
                              f'{" ".join(valid_solvers)}.')
         # Validate inverse method
-        valid_inv_methods = ['inv', 'eig', 'ldl']
+        valid_inv_methods = ['inv', 'eig', 'ldl', 'chol', 'sqrt']
         if self.inv_method not in valid_inv_methods:
             raise ValueError('`inv_method` must be one of: '
                              f'{" ".join(valid_inv_methods)}.')
-        # Validate data
-        # TODO ensure_min_samples should really be X.shape[1], but that's not
-        # super straightforward right now. Hard-coding 2 shuts up the pytest
-        # failure. But H needs to be full rank for the algorithm to work!!
-        # Check the rank before starting!
-        X, y = sklearn.utils.validation.check_X_y(X, y, multi_output=True,
-                                                  y_numeric=True,
-                                                  dtype='float64',
-                                                  ensure_min_samples=2)
+
+    def _validate_data(self, X, y=None, reset=True, **check_array_params):
+        if y is None:
+            X = sklearn.utils.validation.check_array(X, **check_array_params)
+        else:
+            X, y = sklearn.utils.validation.check_X_y(X, y,
+                                                      **check_array_params)
+        if reset:
+            self.n_features_in_ = X.shape[1]
+        return X if y is None else (X, y)
+
+    def _base_problem(self, X, y):
+        # Compute G and H
         Psi = X.T
         Theta_p = y.T
         q = Psi.shape[1]
         G = (Theta_p @ Psi.T) / q
         H = (Psi @ Psi.T) / q
-        problem = self._base_problem(G, H)
-        problem.solve(solver=self.solver)
-        self.U_ = np.array(problem.get_valued_variable('U'))
-        self.n_features_in_ = Psi.shape[0]
-        return self
-
-    def predict(self, X):
-        X = sklearn.utils.validation.check_array(X)
-        sklearn.utils.validation.check_is_fitted(self)
-        Psi = X.T
-        Theta_p = self.U_ @ Psi
-        return Theta_p.T
-
-    def _base_problem(self, G, H):
+        # Check rank of H
+        rk = np.linalg.matrix_rank(H)
+        if rk < H.shape[0]:
+            # TODO Is it possible to use a pseudo-inverse here?
+            # That would mean H could be rank deficient.
+            # TODO Condition number warning? Log it?
+            raise ValueError(
+                'H must be full rank. '
+                f'H is {H.shape[0]}x{X.shape[1]}. rk(H)={rk}.'
+                'TODO: Loosen this requirement with a '
+                'psuedo-inverse?'
+            )
         # Optimization problem
         problem = picos.Problem()
         # Constants
@@ -83,6 +108,20 @@ class LmiKoopBaseRegressor(sklearn.base.BaseEstimator,
                 (             Z &         U * LsqrtD) //  # noqa: E2
                 (LsqrtD.T * U.T & np.eye(U.shape[1]))     # noqa: E2
             ) >> 0)
+        elif self.inv_method == 'chol':
+            L = picos.Constant('L', linalg.cholesky(H, lower=True))
+            problem.add_constraint((
+                (        Z &              U * L) //  # noqa: E2
+                (L.T * U.T & np.eye(U.shape[1]))
+            ) >> 0)
+        elif self.inv_method == 'sqrt':
+            # Since H is symmetric, its square root is symmetric.
+            # Otherwise, this would not work!
+            sqrtH = picos.Constant('sqrt(H)', linalg.sqrtm(H))
+            problem.add_constraint((
+                (            Z &          U * sqrtH) //  # noqa: E2
+                (sqrtH.T * U.T & np.eye(U.shape[1]))
+            ) >> 0)
         else:
             # Should never get here since input validation is done in `fit()`.
             raise ValueError('Invalid value for `inv_method`.')
@@ -91,8 +130,19 @@ class LmiKoopBaseRegressor(sklearn.base.BaseEstimator,
                               (-2 * picos.trace(U * G_T) + picos.trace(Z)))
         return problem
 
+    def _extract_solution(self, problem):
+        return np.array(problem.get_valued_variable('U')).T
+
     def _more_tags(self):
         return {
             'multioutput': True,
             'multioutput_only': True,
         }
+
+
+class LmiEdmdTikhonovReg(LmiEdmd):
+    pass
+
+
+class LmiEdmdNuclearReg(LmiEdmd):
+    pass

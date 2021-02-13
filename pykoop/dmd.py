@@ -3,7 +3,7 @@ import sklearn.utils.validation
 from scipy import linalg
 
 
-class EdmdRegressor(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
+class Edmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
 
     def fit(self, X, y):
         X, y = sklearn.utils.validation.check_X_y(X, y,
@@ -14,7 +14,7 @@ class EdmdRegressor(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         q = Psi.shape[1]
         G = (Theta_p @ Psi.T) / q
         H = (Psi @ Psi.T) / q
-        self.U_ = linalg.lstsq(H.T, G.T)[0].T
+        self.U_ = linalg.lstsq(H.T, G.T)[0]
         self.n_features_in_ = Psi.shape[0]
         return self
 
@@ -22,7 +22,7 @@ class EdmdRegressor(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         X = sklearn.utils.validation.check_array(X)
         sklearn.utils.validation.check_is_fitted(self)
         Psi = X.T
-        Theta_p = self.U_ @ Psi
+        Theta_p = self.U_.T @ Psi
         return Theta_p.T
 
     def _more_tags(self):
