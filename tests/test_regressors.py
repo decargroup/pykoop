@@ -45,23 +45,41 @@ def test_msd_data(msd):
 
 @pytest.mark.parametrize('reg,rtol,atol', [
     (pykoop.dmd.EdmdRegressor(), 1e-5, 1e-8),
-    (pykoop.lmi.LmiKoopBaseRegressor(), 1e-4, 1e-8),
+    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='eig'), 1e-4, 1e-8),
     (pykoop.lmi.LmiKoopBaseRegressor(inv_method='inv'), 1e-3, 1e-8),
     (pykoop.lmi.LmiKoopBaseRegressor(inv_method='ldl'), 1e-4, 1e-8),
+    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='chol'), 1e-4, 1e-8),
+    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='sqrt'), 1e-4, 1e-8),
+], ids=[
+    "EdmdRegressor()",
+    "LmiKoopBaseRegressor(inv_method='eig')",
+    "LmiKoopBaseRegressor(inv_method='inv')",
+    "LmiKoopBaseRegressor(inv_method='ldl')",
+    "LmiKoopBaseRegressor(inv_method='chol')",
+    "LmiKoopBaseRegressor(inv_method='sqrt')",
 ])
 def test_msd_fit(msd, reg, rtol, atol):
     # Fit regressor
     reg.fit(msd['X_train'].T, msd['Xp_train'].T)
     # Test value of Koopman operator
-    U_fit = reg.U_
+    U_fit = reg.U_.T
     assert np.allclose(msd['Ad'], U_fit, rtol, atol)
 
 
 @pytest.mark.parametrize('reg,rtol,atol', [
     (pykoop.dmd.EdmdRegressor(), 1e-5, 1e-8),
-    (pykoop.lmi.LmiKoopBaseRegressor(), 1e-3, 1e-8),
+    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='eig'), 1e-3, 1e-8),
     (pykoop.lmi.LmiKoopBaseRegressor(inv_method='inv'), 1e-2, 1e-8),
     (pykoop.lmi.LmiKoopBaseRegressor(inv_method='ldl'), 1e-3, 1e-8),
+    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='chol'), 1e-3, 1e-8),
+    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='sqrt'), 1e-3, 1e-8),
+], ids=[
+    "EdmdRegressor()",
+    "LmiKoopBaseRegressor(inv_method='eig')",
+    "LmiKoopBaseRegressor(inv_method='inv')",
+    "LmiKoopBaseRegressor(inv_method='ldl')",
+    "LmiKoopBaseRegressor(inv_method='chol')",
+    "LmiKoopBaseRegressor(inv_method='sqrt')",
 ])
 def test_msd_predict(msd, reg, rtol, atol):
     # Fit regressor
