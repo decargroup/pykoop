@@ -44,19 +44,19 @@ def test_msd_data(msd):
 
 
 @pytest.mark.parametrize('reg,rtol,atol', [
-    (pykoop.dmd.EdmdRegressor(), 1e-5, 1e-8),
-    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='eig'), 1e-4, 1e-8),
-    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='inv'), 1e-3, 1e-8),
-    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='ldl'), 1e-4, 1e-8),
-    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='chol'), 1e-4, 1e-8),
-    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='sqrt'), 1e-4, 1e-8),
+    (pykoop.dmd.Edmd(), 1e-5, 1e-8),
+    (pykoop.lmi.LmiEdmd(inv_method='eig'), 1e-4, 1e-8),
+    (pykoop.lmi.LmiEdmd(inv_method='inv'), 1e-3, 1e-8),
+    (pykoop.lmi.LmiEdmd(inv_method='ldl'), 1e-4, 1e-8),
+    (pykoop.lmi.LmiEdmd(inv_method='chol'), 1e-4, 1e-8),
+    (pykoop.lmi.LmiEdmd(inv_method='sqrt'), 1e-4, 1e-8),
 ], ids=[
-    "EdmdRegressor()",
-    "LmiKoopBaseRegressor(inv_method='eig')",
-    "LmiKoopBaseRegressor(inv_method='inv')",
-    "LmiKoopBaseRegressor(inv_method='ldl')",
-    "LmiKoopBaseRegressor(inv_method='chol')",
-    "LmiKoopBaseRegressor(inv_method='sqrt')",
+    "Edmd()",
+    "LmiEdmd(inv_method='eig')",
+    "LmiEdmd(inv_method='inv')",
+    "LmiEdmd(inv_method='ldl')",
+    "LmiEdmd(inv_method='chol')",
+    "LmiEdmd(inv_method='sqrt')",
 ])
 def test_msd_fit(msd, reg, rtol, atol):
     # Fit regressor
@@ -67,19 +67,19 @@ def test_msd_fit(msd, reg, rtol, atol):
 
 
 @pytest.mark.parametrize('reg,rtol,atol', [
-    (pykoop.dmd.EdmdRegressor(), 1e-5, 1e-8),
-    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='eig'), 1e-3, 1e-8),
-    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='inv'), 1e-2, 1e-8),
-    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='ldl'), 1e-3, 1e-8),
-    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='chol'), 1e-3, 1e-8),
-    (pykoop.lmi.LmiKoopBaseRegressor(inv_method='sqrt'), 1e-3, 1e-8),
+    (pykoop.dmd.Edmd(), 1e-5, 1e-8),
+    (pykoop.lmi.LmiEdmd(inv_method='eig'), 1e-3, 1e-8),
+    (pykoop.lmi.LmiEdmd(inv_method='inv'), 1e-2, 1e-8),
+    (pykoop.lmi.LmiEdmd(inv_method='ldl'), 1e-3, 1e-8),
+    (pykoop.lmi.LmiEdmd(inv_method='chol'), 1e-3, 1e-8),
+    (pykoop.lmi.LmiEdmd(inv_method='sqrt'), 1e-3, 1e-8),
 ], ids=[
-    "EdmdRegressor()",
-    "LmiKoopBaseRegressor(inv_method='eig')",
-    "LmiKoopBaseRegressor(inv_method='inv')",
-    "LmiKoopBaseRegressor(inv_method='ldl')",
-    "LmiKoopBaseRegressor(inv_method='chol')",
-    "LmiKoopBaseRegressor(inv_method='sqrt')",
+    "Edmd()",
+    "LmiEdmd(inv_method='eig')",
+    "LmiEdmd(inv_method='inv')",
+    "LmiEdmd(inv_method='ldl')",
+    "LmiEdmd(inv_method='chol')",
+    "LmiEdmd(inv_method='sqrt')",
 ])
 def test_msd_predict(msd, reg, rtol, atol):
     # Fit regressor
