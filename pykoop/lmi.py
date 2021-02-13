@@ -140,9 +140,38 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         }
 
 
-class LmiEdmdTikhonovReg(LmiEdmd):
-    pass
+class LmiEdmdTikhonov(LmiEdmd):
 
+    def __init__(self, alpha=1.0, **kwargs):
+        super().__init__(**kwargs)
+        self.alpha = alpha
 
-class LmiEdmdNuclearReg(LmiEdmd):
-    pass
+    def fit(self, X, y):
+        # TODO Warn if alpha is zero?
+        self._validate_parameters()
+        X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
+        problem = self._base_problem(X, y)
+        self._add_tikhonov(X, y, problem, self.alpha)
+        problem.solve(solver=self.solver)
+        self.U_ = self._extract_solution(problem)
+        return self
+
+    def _add_tikhonov(self, X, y, problem, alpha):
+        # Extract information from problem
+        U = problem.variables['U']
+        direction = problem.objective.direction
+        objective = problem.objective.function
+        # Get needed sizes
+        p_theta = U.shape[0]
+        p = U.shape[1]
+        q = X.shape[0]
+        # Add new constraint
+        gamma = picos.RealVariable('gamma', 1)
+        problem.add_constraint((
+            (picos.diag(gamma, p) & U.T) //
+            (U & picos.diag(gamma, p_theta))
+        ) >> 0)
+        # Add term to cost function
+        alpha_scaled = picos.Constant('alpha/q', alpha/q)
+        objective += alpha_scaled * gamma**2
+        problem.set_objective(direction, objective)
