@@ -1,89 +1,109 @@
 import pytest
 import numpy as np
 from scipy import integrate, linalg
-import pykoop.dmd
-import pykoop.lmi
+from pykoop import dmd, lmi
 from dynamics import mass_spring_damper
+from sklearn import linear_model
 
 
-@pytest.fixture
-def msd():
-    # Set up problem
-    t_range = (0, 10)
-    t_step = 0.1
-    msd = mass_spring_damper.MassSpringDamper(0.5, 0.7, 0.6)
-    # Solve ODE for training data
-    x0 = msd.x0(np.array([1, 0]))
-    sol = integrate.solve_ivp(lambda t, x: msd.f(t, x, 0), t_range, x0,
-                              t_eval=np.arange(*t_range, t_step),
-                              rtol=1e-8, atol=1e-8)
-    # Calculate discrete-time A matrix
-    Ad = linalg.expm(msd._A * t_step)
+@pytest.fixture(params=[
+    ('msd', dmd.Edmd(), 1e-5, 1e-5),
+    ('msd', lmi.LmiEdmd(inv_method='eig'), 1e-4, 1e-5),
+    ('msd', lmi.LmiEdmd(inv_method='inv'), 1e-4, 1e-5),
+    ('msd', lmi.LmiEdmd(inv_method='ldl'), 1e-4, 1e-5),
+    ('msd', lmi.LmiEdmd(inv_method='chol'), 1e-4, 1e-5),
+    ('msd', lmi.LmiEdmd(inv_method='sqrt'), 1e-4, 1e-5),
+    ('msd', lmi.LmiEdmdTikhonovConstraint(inv_method='chol', alpha=0.1), 1e-1,
+     None),
+    ('msd', lmi.LmiEdmdTikhonovAnalytic(inv_method='chol', alpha=1), 1e-4,
+     None),
+], ids=[
+    "msd-dmd.Edmd()",
+    "msd-lmi.LmiEdmd(inv_method='eig')",
+    "msd-lmi.LmiEdmd(inv_method='inv')",
+    "msd-lmi.LmiEdmd(inv_method='ldl')",
+    "msd-lmi.LmiEdmd(inv_method='chol')",
+    "msd-lmi.LmiEdmd(inv_method='sqrt')",
+    "msd-lmi.LmiEdmdTikhonovConstraint(inv_method='chol', alpha=0.1)",
+    "msd-lmi.LmiEdmdTikhonovAnalytic(inv_method='chol', alpha=1)",
+])
+def scenario(request):
+    system, regressor, fit_tol, predict_tol = request.param
+    # Simulate or load data
+    # Not all systems and solutions are compatible.
+    # For `exact` to work, `t_step`, `A`, and `y` must be defined.
+    # For `ridge` to work, only `y` is needed
+    if system == 'msd':
+        # Set up problem
+        t_range = (0, 10)
+        t_step = 0.1
+        msd = mass_spring_damper.MassSpringDamper(0.5, 0.7, 0.6)
+        # Solve ODE for training data
+        x0 = msd.x0(np.array([1, 0]))
+        sol = integrate.solve_ivp(lambda t, x: msd.f(t, x, 0), t_range, x0,
+                                  t_eval=np.arange(*t_range, t_step),
+                                  rtol=1e-8, atol=1e-8)
+        A = msd._A
+        y = sol.y
     # Split the data
-    y_train, y_valid = np.split(sol.y, 2, axis=1)
+    y_train, y_valid = np.split(y, 2, axis=1)
     X_train = y_train[:, :-1]
     Xp_train = y_train[:, 1:]
     X_valid = y_valid[:, :-1]
     Xp_valid = y_valid[:, 1:]
+    # Approximate the Koopman operator
+    # Must define a `U_valid`
+    if (type(regressor) is lmi.LmiEdmdTikhonovConstraint
+            or type(regressor) is lmi.LmiEdmdTikhonovAnalytic):
+        clf = linear_model.Ridge(alpha=regressor.alpha,
+                                 fit_intercept=False,
+                                 solver='cholesky',
+                                 tol=1e-8)
+        clf.fit(X_train.T, Xp_train.T)
+        U_valid = clf.coef_
+    elif (type(regressor) is dmd.Edmd or type(regressor) is lmi.LmiEdmd):
+        U_valid = linalg.expm(A * t_step)
+    # Return fixture dictionary
     return {
-        'X_train':  X_train,
+        'X_train': X_train,
         'Xp_train': Xp_train,
-        'X_valid':  X_valid,
+        'X_valid': X_valid,
         'Xp_valid': Xp_valid,
-        'Ad':       Ad,
+        'U_valid': U_valid,
+        'regressor': regressor,
+        'fit_tol': fit_tol,
+        'predict_tol': predict_tol,
     }
 
 
-def test_msd_data(msd):
+def test_scenario_data(scenario):
     # Make sure training and validation sets are not the same
-    assert not np.allclose(msd['X_train'], msd['X_valid'])
-    assert not np.allclose(msd['Xp_train'], msd['Xp_valid'])
+    assert not np.allclose(scenario['X_train'],  scenario['X_valid'])
+    assert not np.allclose(scenario['Xp_train'], scenario['Xp_valid'])
     # Make sure Xp is time-shifted version of X
-    assert np.allclose(msd['X_train'][:, 1:], msd['Xp_train'][:, :-1])
-    assert np.allclose(msd['X_valid'][:, 1:], msd['Xp_valid'][:, :-1])
+    assert np.allclose(scenario['X_train'][:, 1:],
+                       scenario['Xp_train'][:, :-1])
+    assert np.allclose(scenario['X_valid'][:, 1:],
+                       scenario['Xp_valid'][:, :-1])
 
 
-@pytest.mark.parametrize('reg,rtol,atol', [
-    (pykoop.dmd.Edmd(), 1e-5, 1e-8),
-    (pykoop.lmi.LmiEdmd(inv_method='eig'), 1e-4, 1e-8),
-    (pykoop.lmi.LmiEdmd(inv_method='inv'), 1e-3, 1e-8),
-    (pykoop.lmi.LmiEdmd(inv_method='ldl'), 1e-4, 1e-8),
-    (pykoop.lmi.LmiEdmd(inv_method='chol'), 1e-4, 1e-8),
-    (pykoop.lmi.LmiEdmd(inv_method='sqrt'), 1e-4, 1e-8),
-], ids=[
-    "Edmd()",
-    "LmiEdmd(inv_method='eig')",
-    "LmiEdmd(inv_method='inv')",
-    "LmiEdmd(inv_method='ldl')",
-    "LmiEdmd(inv_method='chol')",
-    "LmiEdmd(inv_method='sqrt')",
-])
-def test_msd_fit(msd, reg, rtol, atol):
+def test_fit(scenario):
+    if scenario['fit_tol'] is None:
+        pytest.skip()
     # Fit regressor
-    reg.fit(msd['X_train'].T, msd['Xp_train'].T)
+    scenario['regressor'].fit(scenario['X_train'].T, scenario['Xp_train'].T)
     # Test value of Koopman operator
-    U_fit = reg.U_.T
-    assert np.allclose(msd['Ad'], U_fit, rtol, atol)
+    assert np.allclose(scenario['U_valid'],
+                       scenario['regressor'].U_.T,
+                       atol=scenario['fit_tol'])
 
 
-@pytest.mark.parametrize('reg,rtol,atol', [
-    (pykoop.dmd.Edmd(), 1e-5, 1e-8),
-    (pykoop.lmi.LmiEdmd(inv_method='eig'), 1e-3, 1e-8),
-    (pykoop.lmi.LmiEdmd(inv_method='inv'), 1e-2, 1e-8),
-    (pykoop.lmi.LmiEdmd(inv_method='ldl'), 1e-3, 1e-8),
-    (pykoop.lmi.LmiEdmd(inv_method='chol'), 1e-3, 1e-8),
-    (pykoop.lmi.LmiEdmd(inv_method='sqrt'), 1e-3, 1e-8),
-], ids=[
-    "Edmd()",
-    "LmiEdmd(inv_method='eig')",
-    "LmiEdmd(inv_method='inv')",
-    "LmiEdmd(inv_method='ldl')",
-    "LmiEdmd(inv_method='chol')",
-    "LmiEdmd(inv_method='sqrt')",
-])
-def test_msd_predict(msd, reg, rtol, atol):
+def test_predict(scenario):
+    if scenario['predict_tol'] is None:
+        pytest.skip()
     # Fit regressor
-    reg.fit(msd['X_train'].T, msd['Xp_train'].T)
+    scenario['regressor'].fit(scenario['X_train'].T, scenario['Xp_train'].T)
     # Test prediction
-    Xp_pred = reg.predict(msd['X_valid'].T).T
-    assert np.allclose(msd['Xp_valid'], Xp_pred, rtol, atol)
+    assert np.allclose(scenario['Xp_valid'],
+                       scenario['regressor'].predict(scenario['X_valid'].T).T,
+                       atol=scenario['predict_tol'])

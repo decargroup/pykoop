@@ -16,9 +16,9 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         'ensure_min_samples': 2,
     }
 
-    def __init__(self, solver='mosek', inv_method='eig', picos_eps=1e-9):
-        self.solver = solver
+    def __init__(self, inv_method='eig', solver='mosek', picos_eps=1e-9):
         self.inv_method = inv_method
+        self.solver = solver
         self.picos_eps = picos_eps
 
     def fit(self, X, y):
@@ -37,16 +37,16 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         return Theta_p.T
 
     def _validate_parameters(self):
-        # Validate solver
-        valid_solvers = [None, 'mosek']
-        if self.solver not in valid_solvers:
-            raise ValueError('`solver` must be one of: '
-                             f'{" ".join(valid_solvers)}.')
         # Validate inverse method
         valid_inv_methods = ['inv', 'eig', 'ldl', 'chol', 'sqrt']
         if self.inv_method not in valid_inv_methods:
             raise ValueError('`inv_method` must be one of: '
                              f'{" ".join(valid_inv_methods)}.')
+        # Validate solver
+        valid_solvers = [None, 'mosek']
+        if self.solver not in valid_solvers:
+            raise ValueError('`solver` must be one of: '
+                             f'{" ".join(valid_solvers)}.')
 
     def _validate_data(self, X, y=None, reset=True, **check_array_params):
         if y is None:
@@ -58,7 +58,7 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
             self.n_features_in_ = X.shape[1]
         return X if y is None else (X, y)
 
-    def _base_problem(self, X, y):
+    def _compute_G_H(self, X, y):
         # Compute G and H
         Psi = X.T
         Theta_p = y.T
@@ -77,6 +77,10 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
                 'TODO: Loosen this requirement with a '
                 'psuedo-inverse?'
             )
+        return G, H
+
+    def _base_problem(self, X, y):
+        G, H = self._compute_G_H(X, y)
         # Optimization problem
         problem = picos.Problem()
         # Constants
@@ -146,6 +150,9 @@ class LmiEdmdTikhonov(LmiEdmd):
         super().__init__(**kwargs)
         self.alpha = alpha
 
+
+class LmiEdmdTikhonovConstraint(LmiEdmdTikhonov):
+
     def fit(self, X, y):
         # TODO Warn if alpha is zero?
         self._validate_parameters()
@@ -175,3 +182,27 @@ class LmiEdmdTikhonov(LmiEdmd):
         alpha_scaled = picos.Constant('alpha/q', alpha/q)
         objective += alpha_scaled * gamma**2
         problem.set_objective(direction, objective)
+
+
+class LmiEdmdTikhonovAnalytic(LmiEdmdTikhonov):
+
+    def _compute_G_H(self, X, y):
+        # Compute G and H
+        Psi = X.T
+        Theta_p = y.T
+        q = Psi.shape[1]
+        G = (Theta_p @ Psi.T) / q
+        H = (Psi @ Psi.T + self.alpha * np.eye(Psi.shape[0])) / q
+        # Check rank of H
+        rk = np.linalg.matrix_rank(H)
+        if rk < H.shape[0]:
+            # TODO Is it possible to use a pseudo-inverse here?
+            # That would mean H could be rank deficient.
+            # TODO Condition number warning? Log it?
+            raise ValueError(
+                'H must be full rank. '
+                f'H is {H.shape[0]}x{X.shape[1]}. rk(H)={rk}.'
+                'TODO: Loosen this requirement with a '
+                'psuedo-inverse?'
+            )
+        return G, H
