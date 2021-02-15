@@ -7,27 +7,67 @@ from sklearn import linear_model
 
 
 @pytest.fixture(params=[
-    ('msd', dmd.Edmd(), 1e-5, 1e-5),
-    ('msd', lmi.LmiEdmd(inv_method='eig'), 1e-4, 1e-5),
-    ('msd', lmi.LmiEdmd(inv_method='inv'), 1e-4, 1e-5),
-    ('msd', lmi.LmiEdmd(inv_method='ldl'), 1e-4, 1e-5),
-    ('msd', lmi.LmiEdmd(inv_method='chol'), 1e-4, 1e-5),
-    ('msd', lmi.LmiEdmd(inv_method='sqrt'), 1e-4, 1e-5),
-    ('msd', lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha=1), 1e-4, None),
-    ('msd', lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha=1), 1e-4, None),
-    ('msd', lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1), 1e-4, None),
+    ('msd', dmd.Edmd(), 1e-5, 1e-5, 'exact'),
+    ('msd', lmi.LmiEdmd(inv_method='eig'), 1e-4, 1e-5, 'exact'),
+    ('msd', lmi.LmiEdmd(inv_method='inv'), 1e-4, 1e-5, 'exact'),
+    ('msd', lmi.LmiEdmd(inv_method='ldl'), 1e-4, 1e-5, 'exact'),
+    ('msd', lmi.LmiEdmd(inv_method='chol'), 1e-4, 1e-5, 'exact'),
+    ('msd', lmi.LmiEdmd(inv_method='sqrt'), 1e-4, 1e-5, 'exact'),
+    (
+        'msd',
+        lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha=1),
+        1e-4,
+        None,
+        'sklearn-ridge'
+    ),
+    (
+        'msd',
+        lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha=1),
+        1e-4,
+        None,
+        # Test vector generated from old code. More of a regression test than
+        # anything. If the same error is present in that old code and this
+        # code, this test is meaningless!
+        np.array([
+            [ 0.89995985, 0.07048035],  # noqa: E201
+            [-0.07904385, 0.89377084]
+        ])
+    ),
+    (
+        'msd',
+        lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1),
+        1e-4,
+        None,
+        # Test vector generated from old code. More of a regression test than
+        # anything. If the same error is present in that old code and this
+        # code, this test is meaningless!
+        np.array([
+            [ 0.70623152, -0.17749238],  # noqa: E201
+            [-0.32354638,  0.50687639]
+        ])
+    ),
     # Test cases marked as slow can be deselected easily with `pytest -k-slow`
     pytest.param((
         'msd',
         lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=1.1),
         1e-4,
-        None
+        None,
+        # Since the constraint is larger than the actual eigenvalue magnitudes,
+        # it will have no effect and we can compare to the exact solution.
+        'exact'
     ), marks=pytest.mark.slow),
     pytest.param((
         'msd',
         lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=0.8),
         1e-4,
-        None
+        None,
+        # Regression test generated from this code. Result was manually
+        # checked (eigenvalue magnitudes are less than 0.8) but strictly
+        # speaking, it hasn't been checked against other code.
+        np.array([
+            [ 0.88994802, 0.04260765],  # noqa: E201
+            [-0.22883601, 0.70816555]
+        ])
     ), marks=pytest.mark.slow),
 ], ids=[
     "msd-dmd.Edmd()",
@@ -43,7 +83,7 @@ from sklearn import linear_model
     "msd-lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=0.8)",
 ])
 def scenario(request):
-    system, regressor, fit_tol, predict_tol = request.param
+    system, regressor, fit_tol, predict_tol, soln = request.param
     # Simulate or load data
     # Not all systems and solutions are compatible.
     # For `exact` to work, `t_step`, `A`, and `y` must be defined.
@@ -67,43 +107,17 @@ def scenario(request):
     X_valid = y_valid[:, :-1]
     Xp_valid = y_valid[:, 1:]
     # Approximate the Koopman operator
-    # Must define a `U_valid`
-    if type(regressor) is lmi.LmiEdmdTikhonovReg:
+    if type(soln) == np.ndarray:
+        U_valid = soln
+    elif soln == 'exact':
+        U_valid = linalg.expm(A * t_step)
+    elif soln == 'sklearn-ridge':
         clf = linear_model.Ridge(alpha=regressor.alpha,
                                  fit_intercept=False,
                                  solver='cholesky',
                                  tol=1e-8)
         clf.fit(X_train.T, Xp_train.T)
         U_valid = clf.coef_
-    elif (type(regressor) is lmi.LmiEdmdTwoNormReg and system == 'msd'):
-        # Test vector generated from old code. More of a regression test than
-        # anything. If the same error is present in that old code and this
-        # code, this test is meaningless!
-        U_valid = np.array([
-            [ 0.89995985, 0.07048035],  # noqa: E201
-            [-0.07904385, 0.89377084]
-        ])
-    elif (type(regressor) is lmi.LmiEdmdNuclearNormReg and system == 'msd'):
-        # Test vector generated from old code. More of a regression test than
-        # anything. If the same error is present in that old code and this
-        # code, this test is meaningless!
-        U_valid = np.array([
-            [ 0.70623152, -0.17749238],  # noqa: E201
-            [-0.32354638,  0.50687639]
-        ])
-    elif type(regressor) is lmi.LmiEdmdSpectralRadiusConstr:
-        if regressor.rho_bar > 1:
-            U_valid = linalg.expm(A * t_step)
-        elif (regressor.rho_bar == 0.8 and system == 'msd'):
-            # Regression test generated from this code. Result was manually
-            # checked (eigenvalue magnitudes are less than 0.8) but strictly
-            # speaking, it hasn't been checked against other code.
-            U_valid = np.array([
-                [ 0.88994802, 0.04260765],  # noqa: E201
-                [-0.22883601, 0.70816555]
-            ])
-    elif (type(regressor) is dmd.Edmd or type(regressor) is lmi.LmiEdmd):
-        U_valid = linalg.expm(A * t_step)
     else:
         U_valid = None
     # Return fixture dictionary
