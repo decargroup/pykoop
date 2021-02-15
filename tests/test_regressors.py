@@ -15,10 +15,10 @@ from sklearn import linear_model
     ('msd', lmi.LmiEdmd(inv_method='sqrt'), 1e-4, 1e-5),
     ('msd', lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha_tikhonov=1), 1e-4,
      None),
-    ('msd', lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha_twonorm=1), None,
+    ('msd', lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha_twonorm=1), 1e-4,
      None),
     ('msd', lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha_nucnorm=1),
-     None, None),
+     1e-4, None),
 ], ids=[
     "msd-dmd.Edmd()",
     "msd-lmi.LmiEdmd(inv_method='eig')",
@@ -63,6 +63,22 @@ def scenario(request):
                                  tol=1e-8)
         clf.fit(X_train.T, Xp_train.T)
         U_valid = clf.coef_
+    elif type(regressor) is lmi.LmiEdmdTwoNormReg:
+        # Test vector generated from old code. More of a regression test than
+        # anything. If the same error is present in that old code and this
+        # code, this test is useless!
+        U_valid = np.array([
+            [ 0.89995985, 0.07048035],  # noqa: E201
+            [-0.07904385, 0.89377084]
+        ])
+    elif type(regressor) is lmi.LmiEdmdNuclearNormReg:
+        # Test vector generated from old code. More of a regression test than
+        # anything. If the same error is present in that old code and this
+        # code, this test is useless!
+        U_valid = np.array([
+            [ 0.70623152, -0.17749238],  # noqa: E201
+            [-0.32354638,  0.50687639]
+        ])
     elif (type(regressor) is dmd.Edmd or type(regressor) is lmi.LmiEdmd):
         U_valid = linalg.expm(A * t_step)
     else:
@@ -82,13 +98,13 @@ def scenario(request):
 
 def test_scenario_data(scenario):
     # Make sure training and validation sets are not the same
-    assert not np.allclose(scenario['X_train'],  scenario['X_valid'])
+    assert not np.allclose(scenario['X_train'], scenario['X_valid'])
     assert not np.allclose(scenario['Xp_train'], scenario['Xp_valid'])
     # Make sure Xp is time-shifted version of X
-    assert np.allclose(scenario['X_train'][:, 1:],
-                       scenario['Xp_train'][:, :-1])
-    assert np.allclose(scenario['X_valid'][:, 1:],
-                       scenario['Xp_valid'][:, :-1])
+    np.testing.assert_allclose(scenario['X_train'][:, 1:],
+                               scenario['Xp_train'][:, :-1])
+    np.testing.assert_allclose(scenario['X_valid'][:, 1:],
+                               scenario['Xp_valid'][:, :-1])
 
 
 def test_fit(scenario):
@@ -97,9 +113,12 @@ def test_fit(scenario):
     # Fit regressor
     scenario['regressor'].fit(scenario['X_train'].T, scenario['Xp_train'].T)
     # Test value of Koopman operator
-    assert np.allclose(scenario['U_valid'],
-                       scenario['regressor'].U_.T,
-                       atol=scenario['fit_tol'])
+    np.testing.assert_allclose(
+        scenario['regressor'].U_.T,
+        scenario['U_valid'],
+        atol=scenario['fit_tol'],
+        rtol=0
+    )
 
 
 def test_predict(scenario):
@@ -108,6 +127,9 @@ def test_predict(scenario):
     # Fit regressor
     scenario['regressor'].fit(scenario['X_train'].T, scenario['Xp_train'].T)
     # Test prediction
-    assert np.allclose(scenario['Xp_valid'],
-                       scenario['regressor'].predict(scenario['X_valid'].T).T,
-                       atol=scenario['predict_tol'])
+    np.testing.assert_allclose(
+        scenario['regressor'].predict(scenario['X_valid'].T).T,
+        scenario['Xp_valid'],
+        atol=scenario['predict_tol'],
+        rtol=0
+    )
