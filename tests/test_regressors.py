@@ -17,6 +17,7 @@ from sklearn import linear_model
     ('msd', lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha=1), 1e-4, None),
     ('msd', lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1), 1e-4, None),
     pytest.param((
+        # Mark case as slow so you can deselect it easily with `pytest -k-slow`
         'msd',
         lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=1.1),
         1e-4,
@@ -83,10 +84,10 @@ def scenario(request):
             [ 0.70623152, -0.17749238],  # noqa: E201
             [-0.32354638,  0.50687639]
         ])
-    elif (type(regressor) is dmd.Edmd
-          or type(regressor) is lmi.LmiEdmd
-          or (type(regressor) is lmi.LmiEdmdSpectralRadiusConstr
-              and regressor.rho_bar > 1)):
+    elif type(regressor) is lmi.LmiEdmdSpectralRadiusConstr:
+        if regressor.rho_bar > 1:
+            U_valid = linalg.expm(A * t_step)
+    elif (type(regressor) is dmd.Edmd or type(regressor) is lmi.LmiEdmd):
         U_valid = linalg.expm(A * t_step)
     else:
         U_valid = None

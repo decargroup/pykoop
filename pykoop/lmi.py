@@ -320,6 +320,6 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmd):
 
 
 def _fast_frob_norm(A):
-    # scipy.linalg.norm() is notoriously slow.
-    # Maybe this is premature optimization... sue me.
+    # Maybe this is premature optimization but scipy.linalg.norm() is
+    # notoriously slow.
     return np.sqrt(np.trace(A @ A.T))
