@@ -190,6 +190,47 @@ class LmiEdmdTwoNormReg(LmiEdmd):
             (U & picos.diag(gamma, p_theta))
         ) >> 0)
         # Add term to cost function
-        alpha_scaled = picos.Constant('alpha/q', self.alpha_twonorm/q)
+        alpha_scaled = picos.Constant('alpha_two/q', self.alpha_twonorm/q)
+        objective += alpha_scaled * gamma**2
+        problem.set_objective(direction, objective)
+
+
+class LmiEdmdNuclearNormReg(LmiEdmd):
+
+    def __init__(self, alpha_nucnorm=1.0, **kwargs):
+        super().__init__(**kwargs)
+        self.alpha_nucnorm = alpha_nucnorm
+
+    def fit(self, X, y):
+        # TODO Warn if alpha is zero?
+        self._validate_parameters()
+        X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
+        problem = self._base_problem(X, y)
+        self._add_nuclear(X, y, problem)
+        problem.solve(solver=self.solver)
+        self.U_ = self._extract_solution(problem)
+        return self
+
+    def _add_nuclear(self, X, y, problem):
+        # Extract information from problem
+        U = problem.variables['U']
+        direction = problem.objective.direction
+        objective = problem.objective.function
+        # Get needed sizes
+        p_theta = U.shape[0]
+        p = U.shape[1]
+        q = X.shape[0]
+        # Add new constraint
+        gamma = picos.RealVariable('gamma', 1)
+        W_1 = picos.SymmetricVariable('W_1', (p_theta, p_theta))
+        W_2 = picos.SymmetricVariable('W_2', (p, p))
+        problem.add_constraint(picos.trace(W_1) + picos.trace(W_2)
+                               <= 2 * gamma)
+        problem.add_constraint((
+            (W_1 & U) //
+            (U.T & W_2)
+        ) >> 0)
+        # Add term to cost function
+        alpha_scaled = picos.Constant('alpha_nuc/q', self.alpha_nucnorm/q)
         objective += alpha_scaled * gamma**2
         problem.set_objective(direction, objective)

@@ -17,6 +17,8 @@ from sklearn import linear_model
      None),
     ('msd', lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha_twonorm=1), None,
      None),
+    ('msd', lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha_nucnorm=1),
+     None, None),
 ], ids=[
     "msd-dmd.Edmd()",
     "msd-lmi.LmiEdmd(inv_method='eig')",
@@ -24,8 +26,9 @@ from sklearn import linear_model
     "msd-lmi.LmiEdmd(inv_method='ldl')",
     "msd-lmi.LmiEdmd(inv_method='chol')",
     "msd-lmi.LmiEdmd(inv_method='sqrt')",
-    "msd-lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha=1)",
-    "msd-lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha=1)",
+    "msd-lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha_tikhonov=1)",
+    "msd-lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha_twonorm=1)",
+    "msd-lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha_nucnorm=1)",
 ])
 def scenario(request):
     system, regressor, fit_tol, predict_tol = request.param

@@ -8,6 +8,7 @@ import pykoop.lmi
     pykoop.lmi.LmiEdmd(),
     pykoop.lmi.LmiEdmdTikhonovReg(),
     pykoop.lmi.LmiEdmdTwoNormReg(),
+    pykoop.lmi.LmiEdmdNuclearNormReg(),
 ])
 def test_sklearn_compatible_estimator(estimator, check):
     check(estimator)
