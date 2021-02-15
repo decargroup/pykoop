@@ -136,7 +136,7 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         return problem
 
     def _extract_solution(self, problem):
-        return np.array(problem.get_valued_variable('U')).T
+        return np.array(problem.get_valued_variable('U'), ndmin=2).T
 
     def _more_tags(self):
         return {
@@ -236,7 +236,7 @@ class LmiEdmdNuclearNormReg(LmiEdmd):
         problem.set_objective(direction, objective)
 
 
-class LmiEdmdAsConstraint(LmiEdmd):
+class LmiEdmdSpectralRadiusConstr(LmiEdmd):
 
     def __init__(self, rho_bar=1.0, max_iter=100, tol=1e-6, init_guess=None,
                  **kwargs):
@@ -262,13 +262,13 @@ class LmiEdmdAsConstraint(LmiEdmd):
             self._add_constraint_a(X, y, Gamma, problem_a)
             # Solve Problem A
             problem_a.solve(solver=self.solver)
-            U = np.array(problem_a.get_valued_variable('U'))
-            P = np.array(problem_a.get_valued_variable('P'))
+            U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
+            P = np.array(problem_a.get_valued_variable('P'), ndmin=2)
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U, P)
             # Solve Problem B
             problem_b.solve(solver=self.solver)
-            Gamma = np.array(problem_b.get_valued_variable('Gamma'))
+            Gamma = np.array(problem_b.get_valued_variable('Gamma'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
             if (difference < self.tol):
@@ -278,7 +278,7 @@ class LmiEdmdAsConstraint(LmiEdmd):
         else:
             self.stop_reason_ = 'Reached maximum iterations {self.max_iter}'
         self.tol_reached_ = difference
-        self.n_iter_ = k
+        self.n_iter_ = k + 1
         self.coef_ = U.T
         # Only useful for debugging
         self.Gamma_ = Gamma
