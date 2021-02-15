@@ -13,9 +13,9 @@ from sklearn import linear_model
     ('msd', lmi.LmiEdmd(inv_method='ldl'), 1e-4, 1e-5),
     ('msd', lmi.LmiEdmd(inv_method='chol'), 1e-4, 1e-5),
     ('msd', lmi.LmiEdmd(inv_method='sqrt'), 1e-4, 1e-5),
-    ('msd', lmi.LmiEdmdTikhonovConstraint(inv_method='chol', alpha=0.1), 1e-1,
+    ('msd', lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha_tikhonov=1), 1e-4,
      None),
-    ('msd', lmi.LmiEdmdTikhonovAnalytic(inv_method='chol', alpha=1), 1e-4,
+    ('msd', lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha_twonorm=1), None,
      None),
 ], ids=[
     "msd-dmd.Edmd()",
@@ -24,8 +24,8 @@ from sklearn import linear_model
     "msd-lmi.LmiEdmd(inv_method='ldl')",
     "msd-lmi.LmiEdmd(inv_method='chol')",
     "msd-lmi.LmiEdmd(inv_method='sqrt')",
-    "msd-lmi.LmiEdmdTikhonovConstraint(inv_method='chol', alpha=0.1)",
-    "msd-lmi.LmiEdmdTikhonovAnalytic(inv_method='chol', alpha=1)",
+    "msd-lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha=1)",
+    "msd-lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha=1)",
 ])
 def scenario(request):
     system, regressor, fit_tol, predict_tol = request.param
@@ -53,9 +53,8 @@ def scenario(request):
     Xp_valid = y_valid[:, 1:]
     # Approximate the Koopman operator
     # Must define a `U_valid`
-    if (type(regressor) is lmi.LmiEdmdTikhonovConstraint
-            or type(regressor) is lmi.LmiEdmdTikhonovAnalytic):
-        clf = linear_model.Ridge(alpha=regressor.alpha,
+    if type(regressor) is lmi.LmiEdmdTikhonovReg:
+        clf = linear_model.Ridge(alpha=regressor.alpha_tikhonov,
                                  fit_intercept=False,
                                  solver='cholesky',
                                  tol=1e-8)
@@ -63,6 +62,8 @@ def scenario(request):
         U_valid = clf.coef_
     elif (type(regressor) is dmd.Edmd or type(regressor) is lmi.LmiEdmd):
         U_valid = linalg.expm(A * t_step)
+    else:
+        U_valid = None
     # Return fixture dictionary
     return {
         'X_train': X_train,

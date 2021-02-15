@@ -8,7 +8,8 @@ from scipy import linalg
 class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
 
     # TODO: The real number of minimum samples is based on the data. But this
-    # value shuts up pytest for now.
+    # value shuts up pytest for now. Picos also requires float64 so everything
+    # is promoted.
     _check_X_y_params = {
         'multi_output': True,
         'y_numeric': True,
@@ -58,13 +59,17 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
             self.n_features_in_ = X.shape[1]
         return X if y is None else (X, y)
 
-    def _compute_G_H(self, X, y):
+    def _compute_G_H(self, Psi, Theta_p, q):
+        G = (Theta_p @ Psi.T) / q
+        H = (Psi @ Psi.T) / q
+        return G, H
+
+    def _base_problem(self, X, y):
         # Compute G and H
         Psi = X.T
         Theta_p = y.T
         q = Psi.shape[1]
-        G = (Theta_p @ Psi.T) / q
-        H = (Psi @ Psi.T) / q
+        G, H = self._compute_G_H(Psi, Theta_p, q)
         # Check rank of H
         rk = np.linalg.matrix_rank(H)
         if rk < H.shape[0]:
@@ -77,10 +82,6 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
                 'TODO: Loosen this requirement with a '
                 'psuedo-inverse?'
             )
-        return G, H
-
-    def _base_problem(self, X, y):
-        G, H = self._compute_G_H(X, y)
         # Optimization problem
         problem = picos.Problem()
         # Constants
@@ -144,26 +145,36 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         }
 
 
-class LmiEdmdTikhonov(LmiEdmd):
+class LmiEdmdTikhonovReg(LmiEdmd):
 
-    def __init__(self, alpha=1.0, **kwargs):
+    def __init__(self, alpha_tikhonov=1.0, **kwargs):
         super().__init__(**kwargs)
-        self.alpha = alpha
+        self.alpha_tikhonov = alpha_tikhonov
+
+    def _compute_G_H(self, Psi, Theta_p, q):
+        G = (Theta_p @ Psi.T) / q
+        # Add in regularizer to H
+        H = (Psi @ Psi.T + self.alpha_tikhonov * np.eye(Psi.shape[0])) / q
+        return G, H
 
 
-class LmiEdmdTikhonovConstraint(LmiEdmdTikhonov):
+class LmiEdmdTwoNormReg(LmiEdmd):
+
+    def __init__(self, alpha_twonorm=1.0, **kwargs):
+        super().__init__(**kwargs)
+        self.alpha_twonorm = alpha_twonorm
 
     def fit(self, X, y):
         # TODO Warn if alpha is zero?
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         problem = self._base_problem(X, y)
-        self._add_tikhonov(X, y, problem, self.alpha)
+        self._add_tikhonov(X, y, problem)
         problem.solve(solver=self.solver)
         self.U_ = self._extract_solution(problem)
         return self
 
-    def _add_tikhonov(self, X, y, problem, alpha):
+    def _add_tikhonov(self, X, y, problem):
         # Extract information from problem
         U = problem.variables['U']
         direction = problem.objective.direction
@@ -179,30 +190,6 @@ class LmiEdmdTikhonovConstraint(LmiEdmdTikhonov):
             (U & picos.diag(gamma, p_theta))
         ) >> 0)
         # Add term to cost function
-        alpha_scaled = picos.Constant('alpha/q', alpha/q)
+        alpha_scaled = picos.Constant('alpha/q', self.alpha_twonorm/q)
         objective += alpha_scaled * gamma**2
         problem.set_objective(direction, objective)
-
-
-class LmiEdmdTikhonovAnalytic(LmiEdmdTikhonov):
-
-    def _compute_G_H(self, X, y):
-        # Compute G and H
-        Psi = X.T
-        Theta_p = y.T
-        q = Psi.shape[1]
-        G = (Theta_p @ Psi.T) / q
-        H = (Psi @ Psi.T + self.alpha * np.eye(Psi.shape[0])) / q
-        # Check rank of H
-        rk = np.linalg.matrix_rank(H)
-        if rk < H.shape[0]:
-            # TODO Is it possible to use a pseudo-inverse here?
-            # That would mean H could be rank deficient.
-            # TODO Condition number warning? Log it?
-            raise ValueError(
-                'H must be full rank. '
-                f'H is {H.shape[0]}x{X.shape[1]}. rk(H)={rk}.'
-                'TODO: Loosen this requirement with a '
-                'psuedo-inverse?'
-            )
-        return G, H
