@@ -16,10 +16,16 @@ from sklearn import linear_model
     ('msd', lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha=1), 1e-4, None),
     ('msd', lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha=1), 1e-4, None),
     ('msd', lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1), 1e-4, None),
+    # Test cases marked as slow can be deselected easily with `pytest -k-slow`
     pytest.param((
-        # Mark case as slow so you can deselect it easily with `pytest -k-slow`
         'msd',
         lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=1.1),
+        1e-4,
+        None
+    ), marks=pytest.mark.slow),
+    pytest.param((
+        'msd',
+        lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=0.8),
         1e-4,
         None
     ), marks=pytest.mark.slow),
@@ -34,6 +40,7 @@ from sklearn import linear_model
     "msd-lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha=1)",
     "msd-lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1)",
     "msd-lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=1.1)",
+    "msd-lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=0.8)",
 ])
 def scenario(request):
     system, regressor, fit_tol, predict_tol = request.param
@@ -87,6 +94,14 @@ def scenario(request):
     elif type(regressor) is lmi.LmiEdmdSpectralRadiusConstr:
         if regressor.rho_bar > 1:
             U_valid = linalg.expm(A * t_step)
+        elif (regressor.rho_bar == 0.8 and system == 'msd'):
+            # Regression test generated from this code. Result was manually
+            # checked (eigenvalue magnitudes are less than 0.8) but strictly
+            # speaking, it hasn't been checked against other code.
+            U_valid = np.array([
+                [ 0.88994802, 0.04260765],  # noqa: E201
+                [-0.22883601, 0.70816555]
+            ])
     elif (type(regressor) is dmd.Edmd or type(regressor) is lmi.LmiEdmd):
         U_valid = linalg.expm(A * t_step)
     else:

@@ -11,7 +11,7 @@ plt.rc('grid', linestyle='--')
 
 def main():
     # Set up problem
-    t_range = (0, 10)
+    t_range = (0, 5)
     t_step = 0.1
     msd = mass_spring_damper.MassSpringDamper(0.5, 0.7, 0.6)
     # Solve ODE for training data
@@ -43,7 +43,7 @@ def main():
     ax = plt.subplot(projection='polar')
     ax.set_xlabel(r'$\mathrm{Re}(\lambda)$')
     ax.set_ylabel(r'$\mathrm{Im}(\lambda)$')
-    plt_eig(U_no_const, ax, 'True system')
+    plt_eig(U_no_const, ax, 'True system', marker='o')
     plt_eig(U_big_const, ax, r'Constrained, $\bar{\rho}=1.1$')
     plt_eig(U_small_const, ax, r'Constrained, $\bar{\rho}=0.8$')
     ax.set_rmax(1.1)
