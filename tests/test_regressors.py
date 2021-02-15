@@ -16,6 +16,8 @@ from sklearn import linear_model
     ('msd', lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha=1), 1e-4, None),
     ('msd', lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha=1), 1e-4, None),
     ('msd', lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1), 1e-4, None),
+    ('msd', lmi.LmiEdmdAsConstraint(inv_method='chol', rho_bar=1.1),
+     1e-4, None),
 ], ids=[
     "msd-dmd.Edmd()",
     "msd-lmi.LmiEdmd(inv_method='eig')",
@@ -26,6 +28,7 @@ from sklearn import linear_model
     "msd-lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha=1)",
     "msd-lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha=1)",
     "msd-lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1)",
+    "msd-lmi.LmiEdmdAsConstraint(inv_method='chol', rho_bar=1)",
 ])
 def scenario(request):
     system, regressor, fit_tol, predict_tol = request.param
@@ -76,7 +79,10 @@ def scenario(request):
             [ 0.70623152, -0.17749238],  # noqa: E201
             [-0.32354638,  0.50687639]
         ])
-    elif (type(regressor) is dmd.Edmd or type(regressor) is lmi.LmiEdmd):
+    elif (type(regressor) is dmd.Edmd
+          or type(regressor) is lmi.LmiEdmd
+          or (type(regressor) is lmi.LmiEdmdAsConstraint
+              and regressor.rho_bar > 1)):
         U_valid = linalg.expm(A * t_step)
     else:
         U_valid = None
@@ -111,7 +117,7 @@ def test_fit(scenario):
     scenario['regressor'].fit(scenario['X_train'].T, scenario['Xp_train'].T)
     # Test value of Koopman operator
     np.testing.assert_allclose(
-        scenario['regressor'].U_.T,
+        scenario['regressor'].coef_.T,
         scenario['U_valid'],
         atol=scenario['fit_tol'],
         rtol=0

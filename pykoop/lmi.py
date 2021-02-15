@@ -27,14 +27,14 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         problem = self._base_problem(X, y)
         problem.solve(solver=self.solver)
-        self.U_ = self._extract_solution(problem)
+        self.coef_ = self._extract_solution(problem)
         return self
 
     def predict(self, X):
         X = self._validate_data(X, reset=False)
         sklearn.utils.validation.check_is_fitted(self)
         Psi = X.T
-        Theta_p = self.U_.T @ Psi
+        Theta_p = self.coef_.T @ Psi
         return Theta_p.T
 
     def _validate_parameters(self):
@@ -171,7 +171,7 @@ class LmiEdmdTwoNormReg(LmiEdmd):
         problem = self._base_problem(X, y)
         self._add_tikhonov(X, y, problem)
         problem.solve(solver=self.solver)
-        self.U_ = self._extract_solution(problem)
+        self.coef_ = self._extract_solution(problem)
         return self
 
     def _add_tikhonov(self, X, y, problem):
@@ -208,7 +208,7 @@ class LmiEdmdNuclearNormReg(LmiEdmd):
         problem = self._base_problem(X, y)
         self._add_nuclear(X, y, problem)
         problem.solve(solver=self.solver)
-        self.U_ = self._extract_solution(problem)
+        self.coef_ = self._extract_solution(problem)
         return self
 
     def _add_nuclear(self, X, y, problem):
@@ -234,3 +234,92 @@ class LmiEdmdNuclearNormReg(LmiEdmd):
         alpha_scaled = picos.Constant('alpha/q', self.alpha/q)
         objective += alpha_scaled * gamma**2
         problem.set_objective(direction, objective)
+
+
+class LmiEdmdAsConstraint(LmiEdmd):
+
+    def __init__(self, rho_bar=1.0, max_iter=100, tol=1e-6, init_guess=None,
+                 **kwargs):
+        super().__init__(**kwargs)
+        self.rho_bar = rho_bar
+        self.max_iter = max_iter
+        self.tol = tol
+        self.init_guess = init_guess
+
+    def fit(self, X, y):
+        # TODO Warn if alpha is zero?
+        self._validate_parameters()
+        X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
+        # Get needed sizes
+        p_theta = y.shape[1]
+        p = X.shape[1]
+        # Make initial guesses and iterate
+        Gamma = np.eye(p_theta) if self.init_guess is None else self.init_guess
+        U_prev = np.zeros((p_theta, p))
+        for k in range(self.max_iter):
+            # Formulate Problem A
+            problem_a = self._base_problem(X, y)
+            self._add_constraint_a(X, y, Gamma, problem_a)
+            # Solve Problem A
+            problem_a.solve(solver=self.solver)
+            U = np.array(problem_a.get_valued_variable('U'))
+            P = np.array(problem_a.get_valued_variable('P'))
+            # Formulate Problem B
+            problem_b = self._get_problem_b(X, y, U, P)
+            # Solve Problem B
+            problem_b.solve(solver=self.solver)
+            Gamma = np.array(problem_b.get_valued_variable('Gamma'))
+            # Check stopping condition
+            difference = _fast_frob_norm(U_prev - U)
+            if (difference < self.tol):
+                self.stop_reason_ = 'Reached tolerance {self.tol}'
+                break
+            U_prev = U
+        else:
+            self.stop_reason_ = 'Reached maximum iterations {self.max_iter}'
+        self.tol_reached_ = difference
+        self.n_iter_ = k
+        self.coef_ = U.T
+        # Only useful for debugging
+        self.Gamma_ = Gamma
+        self.P_ = P
+        return self
+
+    def _add_constraint_a(self, X, y, Gamma, problem_a):
+        # Extract information from problem
+        U = problem_a.variables['U']
+        # Get needed sizes
+        p_theta = U.shape[0]
+        # Add new constraints
+        rho_bar_sq = picos.Constant('rho_bar^2', self.rho_bar**2)
+        Gamma = picos.Constant('Gamma', Gamma)
+        P = picos.SymmetricVariable('P', p_theta)
+        problem_a.add_constraint(P >> self.picos_eps)
+        problem_a.add_constraint((
+            (rho_bar_sq * P & U[:, :p_theta].T * Gamma) //
+            (Gamma.T * U[:, :p_theta] & Gamma + Gamma.T - P)
+        ) >> self.picos_eps)
+
+    def _get_problem_b(self, X, y, U, P):
+        # Create optimization problem
+        problem_b = picos.Problem()
+        # Get needed sizes
+        p_theta = U.shape[0]
+        # Create constants
+        rho_bar_sq = picos.Constant('rho_bar^2', self.rho_bar**2)
+        U = picos.Constant('U', U)
+        P = picos.Constant('P', P)
+        # Create variables
+        Gamma = picos.RealVariable('Gamma', P.shape)
+        problem_b.add_constraint((
+            (rho_bar_sq * P & U[:, :p_theta].T * Gamma) //
+            (Gamma.T * U[:, :p_theta] & Gamma + Gamma.T - P)
+        ) >> self.picos_eps)
+        problem_b.set_objective('find')
+        return problem_b
+
+
+def _fast_frob_norm(A):
+    # scipy.linalg.norm() is notoriously slow.
+    # Maybe this is premature optimization... sue me.
+    return np.sqrt(np.trace(A @ A.T))
