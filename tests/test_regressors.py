@@ -7,22 +7,58 @@ from sklearn import linear_model
 
 
 @pytest.fixture(params=[
-    ('msd', dmd.Edmd(), 1e-5, 1e-5, 'exact'),
-    ('msd', lmi.LmiEdmd(inv_method='eig'), 1e-4, 1e-5, 'exact'),
-    ('msd', lmi.LmiEdmd(inv_method='inv'), 1e-4, 1e-5, 'exact'),
-    ('msd', lmi.LmiEdmd(inv_method='ldl'), 1e-4, 1e-5, 'exact'),
-    ('msd', lmi.LmiEdmd(inv_method='chol'), 1e-4, 1e-5, 'exact'),
-    ('msd', lmi.LmiEdmd(inv_method='sqrt'), 1e-4, 1e-5, 'exact'),
     (
+        dmd.Edmd(),
         'msd',
+        1e-5,
+        1e-5,
+        'exact'
+    ),
+    (
+        lmi.LmiEdmd(inv_method='eig'),
+        'msd',
+        1e-4,
+        1e-5,
+        'exact'
+    ),
+    (
+        lmi.LmiEdmd(inv_method='inv'),
+        'msd',
+        1e-4,
+        1e-5,
+        'exact'
+    ),
+    (
+        lmi.LmiEdmd(inv_method='ldl'),
+        'msd',
+        1e-4,
+        1e-5,
+        'exact'
+    ),
+    (
+        lmi.LmiEdmd(inv_method='chol'),
+        'msd',
+        1e-4,
+        1e-5,
+        'exact'
+    ),
+    (
+        lmi.LmiEdmd(inv_method='sqrt'),
+        'msd',
+        1e-4,
+        1e-5,
+        'exact'
+    ),
+    (
         lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha=1),
+        'msd',
         1e-4,
         None,
         'sklearn-ridge'
     ),
     (
-        'msd',
         lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha=1),
+        'msd',
         1e-4,
         None,
         # Test vector generated from old code. More of a regression test than
@@ -34,8 +70,8 @@ from sklearn import linear_model
         ])
     ),
     (
-        'msd',
         lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1),
+        'msd',
         1e-4,
         None,
         # Test vector generated from old code. More of a regression test than
@@ -46,10 +82,9 @@ from sklearn import linear_model
             [-0.32354638,  0.50687639]
         ])
     ),
-    # Test cases marked as slow can be deselected easily with `pytest -k-slow`
     pytest.param((
-        'msd',
         lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=1.1),
+        'msd',
         1e-4,
         None,
         # Since the constraint is larger than the actual eigenvalue magnitudes,
@@ -57,8 +92,8 @@ from sklearn import linear_model
         'exact'
     ), marks=pytest.mark.slow),
     pytest.param((
-        'msd',
         lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=0.8),
+        'msd',
         1e-4,
         None,
         # Regression test generated from this code. Result was manually
@@ -69,21 +104,9 @@ from sklearn import linear_model
             [-0.22883601, 0.70816555]
         ])
     ), marks=pytest.mark.slow),
-], ids=[
-    "msd-dmd.Edmd()",
-    "msd-lmi.LmiEdmd(inv_method='eig')",
-    "msd-lmi.LmiEdmd(inv_method='inv')",
-    "msd-lmi.LmiEdmd(inv_method='ldl')",
-    "msd-lmi.LmiEdmd(inv_method='chol')",
-    "msd-lmi.LmiEdmd(inv_method='sqrt')",
-    "msd-lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha=1)",
-    "msd-lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha=1)",
-    "msd-lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1)",
-    "msd-lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=1.1)",
-    "msd-lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=0.8)",
-])
+], ids=lambda value: f'{value[0]}-{value[1]}')  # Formatting for test IDs
 def scenario(request):
-    system, regressor, fit_tol, predict_tol, soln = request.param
+    regressor, system, fit_tol, predict_tol, soln = request.param
     # Simulate or load data
     # Not all systems and solutions are compatible.
     # For `exact` to work, `t_step`, `A`, and `y` must be defined.
