@@ -63,7 +63,7 @@ def scenario(request):
                                  tol=1e-8)
         clf.fit(X_train.T, Xp_train.T)
         U_valid = clf.coef_
-    elif type(regressor) is lmi.LmiEdmdTwoNormReg:
+    elif (type(regressor) is lmi.LmiEdmdTwoNormReg and system == 'msd'):
         # Test vector generated from old code. More of a regression test than
         # anything. If the same error is present in that old code and this
         # code, this test is meaningless!
@@ -71,7 +71,7 @@ def scenario(request):
             [ 0.89995985, 0.07048035],  # noqa: E201
             [-0.07904385, 0.89377084]
         ])
-    elif type(regressor) is lmi.LmiEdmdNuclearNormReg:
+    elif (type(regressor) is lmi.LmiEdmdNuclearNormReg and system == 'msd'):
         # Test vector generated from old code. More of a regression test than
         # anything. If the same error is present in that old code and this
         # code, this test is meaningless!

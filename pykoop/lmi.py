@@ -234,3 +234,22 @@ class LmiEdmdNuclearNormReg(LmiEdmd):
         alpha_scaled = picos.Constant('alpha_nuc/q', self.alpha_nucnorm/q)
         objective += alpha_scaled * gamma**2
         problem.set_objective(direction, objective)
+
+
+class LmiEdmdAsConstraint(LmiEdmd):
+
+    def __init__(self, rho_bar=1.0, **kwargs):
+        super().__init__(**kwargs)
+        self.rho_bar = rho_bar
+
+    def fit(self, X, y):
+        # TODO Warn if alpha is zero?
+        self._validate_parameters()
+        X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
+        problem = self._base_problem(X, y)
+
+        self._add_nuclear(X, y, problem)
+
+        problem.solve(solver=self.solver)
+        self.U_ = self._extract_solution(problem)
+        return self
