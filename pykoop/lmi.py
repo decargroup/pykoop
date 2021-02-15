@@ -147,22 +147,22 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
 
 class LmiEdmdTikhonovReg(LmiEdmd):
 
-    def __init__(self, alpha_tikhonov=1.0, **kwargs):
+    def __init__(self, alpha=1.0, **kwargs):
         super().__init__(**kwargs)
-        self.alpha_tikhonov = alpha_tikhonov
+        self.alpha = alpha
 
     def _compute_G_H(self, Psi, Theta_p, q):
         G = (Theta_p @ Psi.T) / q
         # Add in regularizer to H
-        H = (Psi @ Psi.T + self.alpha_tikhonov * np.eye(Psi.shape[0])) / q
+        H = (Psi @ Psi.T + self.alpha * np.eye(Psi.shape[0])) / q
         return G, H
 
 
 class LmiEdmdTwoNormReg(LmiEdmd):
 
-    def __init__(self, alpha_twonorm=1.0, **kwargs):
+    def __init__(self, alpha=1.0, **kwargs):
         super().__init__(**kwargs)
-        self.alpha_twonorm = alpha_twonorm
+        self.alpha = alpha
 
     def fit(self, X, y):
         # TODO Warn if alpha is zero?
@@ -190,16 +190,16 @@ class LmiEdmdTwoNormReg(LmiEdmd):
             (U & picos.diag(gamma, p_theta))
         ) >> 0)
         # Add term to cost function
-        alpha_scaled = picos.Constant('alpha_two/q', self.alpha_twonorm/q)
+        alpha_scaled = picos.Constant('alpha/q', self.alpha/q)
         objective += alpha_scaled * gamma**2
         problem.set_objective(direction, objective)
 
 
 class LmiEdmdNuclearNormReg(LmiEdmd):
 
-    def __init__(self, alpha_nucnorm=1.0, **kwargs):
+    def __init__(self, alpha=1.0, **kwargs):
         super().__init__(**kwargs)
-        self.alpha_nucnorm = alpha_nucnorm
+        self.alpha = alpha
 
     def fit(self, X, y):
         # TODO Warn if alpha is zero?
@@ -231,25 +231,6 @@ class LmiEdmdNuclearNormReg(LmiEdmd):
             (U.T & W_2)
         ) >> 0)
         # Add term to cost function
-        alpha_scaled = picos.Constant('alpha_nuc/q', self.alpha_nucnorm/q)
+        alpha_scaled = picos.Constant('alpha/q', self.alpha/q)
         objective += alpha_scaled * gamma**2
         problem.set_objective(direction, objective)
-
-
-class LmiEdmdAsConstraint(LmiEdmd):
-
-    def __init__(self, rho_bar=1.0, **kwargs):
-        super().__init__(**kwargs)
-        self.rho_bar = rho_bar
-
-    def fit(self, X, y):
-        # TODO Warn if alpha is zero?
-        self._validate_parameters()
-        X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
-        problem = self._base_problem(X, y)
-
-        self._add_nuclear(X, y, problem)
-
-        problem.solve(solver=self.solver)
-        self.U_ = self._extract_solution(problem)
-        return self

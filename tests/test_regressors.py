@@ -13,12 +13,9 @@ from sklearn import linear_model
     ('msd', lmi.LmiEdmd(inv_method='ldl'), 1e-4, 1e-5),
     ('msd', lmi.LmiEdmd(inv_method='chol'), 1e-4, 1e-5),
     ('msd', lmi.LmiEdmd(inv_method='sqrt'), 1e-4, 1e-5),
-    ('msd', lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha_tikhonov=1), 1e-4,
-     None),
-    ('msd', lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha_twonorm=1), 1e-4,
-     None),
-    ('msd', lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha_nucnorm=1),
-     1e-4, None),
+    ('msd', lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha=1), 1e-4, None),
+    ('msd', lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha=1), 1e-4, None),
+    ('msd', lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1), 1e-4, None),
 ], ids=[
     "msd-dmd.Edmd()",
     "msd-lmi.LmiEdmd(inv_method='eig')",
@@ -26,9 +23,9 @@ from sklearn import linear_model
     "msd-lmi.LmiEdmd(inv_method='ldl')",
     "msd-lmi.LmiEdmd(inv_method='chol')",
     "msd-lmi.LmiEdmd(inv_method='sqrt')",
-    "msd-lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha_tikhonov=1)",
-    "msd-lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha_twonorm=1)",
-    "msd-lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha_nucnorm=1)",
+    "msd-lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha=1)",
+    "msd-lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha=1)",
+    "msd-lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1)",
 ])
 def scenario(request):
     system, regressor, fit_tol, predict_tol = request.param
@@ -57,7 +54,7 @@ def scenario(request):
     # Approximate the Koopman operator
     # Must define a `U_valid`
     if type(regressor) is lmi.LmiEdmdTikhonovReg:
-        clf = linear_model.Ridge(alpha=regressor.alpha_tikhonov,
+        clf = linear_model.Ridge(alpha=regressor.alpha,
                                  fit_intercept=False,
                                  solver='cholesky',
                                  tol=1e-8)
