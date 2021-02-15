@@ -66,7 +66,7 @@ def scenario(request):
     elif type(regressor) is lmi.LmiEdmdTwoNormReg:
         # Test vector generated from old code. More of a regression test than
         # anything. If the same error is present in that old code and this
-        # code, this test is useless!
+        # code, this test is meaningless!
         U_valid = np.array([
             [ 0.89995985, 0.07048035],  # noqa: E201
             [-0.07904385, 0.89377084]
@@ -74,7 +74,7 @@ def scenario(request):
     elif type(regressor) is lmi.LmiEdmdNuclearNormReg:
         # Test vector generated from old code. More of a regression test than
         # anything. If the same error is present in that old code and this
-        # code, this test is useless!
+        # code, this test is meaningless!
         U_valid = np.array([
             [ 0.70623152, -0.17749238],  # noqa: E201
             [-0.32354638,  0.50687639]
