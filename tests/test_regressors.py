@@ -86,7 +86,7 @@ from sklearn import linear_model
         lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=1.1),
         'msd',
         1e-4,
-        None,
+        1e-5,
         # Since the constraint is larger than the actual eigenvalue magnitudes,
         # it will have no effect and we can compare to the exact solution.
         'exact'
@@ -123,6 +123,10 @@ def scenario(request):
                                   rtol=1e-8, atol=1e-8)
         A = msd._A
         y = sol.y
+    else:
+        t_step = None
+        A = None
+        y = None
     # Split the data
     y_train, y_valid = np.split(y, 2, axis=1)
     X_train = y_train[:, :-1]
