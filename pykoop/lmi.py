@@ -169,12 +169,12 @@ class LmiEdmdTwoNormReg(LmiEdmd):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         problem = self._base_problem(X, y)
-        self._add_tikhonov(X, y, problem)
+        self._add_tikhonov(X, y, problem)  # TODO Tikhonov is a misnomer here
         problem.solve(solver=self.solver)
         self.coef_ = self._extract_solution(problem)
         return self
 
-    def _add_tikhonov(self, X, y, problem):
+    def _add_tikhonov(self, X, y, problem):  # TODO Tikhonov is a misnomer here
         # Extract information from problem
         U = problem.variables['U']
         direction = problem.objective.direction
@@ -238,13 +238,11 @@ class LmiEdmdNuclearNormReg(LmiEdmd):
 
 class LmiEdmdSpectralRadiusConstr(LmiEdmd):
 
-    def __init__(self, rho_bar=1.0, max_iter=100, tol=1e-6, init_guess=None,
-                 **kwargs):
+    def __init__(self, rho_bar=1.0, max_iter=100, tol=1e-6, **kwargs):
         super().__init__(**kwargs)
         self.rho_bar = rho_bar
         self.max_iter = max_iter
         self.tol = tol
-        self.init_guess = init_guess
 
     def fit(self, X, y):
         # TODO Warn if alpha is zero?
@@ -254,7 +252,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmd):
         p_theta = y.shape[1]
         p = X.shape[1]
         # Make initial guesses and iterate
-        Gamma = np.eye(p_theta) if self.init_guess is None else self.init_guess
+        Gamma = np.eye(p_theta)
         U_prev = np.zeros((p_theta, p))
         for k in range(self.max_iter):
             # Formulate Problem A
@@ -311,10 +309,128 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmd):
         P = picos.Constant('P', P)
         # Create variables
         Gamma = picos.RealVariable('Gamma', P.shape)
+        # Add constraints
         problem_b.add_constraint((
             (rho_bar_sq * P & U[:, :p_theta].T * Gamma) //
             (Gamma.T * U[:, :p_theta] & Gamma + Gamma.T - P)
         ) >> self.picos_eps)
+        # Set objective
+        problem_b.set_objective('find')
+        return problem_b
+
+
+class LmiEdmdHinfReg(LmiEdmd):
+
+    def __init__(self, alpha=1.0, max_iter=100, tol=1e-6, **kwargs):
+        super().__init__(**kwargs)
+        self.alpha = alpha
+        self.max_iter = max_iter
+        self.tol = tol
+
+    def fit(self, X, y):
+        # TODO Warn if alpha is zero?
+        self._validate_parameters()
+        X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
+        # Get needed sizes
+        p_theta = y.shape[1]
+        p = X.shape[1]
+        # Check that at least one input is present
+        if p_theta == p:
+            # If you remove the `{p} features(s)` part of this message,
+            # the scikit-learn estimator_checks will fail!
+            raise ValueError('LmiEdmdHinfReg() requires an input to function.'
+                             '`X` and `y` must therefore have different '
+                             'numbers of features. `X and y` both have '
+                             f'{p} feature(s).')
+        # Make initial guesses and iterate
+        P = np.eye(p_theta)
+        U_prev = np.zeros((p_theta, p))
+        for k in range(self.max_iter):
+            # Formulate Problem A
+            problem_a = self._base_problem(X, y)
+            self._add_regularizer_a(X, y, P, problem_a)
+            # Solve Problem A
+            problem_a.solve(solver=self.solver)
+            U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
+            gamma = np.array(problem_a.get_valued_variable('gamma'))
+            # Formulate Problem B
+            problem_b = self._get_problem_b(X, y, U, gamma)
+            # Solve Problem B
+            problem_b.solve(solver=self.solver)
+            P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
+            # Check stopping condition
+            difference = _fast_frob_norm(U_prev - U)
+            if (difference < self.tol):
+                self.stop_reason_ = 'Reached tolerance {self.tol}'
+                break
+            U_prev = U
+        else:
+            self.stop_reason_ = 'Reached maximum iterations {self.max_iter}'
+        self.tol_reached_ = difference
+        self.n_iter_ = k + 1
+        self.coef_ = U.T
+        # Only useful for debugging
+        self.P_ = P
+        self.gamma_ = gamma
+        return self
+
+    def _add_regularizer_a(self, X, y, P, problem_a):
+        # Extract information from problem
+        U = problem_a.variables['U']
+        direction = problem_a.objective.direction
+        objective = problem_a.objective.function
+        # Get needed sizes
+        p_theta = U.shape[0]
+        q = X.shape[0]
+        # Add new constraint
+        P = picos.Constant('P', P)
+        gamma = picos.RealVariable('gamma', 1)
+        A = U[:p_theta, :p_theta]
+        B = U[:p_theta, p_theta:]
+        C = np.eye(p_theta)
+        D = np.zeros((C.shape[0], B.shape[1]))
+        zero14 = np.zeros(C.T.shape)
+        zero23 = np.zeros(B.shape)
+        geye1 = gamma * np.eye(D.shape[1])
+        geye2 = gamma * np.eye(D.shape[0])
+        problem_a.add_constraint((
+            (       P &      A*P &      B & zero14) //  # noqa
+            ( P.T*A.T &        P & zero23 &  P*C.T) //  # noqa
+            (     B.T & zero23.T &  geye1 &    D.T) //  # noqa
+            (zero14.T &    C*P.T &      D &  geye2)     # noqa
+        ) >> self.picos_eps)
+        # Add term to cost function
+        alpha_scaled = picos.Constant('alpha/q', self.alpha/q)
+        objective += alpha_scaled * gamma**2
+        problem_a.set_objective(direction, objective)
+
+    def _get_problem_b(self, X, y, U, gamma):
+        # Create optimization problem
+        problem_b = picos.Problem()
+        # Get needed sizes
+        p_theta = U.shape[0]
+        # Create constants
+        U = picos.Constant('U', U)
+        gamma = picos.Constant('gamma', gamma)
+        # Create variables
+        P = picos.SymmetricVariable('P', p_theta)
+        # Add constraints
+        problem_b.add_constraint(P >> self.picos_eps)
+        A = U[:p_theta, :p_theta]
+        B = U[:p_theta, p_theta:]
+        C = np.eye(p_theta)
+        D = np.zeros((C.shape[0], B.shape[1]))
+        zero14 = np.zeros(C.T.shape)
+        zero23 = np.zeros(B.shape)
+        geye1 = gamma * np.eye(D.shape[1])
+        geye2 = gamma * np.eye(D.shape[0])
+        problem_b.add_constraint((
+            (       P &      A*P &      B & zero14) //  # noqa
+            ( P.T*A.T &        P & zero23 &  P*C.T) //  # noqa
+            (     B.T & zero23.T &  geye1 &    D.T) //  # noqa
+            (zero14.T &    C*P.T &      D &  geye2)     # noqa
+        ) >> self.picos_eps)
+        # Set objective
         problem_b.set_objective('find')
         return problem_b
 

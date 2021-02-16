@@ -10,6 +10,7 @@ import pykoop.lmi
     pykoop.lmi.LmiEdmdTwoNormReg(),
     pykoop.lmi.LmiEdmdNuclearNormReg(),
     pykoop.lmi.LmiEdmdSpectralRadiusConstr(tol=100),  # Loosen tolerance a lot
+    pykoop.lmi.LmiEdmdHinfReg(tol=100),  # Loosen tolerance a lot
 ])
 def test_sklearn_compatible_estimator(estimator, check):
     check(estimator)

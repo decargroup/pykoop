@@ -9,56 +9,56 @@ from sklearn import linear_model
 @pytest.fixture(params=[
     (
         dmd.Edmd(),
-        'msd',
+        'msd-no-input',
         1e-5,
         1e-5,
         'exact'
     ),
     (
         lmi.LmiEdmd(inv_method='eig'),
-        'msd',
+        'msd-no-input',
         1e-4,
         1e-5,
         'exact'
     ),
     (
         lmi.LmiEdmd(inv_method='inv'),
-        'msd',
+        'msd-no-input',
         1e-4,
         1e-5,
         'exact'
     ),
     (
         lmi.LmiEdmd(inv_method='ldl'),
-        'msd',
+        'msd-no-input',
         1e-4,
         1e-5,
         'exact'
     ),
     (
         lmi.LmiEdmd(inv_method='chol'),
-        'msd',
+        'msd-no-input',
         1e-4,
         1e-5,
         'exact'
     ),
     (
         lmi.LmiEdmd(inv_method='sqrt'),
-        'msd',
+        'msd-no-input',
         1e-4,
         1e-5,
         'exact'
     ),
     (
         lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha=1),
-        'msd',
+        'msd-no-input',
         1e-4,
         None,
         'sklearn-ridge'
     ),
     (
         lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha=1),
-        'msd',
+        'msd-no-input',
         1e-4,
         None,
         # Test vector generated from old code. More of a regression test than
@@ -71,7 +71,7 @@ from sklearn import linear_model
     ),
     (
         lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1),
-        'msd',
+        'msd-no-input',
         1e-4,
         None,
         # Test vector generated from old code. More of a regression test than
@@ -84,7 +84,7 @@ from sklearn import linear_model
     ),
     pytest.param((
         lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=1.1),
-        'msd',
+        'msd-no-input',
         1e-4,
         1e-5,
         # Since the constraint is larger than the actual eigenvalue magnitudes,
@@ -93,7 +93,7 @@ from sklearn import linear_model
     ), marks=pytest.mark.slow),
     pytest.param((
         lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=0.8),
-        'msd',
+        'msd-no-input',
         1e-4,
         None,
         # Regression test generated from this code. Result was manually
@@ -104,6 +104,21 @@ from sklearn import linear_model
             [-0.22883601, 0.70816555]
         ])
     ), marks=pytest.mark.slow),
+    pytest.param((
+        lmi.LmiEdmdHinfReg(inv_method='eig', max_iter=100, tol=1e-6, alpha=1),
+        'msd-sin-input',
+        1e-4,
+        None,
+        # Test vector generated from old code. More of a regression test than
+        # anything. If the same error is present in that old code and this
+        # code, this test is meaningless! In this case, the algorithm reaches
+        # the maximum number of iterations before it converges!
+        np.array([
+            [ 0.54830794, -0.29545739, 0.48111973],  # noqa: E201
+            [-0.31602199,  0.17028950, 0.86402040]
+        ])
+
+    ), marks=pytest.mark.slow),
 ], ids=lambda value: f'{value[0]}-{value[1]}')  # Formatting for test IDs
 def scenario(request):
     regressor, system, fit_tol, predict_tol, soln = request.param
@@ -111,7 +126,7 @@ def scenario(request):
     # Not all systems and solutions are compatible.
     # For `exact` to work, `t_step`, `A`, and `y` must be defined.
     # For `ridge` to work, only `y` is needed
-    if system == 'msd':
+    if system == 'msd-no-input':
         # Set up problem
         t_range = (0, 10)
         t_step = 0.1
@@ -122,17 +137,43 @@ def scenario(request):
                                   t_eval=np.arange(*t_range, t_step),
                                   rtol=1e-8, atol=1e-8)
         A = msd._A
-        y = sol.y
-    else:
-        t_step = None
-        A = None
-        y = None
-    # Split the data
-    y_train, y_valid = np.split(y, 2, axis=1)
-    X_train = y_train[:, :-1]
-    Xp_train = y_train[:, 1:]
-    X_valid = y_valid[:, :-1]
-    Xp_valid = y_valid[:, 1:]
+        # Split the data
+        y_train, y_valid = np.split(sol.y, 2, axis=1)
+        X_train = y_train[:, :-1]
+        Xp_train = y_train[:, 1:]
+        X_valid = y_valid[:, :-1]
+        Xp_valid = y_valid[:, 1:]
+    elif system == 'msd-sin-input':
+        # Set up problem
+        t_range = (0, 10)
+        t_step = 0.1
+        msd = mass_spring_damper.MassSpringDamper(0.5, 0.7, 0.6)
+
+        def u(t):
+            return 0.1 * np.sin(t)
+
+        def ivp(t, x):
+            return msd.f(t, x, u(t))
+
+        # Solve ODE for training data
+        x0 = msd.x0(np.array([0, 0]))
+        sol = integrate.solve_ivp(ivp, t_range, x0,
+                                  t_eval=np.arange(*t_range, t_step),
+                                  rtol=1e-8, atol=1e-8)
+        A = msd._A
+        # Split the data
+        y_train, y_valid = np.split(sol.y, 2, axis=1)
+        u_train, u_valid = np.split(np.reshape(u(sol.t), (1, -1)), 2, axis=1)
+        X_train = np.vstack((
+            y_train[:, :-1],
+            u_train[:, :-1]
+        ))
+        Xp_train = y_train[:, 1:]
+        X_valid = np.vstack((
+            y_valid[:, :-1],
+            u_valid[:, :-1]
+        ))
+        Xp_valid = y_valid[:, 1:]
     # Approximate the Koopman operator
     if type(soln) == np.ndarray:
         U_valid = soln
@@ -145,8 +186,6 @@ def scenario(request):
                                  tol=1e-8)
         clf.fit(X_train.T, Xp_train.T)
         U_valid = clf.coef_
-    else:
-        U_valid = None
     # Return fixture dictionary
     return {
         'X_train': X_train,
@@ -165,9 +204,10 @@ def test_scenario_data(scenario):
     assert not np.allclose(scenario['X_train'], scenario['X_valid'])
     assert not np.allclose(scenario['Xp_train'], scenario['Xp_valid'])
     # Make sure Xp is time-shifted version of X
-    np.testing.assert_allclose(scenario['X_train'][:, 1:],
+    p_theta = scenario['Xp_train'].shape[0]
+    np.testing.assert_allclose(scenario['X_train'][:p_theta, 1:],
                                scenario['Xp_train'][:, :-1])
-    np.testing.assert_allclose(scenario['X_valid'][:, 1:],
+    np.testing.assert_allclose(scenario['X_valid'][:p_theta, 1:],
                                scenario['Xp_valid'][:, :-1])
 
 

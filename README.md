@@ -10,4 +10,5 @@ Koopman operator identification library in Python.
 - [ ] Rename `_base_problem` to `_get_base_problem`
 - [ ] Rename `U_` to `coef_`
 - [ ] Add nonhomog test case
-- [ ] Adjust fit and predict testing to avoid skipped tests
+- [ ] Adjust fit and predict testing to avoid skipped tests. Parametrize
+  arguments for fixtures?
