@@ -12,7 +12,7 @@ setuptools.setup(
     author_email=('steven.dahdah@mail.mcgill.ca, '
                   'vassili.korotkine@mail.mcgill.ca'),
     url='https://bitbucket.org/decargroup/pykoop',
-    packages=setuptools.find_packages(exclude=('tests', 'demos')),
+    packages=setuptools.find_packages(exclude=('tests', 'examples')),
     install_requires=['numpy', 'scipy', 'scikit-learn', 'picos'],
     extra_require={'MOSEK solver': ['mosek']},
 )

@@ -169,12 +169,12 @@ class LmiEdmdTwoNormReg(LmiEdmd):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         problem = self._base_problem(X, y)
-        self._add_tikhonov(X, y, problem)  # TODO Tikhonov is a misnomer here
+        self._add_twonorm(X, y, problem)
         problem.solve(solver=self.solver)
         self.coef_ = self._extract_solution(problem)
         return self
 
-    def _add_tikhonov(self, X, y, problem):  # TODO Tikhonov is a misnomer here
+    def _add_twonorm(self, X, y, problem):
         # Extract information from problem
         U = problem.variables['U']
         direction = problem.objective.direction
@@ -202,7 +202,6 @@ class LmiEdmdNuclearNormReg(LmiEdmd):
         self.alpha = alpha
 
     def fit(self, X, y):
-        # TODO Warn if alpha is zero?
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         problem = self._base_problem(X, y)
@@ -245,7 +244,6 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmd):
         self.tol = tol
 
     def fit(self, X, y):
-        # TODO Warn if alpha is zero?
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         # Get needed sizes
@@ -328,7 +326,6 @@ class LmiEdmdHinfReg(LmiEdmd):
         self.tol = tol
 
     def fit(self, X, y):
-        # TODO Warn if alpha is zero?
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         # Get needed sizes

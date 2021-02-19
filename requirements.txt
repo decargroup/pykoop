@@ -1,2 +1,8 @@
+numpy
+scipy
+scikit-learn
+picos
+mosek
+
 pytest
 matplotlib
