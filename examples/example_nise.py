@@ -3,6 +3,7 @@ from scipy import integrate
 from matplotlib import pyplot as plt
 from pykoop import lmi
 from sklearn import compose, pipeline, preprocessing, model_selection
+import pandas
 
 
 def main():
@@ -76,19 +77,29 @@ def main():
         X_sim.T, Xp_sim.T, test_size=0.4
     )
 
-    edmd = lmi.LmiEdmd()
+    edmd = lmi.LmiEdmdTikhonovReg()
     scalerX = preprocessing.StandardScaler()
     scalery = preprocessing.StandardScaler()
     pipeX = pipeline.make_pipeline(scalerX, edmd)
     pipeXy = compose.TransformedTargetRegressor(regressor=pipeX,
                                                 transformer=scalery)
 
-    pipeXy.fit(X_train, y_train)
+    parameters = {
+        'regressor__lmiedmdtikhonovreg__alpha':
+        [0] + [10**i for i in range(-4, 2)]
+    }
+    clf = model_selection.GridSearchCV(pipeXy, parameters)
+    clf.fit(X_train, y_train)
 
-    print(f'Score: {pipeXy.score(X_test, y_test)}')
+    results = pandas.DataFrame(clf.cv_results_).sort_values(
+        by=['param_regressor__lmiedmdtikhonovreg__alpha'])
+    col_alpha = results.pop('param_regressor__lmiedmdtikhonovreg__alpha')
+    results.insert(0, 'alpha', col_alpha)
+    print(results)
 
-    cv_scores = model_selection.cross_val_score(pipeXy, X_train, y_train, cv=5)
-    print(f'CV Scores: {cv_scores}')
+    est = clf.best_estimator_
+    print('Best alpha: '
+          f'{est.get_params()["regressor__lmiedmdtikhonovreg__alpha"]}')
 
     x = [sol.y[:, 0]]
     u_sim = u(sol.t)
@@ -97,7 +108,7 @@ def main():
             np.reshape(x[-1], (-1, 1)),
             u_sim[:, [k-1]]
         ))
-        x.append(np.ravel(pipeXy.predict(X.T)).T)
+        x.append(np.ravel(est.predict(X.T)).T)
     x = np.array(x).T
 
     fig, ax = plt.subplots(4, 1)
