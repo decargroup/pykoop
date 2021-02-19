@@ -2,7 +2,7 @@ import numpy as np
 from scipy import integrate
 from matplotlib import pyplot as plt
 from pykoop import lmi
-from sklearn import compose, pipeline, preprocessing
+from sklearn import compose, pipeline, preprocessing, model_selection
 
 
 def main():
@@ -49,10 +49,6 @@ def main():
     #     [0, 0, 0, 1],
     # ])
 
-    n_x = A.shape[0]
-    # n_u = B.shape[1]
-    # n_y = C.shape[0]
-
     def u(t):
         return np.array([
             np.sin(2 * np.pi * t),
@@ -70,19 +66,15 @@ def main():
     x0 = np.zeros((4,))
     sol = integrate.solve_ivp(ivp_train, t_range, x0, t_eval=t)
 
-    # Split data
-    y_train, y_valid = np.split(sol.y, 2, axis=1)
-    u_train, u_valid = np.split(u(sol.t), 2, axis=1)
-    X_train = np.vstack((
-        y_train[:, :-1],
-        u_train[:, :-1]
+    X_sim = np.vstack((
+        sol.y[:, :-1],
+        u(sol.t)[:, :-1]
     ))
-    Xp_train = y_train[:, 1:]
-    X_valid = np.vstack((
-        y_valid[:, :-1],
-        u_valid[:, :-1]
-    ))
-    # Xp_valid = y_valid[:, 1:]
+    Xp_sim = sol.y[:, 1:]
+
+    X_train, X_test, y_train, y_test = model_selection.train_test_split(
+        X_sim.T, Xp_sim.T, test_size=0.4
+    )
 
     edmd = lmi.LmiEdmd()
     scalerX = preprocessing.StandardScaler()
@@ -91,37 +83,26 @@ def main():
     pipeXy = compose.TransformedTargetRegressor(regressor=pipeX,
                                                 transformer=scalery)
 
-    pipeXy.fit(X_train.T, Xp_train.T)
-    # U = reg.coef_.T
-    U = pipeXy.regressor_['lmiedmd'].coef_.T
-    # Ad = linalg.expm(A * t_step)
+    pipeXy.fit(X_train, y_train)
 
-    X_sel = X_valid
+    print(f'Score: {pipeXy.score(X_test, y_test)}')
 
-    x = [X_sel[:n_x, 0]]
-    for k in range(1, X_sel.shape[1]):
-        # x.append(np.ravel(
-        #     U[:, :n_x] @ np.reshape(x[-1], (-1, 1))
-        #     + U[:, n_x:] @ X_sel[n_x:, [k - 1]]
-        # ))
-        # X = np.vstack((
-        #     np.reshape(x[-1], (-1, 1)),
-        #     X_sel[n_x:, [k-1]]
-        # ))
-        # x.append(np.ravel(pipeXy.predict(X.T)).T)
+    cv_scores = model_selection.cross_val_score(pipeXy, X_train, y_train, cv=5)
+    print(f'CV Scores: {cv_scores}')
+
+    x = [sol.y[:, 0]]
+    u_sim = u(sol.t)
+    for k in range(1, sol.t.shape[0]):
         X = np.vstack((
             np.reshape(x[-1], (-1, 1)),
-            X_sel[n_x:, [k-1]]
+            u_sim[:, [k-1]]
         ))
-        X_scaled = pipeXy.regressor_['standardscaler'].transform(X.T).T
-        Xp_scaled = U @ X_scaled
-        Xp = pipeXy.transformer_.inverse_transform(Xp_scaled.T).T
-        x.append(np.ravel(Xp[:Xp_scaled.shape[0], :]))
+        x.append(np.ravel(pipeXy.predict(X.T)).T)
     x = np.array(x).T
 
     fig, ax = plt.subplots(4, 1)
     for k, a in enumerate(np.ravel(ax)):
-        a.plot(X_sel[k, :], label='Validation')
+        a.plot(sol.y[k, :], label='Validation')
         a.plot(x[k, :], label='Koopman')
     ax[0].legend()
 
