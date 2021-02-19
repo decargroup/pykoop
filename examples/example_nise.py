@@ -88,7 +88,7 @@ def main():
         'regressor__lmiedmdtikhonovreg__alpha':
         [0] + [10**i for i in range(-4, 2)]
     }
-    clf = model_selection.GridSearchCV(pipeXy, parameters)
+    clf = model_selection.GridSearchCV(pipeXy, parameters, n_jobs=None)
     clf.fit(X_train, y_train)
 
     results = pandas.DataFrame(clf.cv_results_).sort_values(
