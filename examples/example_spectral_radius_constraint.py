@@ -13,7 +13,11 @@ def main():
     # Set up problem
     t_range = (0, 5)
     t_step = 0.1
-    msd = mass_spring_damper.MassSpringDamper(0.5, 0.7, 0.6)
+    msd = mass_spring_damper.MassSpringDamper(
+        mass=0.5,
+        stiffness=0.7,
+        damping=0.6
+    )
     # Solve ODE for training data
     x0 = msd.x0(np.array([1, 0]))
     sol = integrate.solve_ivp(lambda t, x: msd.f(t, x, 0), t_range, x0,
