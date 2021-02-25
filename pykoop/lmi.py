@@ -432,6 +432,149 @@ class LmiEdmdHinfReg(LmiEdmd):
         return problem_b
 
 
+class LmiEdmdDissipativityConstr(LmiEdmd):
+    """See hara_2019_learning
+
+    Supply rate:
+        s(u, y) = -[y, u] Xi [y; u],
+    where
+        Xi = [0, -1; -1, 0] -> passivity,
+        Xi = [1, 0; 0, gamma] -> bounded L2 gain of gamma.
+
+    (Using MATLAB array notation here. To clean up and LaTeX)
+
+
+    @article{hara_2019_learning,
+        title={Learning Koopman Operator under Dissipativity Constraints},
+        author={Keita Hara and Masaki Inoue and Noboru Sebe},
+        year={2019},
+        journaltitle={{\tt arXiv:1911.03884v1 [eess.SY]}}
+    }
+    """
+
+    def __init__(self, supply_rate_xi=None, max_iter=100, tol=1e-6, **kwargs):
+        super().__init__(**kwargs)
+        self.supply_rate_xi = supply_rate_xi
+        self.max_iter = max_iter
+        self.tol = tol
+
+    def fit(self, X, y):
+        self._validate_parameters()
+        X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
+        # Get needed sizes
+        p_theta = y.shape[1]
+        p = X.shape[1]
+        # Make initial guess and iterate
+        P = np.eye(p_theta)
+        U_prev = np.zeros((p_theta, p))
+        for k in range(self.max_iter):
+            # Formulate Problem A
+            problem_a = self._get_problem_a(X, y, P)
+            # Solve Problem A
+            problem_a.solve(solver=self.solver)
+            U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
+            # Formulate Problem B
+            problem_b = self._get_problem_b(X, y, U)
+            # Solve Problem B
+            problem_b.solve(solver=self.solver)
+            P = np.array(problem_a.get_valued_variable('P'), ndmin=2)
+            # Check stopping condition
+            difference = _fast_frob_norm(U_prev - U)
+            if (difference < self.tol):
+                self.stop_reason_ = 'Reached tolerance {self.tol}'
+                break
+            U_prev = U
+        else:
+            self.stop_reason_ = 'Reached maximum iterations {self.max_iter}'
+        self.tol_reached_ = difference
+        self.n_iter_ = k + 1
+        self.coef_ = U.T
+        # Only useful for debugging
+        self.P_ = P
+        return self
+
+    def _get_problem_a(self, X, y, P):
+        problem_a = self._base_problem(X, y)
+        # Extract information from problem
+        U = problem_a.variables['U']
+        # Get needed sizes
+        p_theta = U.shape[0]
+        # Add new constraints
+        P = picos.Constant('P', P)
+        A = U[:, :p_theta]
+        B = U[:, p_theta:]
+        C = picos.Constant('C', np.eye(p_theta))
+        Xi11 = picos.Constant('Xi_11', self.supply_rate_xi[[0], [0]])
+        Xi12 = picos.Constant('Xi_12', self.supply_rate_xi[[0], [1]])
+        Xi22 = picos.Constant('Xi_22', self.supply_rate_xi[[1], [1]])
+        problem_a.add_constraint((
+            (P - C.T*Xi11*C & -C.T*Xi12 & A.T*P) //
+            (     -Xi12.T*C &     -Xi22 & B.T*P) //  # noqa: E201 E221 E222
+            (           P*A &       P*B &     P)     # noqa: E201 E222
+        ) >> self.picos_eps)
+        return problem_a
+
+    def _get_problem_b(self, X, y, U):
+        # Create optimization problem
+        problem_b = picos.Problem()
+        # Get needed sizes
+        p_theta = U.shape[0]
+        # Create constants
+        U = picos.Constant('U', U)
+        # Create variables
+        P = picos.SymmetricVariable('P', p_theta)
+        # Add constraints
+        A = U[:, :p_theta]
+        B = U[:, p_theta:]
+        C = picos.Constant('C', np.eye(p_theta))
+        Xi11 = picos.Constant('Xi_11', self.supply_rate_xi[[0], [0]])
+        Xi12 = picos.Constant('Xi_12', self.supply_rate_xi[[0], [1]])
+        Xi22 = picos.Constant('Xi_22', self.supply_rate_xi[[1], [1]])
+        problem_b.add_constraint(P >> self.picos_eps)
+        problem_b.add_constraint((
+            (P - C.T*Xi11*C & -C.T*Xi12 & A.T*P) //
+            (     -Xi12.T*C &     -Xi22 & B.T*P) //  # noqa: E201 E221 E222
+            (           P*A &       P*B &     P)     # noqa: E201 E222
+        ) >> self.picos_eps)
+        # Set objective
+        problem_b.set_objective('find')
+        return problem_b
+
+    def _validate_parameters(self):
+        super()._validate_parameters(self)
+        if self.supply_rate_xi is None:
+            raise ValueError('`supply_rate_xi` must not be `None`.')
+        if self.supply_rate_xi.shape != (2, 2):
+            raise ValueError('`supply_rate_xi` must have dimension `(2, 2)`.')
+
+
+class LmiEdmdHinfConstr(LmiEdmdDissipativityConstr):
+
+    # TODO Could be a mess if supply_rate_xi is passed somehow?
+    def __init__(self, gamma, **kwargs):
+        self.gamma = gamma
+        super().__init__(
+            supply_rate_xi=np.array([
+                [1/gamma,     0],
+                [      0, gamma]  # noqa: E201
+            ]),
+            **kwargs
+        )
+
+
+class LmiEdmdPassivityConstr(LmiEdmdDissipativityConstr):
+
+    # TODO Could be a mess if supply_rate_xi is passed somehow?
+    def __init__(self, **kwargs):
+        super().__init__(
+            supply_rate_xi=np.array([
+                [ 0, -1],  # noqa: E201
+                [-1,  0]
+            ]),
+            **kwargs
+        )
+
+
 def _fast_frob_norm(A):
     # Maybe this is premature optimization but scipy.linalg.norm() is
     # notoriously slow.
