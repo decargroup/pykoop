@@ -450,17 +450,19 @@ class LmiEdmdDissipativityConstr(LmiEdmd):
         year={2019},
         journaltitle={{\tt arXiv:1911.03884v1 [eess.SY]}}
     }
+
+    Currently not fully tested!
     """
 
-    def __init__(self, supply_rate_xi=None, max_iter=100, tol=1e-6, **kwargs):
+    def __init__(self, max_iter=100, tol=1e-6, **kwargs):
         super().__init__(**kwargs)
-        self.supply_rate_xi = supply_rate_xi
         self.max_iter = max_iter
         self.tol = tol
 
-    def fit(self, X, y):
+    def fit(self, X, y, supply_rate_xi=None):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
+        self.supply_rate_xi_ = supply_rate_xi
         # Get needed sizes
         p_theta = y.shape[1]
         p = X.shape[1]
@@ -477,7 +479,7 @@ class LmiEdmdDissipativityConstr(LmiEdmd):
             problem_b = self._get_problem_b(X, y, U)
             # Solve Problem B
             problem_b.solve(solver=self.solver)
-            P = np.array(problem_a.get_valued_variable('P'), ndmin=2)
+            P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
             if (difference < self.tol):
@@ -504,9 +506,12 @@ class LmiEdmdDissipativityConstr(LmiEdmd):
         A = U[:, :p_theta]
         B = U[:, p_theta:]
         C = picos.Constant('C', np.eye(p_theta))
-        Xi11 = picos.Constant('Xi_11', self.supply_rate_xi[[0], [0]])
-        Xi12 = picos.Constant('Xi_12', self.supply_rate_xi[[0], [1]])
-        Xi22 = picos.Constant('Xi_22', self.supply_rate_xi[[1], [1]])
+        Xi11 = picos.Constant('Xi_11',
+                              self.supply_rate_xi_[:p_theta, :p_theta])
+        Xi12 = picos.Constant('Xi_12',
+                              self.supply_rate_xi_[:p_theta, p_theta:])
+        Xi22 = picos.Constant('Xi_22',
+                              self.supply_rate_xi_[p_theta:, p_theta:])
         problem_a.add_constraint((
             (P - C.T*Xi11*C & -C.T*Xi12 & A.T*P) //
             (     -Xi12.T*C &     -Xi22 & B.T*P) //  # noqa: E201 E221 E222
@@ -527,9 +532,12 @@ class LmiEdmdDissipativityConstr(LmiEdmd):
         A = U[:, :p_theta]
         B = U[:, p_theta:]
         C = picos.Constant('C', np.eye(p_theta))
-        Xi11 = picos.Constant('Xi_11', self.supply_rate_xi[[0], [0]])
-        Xi12 = picos.Constant('Xi_12', self.supply_rate_xi[[0], [1]])
-        Xi22 = picos.Constant('Xi_22', self.supply_rate_xi[[1], [1]])
+        Xi11 = picos.Constant('Xi_11',
+                              self.supply_rate_xi_[:p_theta, :p_theta])
+        Xi12 = picos.Constant('Xi_12',
+                              self.supply_rate_xi_[:p_theta, p_theta:])
+        Xi22 = picos.Constant('Xi_22',
+                              self.supply_rate_xi_[p_theta:, p_theta:])
         problem_b.add_constraint(P >> self.picos_eps)
         problem_b.add_constraint((
             (P - C.T*Xi11*C & -C.T*Xi12 & A.T*P) //
@@ -539,40 +547,6 @@ class LmiEdmdDissipativityConstr(LmiEdmd):
         # Set objective
         problem_b.set_objective('find')
         return problem_b
-
-    def _validate_parameters(self):
-        super()._validate_parameters(self)
-        if self.supply_rate_xi is None:
-            raise ValueError('`supply_rate_xi` must not be `None`.')
-        if self.supply_rate_xi.shape != (2, 2):
-            raise ValueError('`supply_rate_xi` must have dimension `(2, 2)`.')
-
-
-class LmiEdmdHinfConstr(LmiEdmdDissipativityConstr):
-
-    # TODO Could be a mess if supply_rate_xi is passed somehow?
-    def __init__(self, gamma, **kwargs):
-        self.gamma = gamma
-        super().__init__(
-            supply_rate_xi=np.array([
-                [1/gamma,     0],
-                [      0, gamma]  # noqa: E201
-            ]),
-            **kwargs
-        )
-
-
-class LmiEdmdPassivityConstr(LmiEdmdDissipativityConstr):
-
-    # TODO Could be a mess if supply_rate_xi is passed somehow?
-    def __init__(self, **kwargs):
-        super().__init__(
-            supply_rate_xi=np.array([
-                [ 0, -1],  # noqa: E201
-                [-1,  0]
-            ]),
-            **kwargs
-        )
 
 
 def _fast_frob_norm(A):
