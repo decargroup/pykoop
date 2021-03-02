@@ -58,6 +58,11 @@ class Delay(sklearn.base.BaseEstimator, sklearn.base.TransformerMixin):
         X = sklearn.utils.validation.check_array(X, **check_array_params)
         if reset:
             self.n_features_in_ = X.shape[1]
+        elif X.shape[1] != self.n_features_in_:
+            raise ValueError(f'Delay `fit()` called wth {self.n_features_in_} '
+                             'features, but `transform() or '
+                             f'`inverse_transform()` called with {X.shape[1]}'
+                             'features.')
         return X
 
     def _delay(self, X, n_delay):
