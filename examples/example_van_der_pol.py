@@ -1,5 +1,5 @@
 import numpy as np
-from pykoop import lmi, dmd, koopman_pipeline, lifting_functions
+from pykoop import dmd, koopman_pipeline, lifting_functions
 from dynamics import van_der_pol
 from matplotlib import pyplot as plt
 

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import integrate
-from pykoop import lmi, dmd, koopman_pipeline, lifting_functions
+from pykoop import dmd, koopman_pipeline, lifting_functions
 from dynamics import mass_spring_damper
 from matplotlib import pyplot as plt
 
