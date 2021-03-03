@@ -3,6 +3,7 @@ import sklearn.utils.validation
 import picos
 import numpy as np
 from scipy import linalg
+import logging
 
 
 class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
@@ -39,7 +40,7 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
 
     def _validate_parameters(self):
         # Validate inverse method
-        valid_inv_methods = ['inv', 'eig', 'ldl', 'chol', 'sqrt']
+        valid_inv_methods = ['inv', 'pinv', 'eig', 'ldl', 'chol', 'sqrt']
         if self.inv_method not in valid_inv_methods:
             raise ValueError('`inv_method` must be one of: '
                              f'{" ".join(valid_inv_methods)}.')
@@ -76,9 +77,10 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
             # TODO Is it possible to use a pseudo-inverse here?
             # That would mean H could be rank deficient.
             # TODO Condition number warning? Log it?
-            raise ValueError(
+            logging.warning(
                 'H must be full rank. '
-                f'H is {H.shape[0]}x{X.shape[1]}. rk(H)={rk}.'
+                f'H is {H.shape[0]}x{X.shape[1]}. rk(H)={rk}. '
+                f'cond(H) = {np.linalg.cond(H)}. '
                 'TODO: Loosen this requirement with a '
                 'psuedo-inverse?'
             )
@@ -94,6 +96,12 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         # Choose method to handle inverse of H
         if self.inv_method == 'inv':
             H_inv = picos.Constant('H^-1', linalg.inv(H))
+            problem.add_constraint((
+                (  Z &     U) //  # noqa: E2
+                (U.T & H_inv)
+            ) >> 0)
+        if self.inv_method == 'pinv':
+            H_inv = picos.Constant('H^+', linalg.pinv(H))
             problem.add_constraint((
                 (  Z &     U) //  # noqa: E2
                 (U.T & H_inv)

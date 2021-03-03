@@ -1,6 +1,6 @@
 import numpy as np
-from scipy import integrate, linalg
-from pykoop import dmd, koopman_pipeline, lifting_functions
+from scipy import integrate
+from pykoop import lmi, dmd, koopman_pipeline, lifting_functions
 from dynamics import mass_spring_damper
 from matplotlib import pyplot as plt
 
@@ -40,7 +40,8 @@ def main():
 
     kp = koopman_pipeline.KoopmanPipeline(
         delay=lifting_functions.Delay(n_delay_x=1, n_delay_u=1),
-        estimator=dmd.Edmd(),
+        # estimator=dmd.Edmd(),
+        estimator=lmi.LmiEdmd(inv_method='pinv'),
     )
     kp.fit(X.T, n_u=1)
 
