@@ -44,7 +44,7 @@ def main():
     U_no_const = reg_no_const.coef_.T
 
     # Regressor with no constraint
-    reg_pass_const = lmi.LmiEdmdDissipativityConstr()
+    reg_pass_const = lmi.LmiEdmdDissipativityConstr(alpha=0)
     n_x = sol.y.shape[0]
     n_u = 1
     gamma = 1.5

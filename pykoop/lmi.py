@@ -515,8 +515,9 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
     Currently not fully tested!
     """
 
-    def __init__(self, max_iter=100, tol=1e-6,
+    def __init__(self, alpha=0.0, max_iter=100, tol=1e-6,
                  inv_method='eig', solver='mosek', picos_eps=1e-9):
+        self.alpha = 0
         self.max_iter = max_iter
         self.tol = tol
         self.inv_method = inv_method
@@ -526,6 +527,7 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
     def fit(self, X, y, supply_rate_xi=None):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
+        self.alpha_tikhonov_reg_ = self.alpha
         self.supply_rate_xi_ = supply_rate_xi
         # Get needed sizes
         p_theta = y.shape[1]
