@@ -15,31 +15,32 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         # TODO Pre-processing
         # Delays
         self.delay_.fit(X, n_u=n_u)
-        if episode_indices is None:
-            episode_indices = []
-        episodes = np.split(X, episode_indices)
+        episodes = np.split(X, [] if episode_indices is None else
+                            episode_indices)
         delayed_episodes = []
-        delayed_episode_indices = []
+        # Delay episode
         for ep in episodes:
-            # Delay episode
             delayed_ep = self.delay_.transform(ep)
             delayed_episodes.append(delayed_ep)
-            # Keep track of the new episode boundaries
-            if delayed_episode_indices:
-                last_ep_idx = delayed_episode_indices[-1]
-            else:
-                last_ep_idx = 0
-            delayed_episode_indices.append(last_ep_idx + delayed_ep.shape[0])
         Xd = np.vstack(delayed_episodes)
+        # Keep track of the new episode boundaries
+        delayed_episode_indices = [delayed_episodes[0].shape[0]]
+        for ep in delayed_episodes[1:-1]:
+            delayed_episode_indices.append(delayed_episode_indices[-1]
+                                           + ep.shape[0])
         # TODO Lifting functions here
         Xt = Xd
         # Split into X and y
-        transformed_episodes = np.split(Xt, delayed_episode_indices)
+        transformed_episodes = np.split(Xt, [] if episode_indices is None else
+                                        delayed_episode_indices)
         Xt_unshifted = []
         Xt_shifted = []
         for ep in transformed_episodes:
             Xt_unshifted.append(ep[:-1, :])
-            Xt_shifted.append(ep[1:, :-self.delay_.n_ud_])
+            if self.delay_.n_ud_ == 0:
+                Xt_shifted.append(ep[1:, :])
+            else:
+                Xt_shifted.append(ep[1:, :-self.delay_.n_ud_])
         Xt_unshifted = np.vstack(Xt_unshifted)
         Xt_shifted = np.vstack(Xt_shifted)
         # Fit estimator
@@ -55,5 +56,8 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         ))
         Xp = self.delay_.inverse_transform(Xdp)
         # Take only most recent time step. Strip off dummy inputs.
-        Xp_reduced = Xp[[-1], :-self.delay_.n_u_]
+        if self.delay_.n_u_ == 0:
+            Xp_reduced = Xp[[-1], :]
+        else:
+            Xp_reduced = Xp[[-1], :-self.delay_.n_u_]
         return Xp_reduced

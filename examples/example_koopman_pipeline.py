@@ -40,8 +40,7 @@ def main():
 
     kp = koopman_pipeline.KoopmanPipeline(
         delay=lifting_functions.Delay(n_delay_x=1, n_delay_u=1),
-        # estimator=dmd.Edmd(),
-        estimator=lmi.LmiEdmd(inv_method='pinv'),
+        estimator=dmd.Edmd(),
     )
     kp.fit(X.T, n_u=1)
 
@@ -61,7 +60,6 @@ def main():
     for k, a in enumerate(np.ravel(ax[:, 0])):
         a.plot(sol.y[k, :], label='Validation')
         a.plot(X_sim[k, :], label='Koopman')
-    ax[0, 0].legend()
     for k, a in enumerate(np.ravel(ax[:, 1])):
         a.plot(sol.y[k, :] - X_sim[k, :])
     ax[0, 0].legend()

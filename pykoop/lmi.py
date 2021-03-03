@@ -100,7 +100,7 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
                 (  Z &     U) //  # noqa: E2
                 (U.T & H_inv)
             ) >> 0)
-        if self.inv_method == 'pinv':
+        elif self.inv_method == 'pinv':
             H_inv = picos.Constant('H^+', linalg.pinv(H))
             problem.add_constraint((
                 (  Z &     U) //  # noqa: E2
