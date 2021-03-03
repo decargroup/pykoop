@@ -5,9 +5,6 @@ import numpy as np
 from scipy import linalg
 import logging
 
-# TODO Inheritance for regularizers to make some stuff more uniform
-# TODO Warn that ratio=0 is bad!
-
 
 class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
                          sklearn.base.RegressorMixin):
@@ -176,7 +173,6 @@ class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
         self.picos_eps = picos_eps
 
     def fit(self, X, y):
-        # TODO Warn if alpha is zero?
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha * (1 - self.ratio)
@@ -206,6 +202,17 @@ class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
         alpha_scaled = picos.Constant('alpha_2/q', self.alpha_other_reg_/q)
         objective += alpha_scaled * gamma**2
         problem.set_objective(direction, objective)
+
+    def _validate_parameters(self):
+        if self.alpha == 0:
+            raise ValueError('Value of `alpha` should not be zero. Use '
+                             '`LmiEdmdTikhonovReg()` if you want to disable '
+                             'regularization.')
+        if self.ratio == 0:
+            raise ValueError('Value of `ratio` should not be zero. Use '
+                             '`LmiEdmdTikhonovReg()` if you want to disable '
+                             'regularization.')
+        super()._validate_parameters()
 
 
 class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
@@ -252,6 +259,17 @@ class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
         alpha_scaled = picos.Constant('alpha_*/q', self.alpha_other_reg_/q)
         objective += alpha_scaled * gamma**2
         problem.set_objective(direction, objective)
+
+    def _validate_parameters(self):
+        if self.alpha == 0:
+            raise ValueError('Value of `alpha` should not be zero. Use '
+                             '`LmiEdmdTikhonovReg()` if you want to disable '
+                             'regularization.')
+        if self.ratio == 0:
+            raise ValueError('Value of `ratio` should not be zero. Use '
+                             '`LmiEdmdTikhonovReg()` if you want to disable '
+                             'regularization.')
+        super()._validate_parameters()
 
 
 class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
@@ -462,6 +480,17 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         # Set objective
         problem_b.set_objective('find')
         return problem_b
+
+    def _validate_parameters(self):
+        if self.alpha == 0:
+            raise ValueError('Value of `alpha` should not be zero. Use '
+                             '`LmiEdmdTikhonovReg()` if you want to disable '
+                             'regularization.')
+        if self.ratio == 0:
+            raise ValueError('Value of `ratio` should not be zero. Use '
+                             '`LmiEdmdTikhonovReg()` if you want to disable '
+                             'regularization.')
+        super()._validate_parameters()
 
 
 class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
