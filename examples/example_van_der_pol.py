@@ -33,7 +33,7 @@ def main():
     ))
 
     kp = koopman_pipeline.KoopmanPipeline(
-        delay=lifting_functions.Delay(n_delay_x=50, n_delay_u=0),
+        delay=lifting_functions.Delay(n_delay_x=10, n_delay_u=10),
         estimator=dmd.Edmd(),
     )
     kp.fit(X.T, n_u=1)
