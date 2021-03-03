@@ -37,7 +37,7 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha
-        problem = self._base_problem(X, y)
+        problem = self._get_base_problem(X, y)
         problem.solve(solver=self.solver)
         self.coef_ = self._extract_solution(problem)
         return self
@@ -74,7 +74,7 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
             self.n_features_in_ = X.shape[1]
         return X if y is None else (X, y)
 
-    def _base_problem(self, X, y):
+    def _get_base_problem(self, X, y):
         # Compute G and H
         Psi = X.T
         Theta_p = y.T
@@ -181,7 +181,7 @@ class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha * (1 - self.ratio)
         self.alpha_other_reg_ = self.alpha * self.ratio
-        problem = self._base_problem(X, y)
+        problem = self._get_base_problem(X, y)
         self._add_twonorm(X, y, problem)
         problem.solve(solver=self.solver)
         self.coef_ = self._extract_solution(problem)
@@ -223,7 +223,7 @@ class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha * (1 - self.ratio)
         self.alpha_other_reg_ = self.alpha * self.ratio
-        problem = self._base_problem(X, y)
+        problem = self._get_base_problem(X, y)
         self._add_nuclear(X, y, problem)
         problem.solve(solver=self.solver)
         self.coef_ = self._extract_solution(problem)
@@ -278,8 +278,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
         U_prev = np.zeros((p_theta, p))
         for k in range(self.max_iter):
             # Formulate Problem A
-            problem_a = self._base_problem(X, y)
-            self._add_constraint_a(X, y, Gamma, problem_a)
+            problem_a = self._get_problem_a(X, y, Gamma)
             # Solve Problem A
             problem_a.solve(solver=self.solver)
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
@@ -305,7 +304,8 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
         self.P_ = P
         return self
 
-    def _add_constraint_a(self, X, y, Gamma, problem_a):
+    def _get_problem_a(self, X, y, Gamma):
+        problem_a = self._get_base_problem(X, y)
         # Extract information from problem
         U = problem_a.variables['U']
         # Get needed sizes
@@ -319,6 +319,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
             (rho_bar_sq * P & U[:, :p_theta].T * Gamma) //
             (Gamma.T * U[:, :p_theta] & Gamma + Gamma.T - P)
         ) >> self.picos_eps)
+        return problem_a
 
     def _get_problem_b(self, X, y, U, P):
         # Create optimization problem
@@ -374,8 +375,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         U_prev = np.zeros((p_theta, p))
         for k in range(self.max_iter):
             # Formulate Problem A
-            problem_a = self._base_problem(X, y)
-            self._add_regularizer_a(X, y, P, problem_a)
+            problem_a = self._get_problem_a(X, y, P)
             # Solve Problem A
             problem_a.solve(solver=self.solver)
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
@@ -401,7 +401,8 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         self.gamma_ = gamma
         return self
 
-    def _add_regularizer_a(self, X, y, P, problem_a):
+    def _get_problem_a(self, X, y, P):
+        problem_a = self._get_base_problem(X, y)
         # Extract information from problem
         U = problem_a.variables['U']
         direction = problem_a.objective.direction
@@ -430,6 +431,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         alpha_scaled = picos.Constant('alpha_inf/q', self.alpha_other_reg_/q)
         objective += alpha_scaled * gamma**2
         problem_a.set_objective(direction, objective)
+        return problem_a
 
     def _get_problem_b(self, X, y, U, gamma):
         # Create optimization problem
@@ -529,7 +531,7 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
         return self
 
     def _get_problem_a(self, X, y, P):
-        problem_a = self._base_problem(X, y)
+        problem_a = self._get_base_problem(X, y)
         # Extract information from problem
         U = problem_a.variables['U']
         # Get needed sizes
