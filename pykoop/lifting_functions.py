@@ -13,7 +13,7 @@ class Delay(sklearn.base.BaseEstimator, sklearn.base.TransformerMixin):
         self.n_delay_x = n_delay_x
         self.n_delay_u = n_delay_u
 
-    def fit(self, X, y=None, n_u=0):
+    def fit(self, X, y=None, n_u=-1):
         self._validate_parameters()
         X = self._validate_data(X, reset=True)
         self.n_x_ = X.shape[1] - n_u
@@ -27,6 +27,10 @@ class Delay(sklearn.base.BaseEstimator, sklearn.base.TransformerMixin):
     def transform(self, X):
         X = self._validate_data(X, reset=False)
         sklearn.utils.validation.check_is_fitted(self)
+        if X.shape[1] != self.n_features_in_:
+            raise ValueError(f'Delay `fit()` called wth {self.n_features_in_} '
+                             'features, but `transform() called with '
+                             f'{X.shape[1]}' 'features.')
         X_x = X[:, :self.n_x_]
         X_u = X[:, self.n_x_:]
         Xd_x = self._delay(X_x, self.n_delay_x)
@@ -58,11 +62,6 @@ class Delay(sklearn.base.BaseEstimator, sklearn.base.TransformerMixin):
         X = sklearn.utils.validation.check_array(X, **check_array_params)
         if reset:
             self.n_features_in_ = X.shape[1]
-        elif X.shape[1] != self.n_features_in_:
-            raise ValueError(f'Delay `fit()` called wth {self.n_features_in_} '
-                             'features, but `transform() or '
-                             f'`inverse_transform()` called with {X.shape[1]}'
-                             'features.')
         return X
 
     def _delay(self, X, n_delay):
