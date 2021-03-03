@@ -6,12 +6,11 @@ import pykoop.lifting_functions
 
 @sklearn.utils.estimator_checks.parametrize_with_checks([
     pykoop.dmd.Edmd(),
-    pykoop.lmi.LmiEdmd(),
-    pykoop.lmi.LmiEdmdTikhonovReg(),
-    pykoop.lmi.LmiEdmdTwoNormReg(),
-    pykoop.lmi.LmiEdmdNuclearNormReg(),
-    pykoop.lmi.LmiEdmdSpectralRadiusConstr(tol=100),  # Loosen tolerance
-    pykoop.lmi.LmiEdmdHinfReg(tol=100),  # Loosen tolerance
+    pykoop.lmi.LmiEdmdTikhonovReg(alpha=0),
+    pykoop.lmi.LmiEdmdTwoNormReg(alpha=1, ratio=1),
+    pykoop.lmi.LmiEdmdNuclearNormReg(alpha=1, ratio=1),
+    pykoop.lmi.LmiEdmdSpectralRadiusConstr(tol=100),  # Loosen tol
+    pykoop.lmi.LmiEdmdHinfReg(alpha=1, ratio=1, tol=100),  # Loosen tol
     pykoop.lifting_functions.Delay(),
 ])
 def test_sklearn_compatible_estimator(estimator, check):

@@ -29,6 +29,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
             delayed_episode_indices.append(delayed_episode_indices[-1]
                                            + ep.shape[0])
         # TODO Lifting functions here
+        # TODO Can do delays before OR after lifting
         Xt = Xd
         # Split into X and y
         transformed_episodes = np.split(Xt, [] if episode_indices is None else

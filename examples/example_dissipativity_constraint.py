@@ -39,7 +39,7 @@ def main():
     Xp = sol.y[:, 1:]
 
     # Regressor with no constraint
-    reg_no_const = lmi.LmiEdmd()
+    reg_no_const = lmi.LmiEdmdTikhonovReg(alpha=0)
     reg_no_const.fit(X.T, Xp.T)
     U_no_const = reg_no_const.coef_.T
 
