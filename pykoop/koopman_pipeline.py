@@ -1,5 +1,6 @@
 import numpy as np
 import sklearn.base
+import sklearn.metrics
 
 
 class KoopmanPipeline(sklearn.base.BaseEstimator):
@@ -96,5 +97,4 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         X_shifted = np.vstack(X_shifted)
         # Predict
         X_predicted = self.predict(X_unshifted)
-        error = X_shifted - X_predicted[:, 1:]
-        return np.sqrt(np.trace(error @ error.T))
+        return sklearn.metrics.r2_score(X_shifted, X_predicted[:, 1:])
