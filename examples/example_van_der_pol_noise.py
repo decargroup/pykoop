@@ -5,6 +5,7 @@ from dynamics import van_der_pol
 from matplotlib import pyplot as plt
 from sklearn import model_selection
 import pandas
+import shelve
 
 plt.rc('lines', linewidth=2)
 plt.rc('axes', grid=True)
@@ -33,14 +34,14 @@ def main():
         random_state=2233).split(Xs, groups=groups)
 
     kp = koopman_pipeline.KoopmanPipeline(
-        delay=lifting_functions.Delay(n_delay_x=20, n_delay_u=0),
+        delay=lifting_functions.Delay(n_delay_x=50, n_delay_u=0),
         estimator=lmi.LmiEdmdTikhonovReg(alpha=0),
     )
 
     params = {
-        'estimator__alpha': [0] + [10**i for i in range(-6, 1)]
+        'estimator__alpha': [10**i for i in range(-9, 3)]
     }
-    gs = model_selection.GridSearchCV(kp, params, cv=cv, n_jobs=None)
+    gs = model_selection.GridSearchCV(kp, params, cv=cv, n_jobs=None, verbose=2)
     gs.fit(Xs, n_u=0)
 
     results = pandas.DataFrame(gs.cv_results_).sort_values(
@@ -49,9 +50,14 @@ def main():
     # results.insert(0, 'alpha', col_alpha)
     print(results)
 
+
     X_final_valid = sim_vdp(999, np.array([-0.75, 0.5]))[1:, :]
     est = gs.best_estimator_
     n_samp = est.delay_.n_samples_needed_
+
+    with shelve.open('saved-results') as db:
+        db['best_estimator'] = est
+        db['cv_results'] = results
 
     X_sim = np.empty(X_final_valid.shape)
     X_sim[:, :n_samp] = X_final_valid[:, :n_samp]
@@ -117,12 +123,12 @@ def sim_vdp(ep, ic):
     for k in range(1, t.shape[0]):
         X_train[:, k] = vdp.f(t_step * k, X_train[:, k-1], u(t_step * k))
 
-    # cov = 0.5
-    # dist = stats.multivariate_normal(mean=np.zeros((X_train.shape[0],)),
-    #                                  cov=cov*np.eye(X_train.shape[0]),
-    #                                  seed=4321)
-    # noise = dist.rvs(size=X_train.shape[1]).T
-    noise = np.zeros(X_train.shape)
+    cov = 0.5
+    dist = stats.multivariate_normal(mean=np.zeros((X_train.shape[0],)),
+                                     cov=cov*np.eye(X_train.shape[0]),
+                                     seed=4321)
+    noise = dist.rvs(size=X_train.shape[1]).T
+    # noise = np.zeros(X_train.shape)
 
     # Split the data
     # u_sim = np.reshape(u(t), (1, -1))
