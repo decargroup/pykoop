@@ -50,7 +50,7 @@ def main():
             u_sim[:, (k-n_samp):k]
         ))
         Xp = kp.predict(Xk.T).T
-        X_sim[:, [k]] = Xp[1:, :]
+        X_sim[:, [k]] = Xp[1:, [-1]]
 
     fig, ax = plt.subplots(1, 1)
     ax.plot(X_train[0, :], X_train[1, :], label='Validation')

@@ -48,22 +48,53 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         self.estimator_.fit(Xt_unshifted, Xt_shifted)
 
     def predict(self, X):
-        group = X[0, 0]
-        Xd = self.delay_.transform(X[:, 1:])
-        # Pad inputs with zeros so inverse_transform has same dimension as
-        # fit(). TODO Is this necessary?
-        Xdp = np.hstack((
-            self.estimator_.predict(Xd),
-            np.zeros((1, self.delay_.n_ud_))
-        ))
-        Xp = self.delay_.inverse_transform(Xdp)
-        # Take only most recent time step. Strip off dummy inputs.
-        if self.delay_.n_u_ == 0:
-            Xp_reduced = Xp[[-1], :]
-        else:
-            Xp_reduced = Xp[[-1], :-self.delay_.n_u_]
-        Xp_reduced_group = np.hstack((
-            group * np.ones((Xp_reduced.shape[0], 1)),
-            Xp_reduced
-        ))
-        return Xp_reduced_group
+        # TODO HANDLE SPLITTING HERE?
+        # TODO MOVE SPLIT AND DELAY TO HELPER FUNCTIONS?
+        # TODO CREATE A TRANSFORMER?
+        episodes = []
+        for i in np.unique(X[:, 0]):
+            episodes.append((i, X[X[:, 0] == i, 1:]))
+        predictions = []
+        for (i, ep) in episodes:
+            Xd = self.delay_.transform(ep)
+            # Pad inputs with zeros so inverse_transform has same dimension as
+            # fit(). TODO Is this necessary?
+            pred = self.estimator_.predict(Xd)
+            Xdp = np.hstack((
+                pred,
+                np.zeros((pred.shape[0], self.delay_.n_ud_))
+            ))
+            Xp = self.delay_.inverse_transform(Xdp)
+            # Take only most recent time step. Strip off dummy inputs.
+            if self.delay_.n_u_ == 0:
+                Xp_reduced = Xp[:, :]
+            else:
+                Xp_reduced = Xp[:, :-self.delay_.n_u_]
+            Xp_reduced_group = np.hstack((
+                i * np.ones((Xp_reduced.shape[0], 1)),
+                Xp_reduced
+            ))
+            predictions.append(Xp_reduced_group)
+        return np.vstack(predictions)
+
+    def score(self, X, y=None):
+        episodes = []
+        for i in np.unique(X[:, 0]):
+            episodes.append((i, X[X[:, 0] == i, 1:]))
+        X_unshifted = []
+        X_shifted = []
+        for (i, ep) in episodes:
+            X_unshifted.append(np.hstack((
+                i * np.ones((ep.shape[0]-1, 1)),
+                ep[:-1, :]
+            )))
+            if self.delay_.n_ud_ == 0:
+                X_shifted.append(ep[1:, :])
+            else:
+                X_shifted.append(ep[1:, :-self.delay_.n_ud_])
+        X_unshifted = np.vstack(X_unshifted)
+        X_shifted = np.vstack(X_shifted)
+        # Predict
+        X_predicted = self.predict(X_unshifted)
+        error = X_shifted - X_predicted[:, 1:]
+        return np.sqrt(np.trace(error @ error.T))

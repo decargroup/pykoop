@@ -56,7 +56,7 @@ def main():
             u_sim[:, (k-n_samp):k]
         ))
         Xp = kp.predict(X.T).T
-        X_sim[:, [k]] = Xp[1:, :]
+        X_sim[:, [k]] = Xp[1:, [-1]]
 
     fig, ax = plt.subplots(2, 2, squeeze=False)
     for k, a in enumerate(np.ravel(ax[:, 0])):
