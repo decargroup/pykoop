@@ -34,6 +34,7 @@ def main():
     u_sim = np.reshape(u(sol.t), (1, -1))
     # Split the data
     X = np.vstack((
+        np.zeros((1, sol.t.shape[0]-1)),
         sol.y[:, :-1],
         u_sim[:, :-1]
     ))
@@ -50,11 +51,12 @@ def main():
     X_sim[:, :n_samp] = sol.y[:, :n_samp]
     for k in range(n_samp, sol.t.shape[0]):
         X = np.vstack((
+            np.zeros((1, n_samp)),
             X_sim[:, (k-n_samp):k],
             u_sim[:, (k-n_samp):k]
         ))
         Xp = kp.predict(X.T).T
-        X_sim[:, [k]] = Xp
+        X_sim[:, [k]] = Xp[1:, :]
 
     fig, ax = plt.subplots(2, 2, squeeze=False)
     for k, a in enumerate(np.ravel(ax[:, 0])):

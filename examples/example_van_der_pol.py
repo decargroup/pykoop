@@ -28,12 +28,13 @@ def main():
     # Split the data
     u_sim = np.reshape(u(t), (1, -1))
     X = np.vstack((
+        np.zeros((1, t.shape[0]-1)),
         X_train[:, :-1],
         u_sim[:, :-1]
     ))
 
     kp = koopman_pipeline.KoopmanPipeline(
-        delay=lifting_functions.Delay(n_delay_x=10, n_delay_u=10),
+        delay=lifting_functions.Delay(n_delay_x=20, n_delay_u=0),
         estimator=dmd.Edmd(),
     )
     kp.fit(X.T, n_u=1)
@@ -44,11 +45,12 @@ def main():
     X_sim[:, :n_samp] = X_train[:, :n_samp]
     for k in range(n_samp, t.shape[0]):
         Xk = np.vstack((
+            np.zeros((1, n_samp)),
             X_sim[:, (k-n_samp):k],
             u_sim[:, (k-n_samp):k]
         ))
         Xp = kp.predict(Xk.T).T
-        X_sim[:, [k]] = Xp
+        X_sim[:, [k]] = Xp[1:, :]
 
     fig, ax = plt.subplots(1, 1)
     ax.plot(X_train[0, :], X_train[1, :], label='Validation')
