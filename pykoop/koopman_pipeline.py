@@ -78,7 +78,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
             predictions.append(Xp_reduced_group)
         return np.vstack(predictions)
 
-    def score(self, X, y=None):
+    def score_single_step(self, X, y=None):
         episodes = []
         for i in np.unique(X[:, 0]):
             episodes.append((i, X[X[:, 0] == i, 1:]))
@@ -98,3 +98,26 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         # Predict
         X_predicted = self.predict(X_unshifted)
         return sklearn.metrics.r2_score(X_shifted, X_predicted[:, 1:])
+
+    def score(self, X, y=None):
+        episodes = []
+        for i in np.unique(X[:, 0]):
+            episodes.append((i, X[X[:, 0] == i, 1:]))
+        n_samp = self.delay_.n_samples_needed_
+        X_validation = []
+        X_predicted = []
+        for (i, ep) in episodes:
+            X_pred = np.empty(ep.shape)
+            X_pred[:n_samp, :] = ep[:n_samp, :]
+            for k in range(n_samp, X_pred.shape[0]):
+                Xk = np.hstack((
+                    i * np.ones((n_samp, 1)),
+                    X_pred[(k-n_samp):k, :],
+                ))
+                X_pred[[k], :] = self.predict(Xk)[[-1], 1:]
+            X_validation.append(ep[n_samp:, :])
+            X_predicted.append(X_pred[n_samp:, :])
+        X_validation = np.vstack(X_validation)
+        X_predicted = np.vstack(X_predicted)
+        # Predict
+        return sklearn.metrics.r2_score(X_validation, X_predicted)
