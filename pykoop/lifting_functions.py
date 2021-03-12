@@ -2,6 +2,64 @@ import sklearn.base
 import numpy as np
 
 
+class Preprocess(sklearn.base.BaseEstimator, sklearn.base.TransformerMixin):
+
+    def __init__(self, normalize=False):
+        self.normalize = normalize
+        # Other possible options: Standardize to 1 or 1/sqrt(2)
+        # Normalize all?
+        # Degrees or rad in
+
+    def fit(self, X, y=None, angles=None):
+        X = self._validate_data(X, reset=True)
+        if angles is None:
+            self.angles_ = np.zeros((self.n_features_in_,), dtype=bool)
+        else:
+            self.angles_ = angles
+        # Handle linear part
+        X_lin = X[:, ~self.angles_]
+        self.means_ = np.mean(X_lin, axis=0)
+        self.stds_ = np.std(X_lin, axis=0)
+        self.scales_ = self.stds_ / np.sqrt(2)
+        # Figure out what the new features will be
+        self.n_features_out_ = np.sum(~self.angles_) + 2 * np.sum(self.angles_)
+        self.lin_ = np.zeros((self.n_features_out_,), dtype=bool)
+        self.cos_ = np.zeros((self.n_features_out_,), dtype=bool)
+        self.sin_ = np.zeros((self.n_features_out_,), dtype=bool)
+        i = 0
+        for j in range(self.n_features_in_):
+            if self.angles_[j]:
+                self.cos_[i] = True
+                self.sin_[i + 1] = True
+                i += 2
+            else:
+                self.lin_[i] = True
+                i += 1
+
+    def transform(self, X):
+        X = self._validate_data(X, reset=False)
+        sklearn.utils.validation.check_is_fitted(self)
+        Xt = np.zeros((X.shape[0], self.n_features_out_))
+        Xt[:, self.lin_] = (X[:, ~self.angles_] - self.means_) / self.scales_
+        Xt[:, self.cos_] = np.cos(X[:, self.angles_])
+        Xt[:, self.sin_] = np.sin(X[:, self.angles_])
+        return Xt
+
+    def inverse_transform(self, X):
+        X = self._validate_data(X, reset=False)
+        sklearn.utils.validation.check_is_fitted(self)
+        Xt = np.zeros((X.shape[0], self.n_features_in_))
+        Xt[:, ~self.angles_] = (X[:, self.lin_] * self.scales_) + self.means_
+        Xt[:, self.angles_] = np.arctan2(X[:, self.sin_], X[:, self.cos_])
+        return Xt
+
+    def _validate_data(self, X, y=None, reset=True, **check_array_params):
+        X = sklearn.utils.validation.check_array(X, **check_array_params)
+        if reset:
+            self.n_features_in_ = X.shape[1]
+        return X
+
+
 class Delay(sklearn.base.BaseEstimator, sklearn.base.TransformerMixin):
     """
     Sadly, transform() and inverse_transform() are not exact inverses unless
