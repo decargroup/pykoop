@@ -4,27 +4,17 @@ import numpy as np
 
 
 def test_preprocess():
-    # TODO How do I handle the 2pi wrap?
-    # X = np.array([
-    #     [      0,     1,  2,        3],  # noqa: E201
-    #     [2*np.pi, np.pi,  0, -np.pi/2],
-    #     [     -1,    -2, -1,       -2]  # noqa: E201 E221
-    # ]).T
-    # How do I handle it in the cost function?
-    # Will this affect scoring?
-    # Score angles differently?
-    # TO THINK ABOUT
-    pp = lifting_functions.Preprocess()
+    pp = lifting_functions.AnglePreprocessor()
     X = np.array([
         [ 0,     1,  2,        3],  # noqa: E201
         [ 0, np.pi,  0, -np.pi/2],  # noqa: E201
         [-1,    -2, -1,       -2]
     ]).T
     Xt_exp = np.array([
-        [-1.8973666, -0.63245554,  0.63245554,   1.8973666],
-        [         1,          -1,           1,           0],  # noqa: E201
-        [         0,           0,           0,          -1],  # noqa: E201
-        [1.41421356, -1.41421356,  1.41421356, -1.41421356]
+        [ 0,  1,  2,  3],  # noqa: E201
+        [ 1, -1,  1,  0],  # noqa: E201
+        [ 0,  0,  0, -1],  # noqa: E201
+        [-1, -2, -1, -2]
     ]).T
     ang = np.array([0, 1, 0], dtype=bool)
     pp.fit(X, angles=ang)
@@ -34,8 +24,34 @@ def test_preprocess():
     np.testing.assert_allclose(X, Xi)
 
 
+def test_preprocess_angle_wrap():
+    pp = lifting_functions.AnglePreprocessor()
+    X = np.array([
+        [      0,     1,  2,        3],  # noqa: E201
+        [2*np.pi, np.pi,  0, -np.pi/2],
+        [     -1,    -2, -1,       -2]  # noqa: E201 E221
+    ]).T
+    Xt_exp = np.array([
+        [ 0,  1,  2,  3],  # noqa: E201
+        [ 1, -1,  1,  0],  # noqa: E201
+        [ 0,  0,  0, -1],  # noqa: E201
+        [-1, -2, -1, -2]
+    ]).T
+    Xi_exp = np.array([
+        [ 0,     1,  2,        3],  # noqa: E201
+        [ 0, np.pi,  0, -np.pi/2],  # noqa: E201
+        [-1,    -2, -1,       -2]
+    ]).T
+    ang = np.array([0, 1, 0], dtype=bool)
+    pp.fit(X, angles=ang)
+    Xt = pp.transform(X)
+    np.testing.assert_allclose(Xt_exp, Xt, atol=1e-15)
+    Xi = pp.inverse_transform(Xt)
+    np.testing.assert_allclose(Xi_exp, Xi, atol=1e-15)
+
+
 def test_preprocess_fit_features():
-    pp = lifting_functions.Preprocess()
+    pp = lifting_functions.AnglePreprocessor()
     X = np.zeros((2, 5))
     # Mix of linear and angles
     ang = np.array([0, 0, 1, 1, 0], dtype=bool)
