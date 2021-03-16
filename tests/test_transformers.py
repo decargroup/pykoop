@@ -82,6 +82,62 @@ def test_preprocess_fit_features():
     np.testing.assert_allclose(sin, pp.sin_)
 
 
+@pytest.mark.parametrize('X, Xt_exp, poly, inputs', [
+    # # Order 1, no inputs
+    # (
+    #     np.array([
+    #         [0,  1,  2,  3,  4,  5],
+    #         [0, -1, -2, -3, -4, -5],
+    #         [0,  2,  4,  5,  6, 10],
+    #     ]).T,
+    #     np.array([
+    #         [0,  1,  2,  3,  4,  5],
+    #         [0, -1, -2, -3, -4, -5],
+    #         [0,  2,  4,  5,  6, 10],
+    #     ]).T,
+    #     lifting_functions.PolynomialLiftingFn(order=1),
+    #     None,
+    # ),
+    # # Order 2, no inputs
+    # (
+    #     np.array([
+    #         [0,  1,  2,  3,  4,  5],
+    #         [0,  2,  4,  5,  6, 10],
+    #     ]).T,
+    #     np.array([
+    #         [0, 1, 2,   3,  4,   5],
+    #         [0, 2, 4,   5,  6,  10],
+    #         [0, 1, 4,   9, 16,  25],
+    #         [0, 2, 8,  15, 24,  50],
+    #         [0, 4, 16, 25, 36, 100],
+    #     ]).T,
+    #     lifting_functions.PolynomialLiftingFn(order=2),
+    #     None,
+    # ),
+    # Order 1, input in the middle (not very typical)
+    (
+        np.array([
+            [0,  1,  2,  3,  4,  5],
+            [0, -1, -2, -3, -4, -5],
+            [0,  2,  4,  5,  6, 10],
+        ]).T,
+        np.array([
+            [0,  1,  2,  3,  4,  5],
+            [0,  2,  4,  5,  6, 10],
+            [0, -1, -2, -3, -4, -5],
+        ]).T,
+        lifting_functions.PolynomialLiftingFn(order=1),
+        np.array([False, True, False]),
+    ),
+])
+def test_polynomial_lifting_fn(X, Xt_exp, poly, inputs):
+    poly.fit(X, inputs=inputs)
+    Xt = poly.transform(X)
+    np.testing.assert_allclose(Xt_exp, Xt)
+    Xt_inv = poly.inverse_transform(Xt)
+    np.testing.assert_allclose(X, Xt_inv)
+
+
 delay_test_cases = [(
     # Tests with no input
     0, 0, 0,
