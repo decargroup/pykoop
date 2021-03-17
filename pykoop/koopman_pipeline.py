@@ -5,20 +5,29 @@ import sklearn.metrics
 
 class KoopmanPipeline(sklearn.base.BaseEstimator):
 
-    def __init__(self, delay, estimator):
+    def __init__(self, preprocessing=None, delay=None, lifting_functions=None,
+                 estimator=None):
+        self.preprocessing = preprocessing
         self.delay = delay
+        self.lifting_functions = lifting_functions
         self.estimator = estimator
 
     def fit(self, X, y=None, n_u=0):
         # Clone estimators
         self.delay_ = sklearn.base.clone(self.delay)
         self.estimator_ = sklearn.base.clone(self.estimator)
+        self.preprocessing_ = sklearn.base.clone(self.preprocessing)
+        self.lifting_function_ = sklearn.base.clone(self.lifting_function)
         # TODO Pre-processing
+        Xp = np.hstack((
+            X[:, 0],
+            self.preprocessing_.fit_transform(X[:, 1:])
+        ))
         # Delays
-        self.delay_.fit(X[:, 1:], n_u=n_u)
+        self.delay_.fit(Xp[:, 1:], n_u=n_u)
         episodes = []
-        for i in np.unique(X[:, 0]):
-            episodes.append((i, X[X[:, 0] == i, 1:]))
+        for i in np.unique(Xp[:, 0]):
+            episodes.append((i, Xp[Xp[:, 0] == i, :]))
         delayed_episodes = []
         # Delay episode
         for (i, ep) in episodes:
@@ -28,9 +37,12 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
                 delayed_ep,
             )))
         Xd = np.vstack(delayed_episodes)
-        # TODO Lifting functions here
-        # TODO Can do delays before OR after lifting
-        Xt = Xd
+        # TODO Lifting functions
+        Xt = np.hstack((
+            Xd[:, 0],
+            self.lifting_functions_.fit_transform(Xd[:, 1:],
+                                                  n_u=self.delay_.n_ud_)
+        ))
         # Split into X and y
         transformed_episodes = []
         for i in np.unique(Xt[:, 0]):
@@ -57,15 +69,20 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
             episodes.append((i, X[X[:, 0] == i, 1:]))
         predictions = []
         for (i, ep) in episodes:
-            Xd = self.delay_.transform(ep)
+            Xp = self.preprocessing_.transform(ep)
+            Xd = self.delay_.transform(Xp)
+            Xt = self.lifting_function_.transform(Xd)
             # Pad inputs with zeros so inverse_transform has same dimension as
             # fit(). TODO Is this necessary?
-            pred = self.estimator_.predict(Xd)
+            pred = self.estimator_.predict(Xt)
             Xdp = np.hstack((
                 pred,
-                np.zeros((pred.shape[0], self.delay_.n_ud_))
+                np.zeros((pred.shape[0], self.lifting_function_.n_up_))
             ))
-            Xp = self.delay_.inverse_transform(Xdp)
+            Xp = self.preprocessing_.inverse_transform(
+                self.delay_.inverse_transform(
+                    self.lifting_function_.inverse_transform(
+                        Xdp)))
             # Take only most recent time step. Strip off dummy inputs.
             if self.delay_.n_u_ == 0:
                 Xp_reduced = Xp[:, :]
