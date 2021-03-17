@@ -12,7 +12,7 @@ class AnglePreprocessor(sklearn.base.BaseEstimator,
     def __init__(self, unwrap=False):
         self.unwrap = unwrap
 
-    def fit(self, X, y=None, angles=None):
+    def fit(self, X, y=None, angles=None):  # TODO Make angles list of ints?
         X = self._validate_data(X, reset=True)
         if angles is None:
             self.angles_ = np.zeros((self.n_features_in_,), dtype=bool)
@@ -68,11 +68,9 @@ class PolynomialLiftingFn(sklearn.base.BaseEstimator,
         self.order = order
         self.interaction_only = interaction_only
 
-    def fit(self, X, y=None, inputs=None):
+    def fit(self, X, y=None, n_u=0):
         self._validate_parameters()
         X = self._validate_data(X, reset=True)
-        if inputs is None:
-            inputs = np.zeros((self.n_features_in_,), dtype=bool)
         self.transformer_ = sklearn.preprocessing.PolynomialFeatures(
             degree=self.order,
             interaction_only=self.interaction_only,
@@ -80,6 +78,8 @@ class PolynomialLiftingFn(sklearn.base.BaseEstimator,
         )
         self.transformer_.fit(X)
         self.n_features_out_ = self.transformer_.powers_.shape[0]
+        self.n_x_ = X.shape[1] - n_u
+        self.n_u_ = n_u
         # Figure out which lifted states correspond to the original states and
         # original inputs
         orig_states = []
@@ -88,51 +88,68 @@ class PolynomialLiftingFn(sklearn.base.BaseEstimator,
         for i in range(self.n_features_in_):
             index = np.nonzero(np.all(self.transformer_.powers_ == eye[i, :],
                                       axis=1))
-            if not inputs[i]:
+            if i < self.n_x_:
                 orig_states.append(index)
             else:
                 orig_inputs.append(index)
-        self.original_state_features_ = np.ravel(orig_states).astype(int)
-        self.original_input_features_ = np.ravel(orig_inputs).astype(int)
+        original_state_features = np.ravel(orig_states).astype(int)
+        original_input_features = np.ravel(orig_inputs).astype(int)
         # Figure out which other lifted states contain inputs
-        other_inputs = np.array([
-            inputs[i] if i not in self.original_input_features_ else False
-            for i in range(inputs.shape[0])
-        ])
-        self.other_input_features_ = np.nonzero(np.any(
-            (self.transformer_.powers_ != 0)[:, other_inputs],
+        all_input_features = np.nonzero(np.any(
+            (self.transformer_.powers_ != 0)[:, self.n_x_:],
             axis=1
         ))[0].astype(int)
+        other_input_features = np.setdiff1d(all_input_features,
+                                            original_input_features)
         # Figure out which other lifted states contain states (but are not the
         # original states themselves
-        self.other_state_features_ = np.array([
-            i for i in range(self.n_features_out_)
-            if ((i not in self.original_state_features_)
-                and (i not in self.original_input_features_)
-                and (i not in self.other_input_features_))
-        ]).astype(int)
+        other_state_features = np.setdiff1d(
+            np.arange(self.n_features_out_),
+            np.union1d(
+                np.union1d(
+                    original_state_features,
+                    original_input_features
+                ),
+                other_input_features
+            )
+        ).astype(int)
+        # Form new order
+        self.transform_order_ = np.concatenate((
+            original_state_features,
+            other_state_features,
+            original_input_features,
+            other_input_features
+        ))
+        # Figure out original order of features
+        self.inverse_transform_order_ = np.concatenate((
+            np.arange(original_state_features.shape[0]),
+            np.arange(
+                (original_state_features.shape[0]
+                 + other_state_features.shape[0]),
+                (original_state_features.shape[0]
+                 + other_state_features.shape[0]
+                 + original_input_features.shape[0])
+            )
+        ))
+        # Compute how many input-independent lifted states and input-dependent
+        # lifted states there are
+        self.n_xl_ = (original_state_features.shape[0]
+                      + other_state_features.shape[0])
+        self.n_ul_ = (original_input_features.shape[0]
+                      + other_state_features.shape[0])
         return self
 
     def transform(self, X):
         X = self._validate_data(X, reset=False)
         sklearn.utils.validation.check_is_fitted(self)
         Xt = self.transformer_.transform(X)
-        Xt_reordered = [Xt[:, self.original_state_features_]]
-        if self.other_state_features_.shape[0] != 0:
-            Xt_reordered.append(Xt[:, self.other_state_features_])
-        if self.original_input_features_.shape[0] != 0:
-            Xt_reordered.append(Xt[:, self.original_input_features_])
-        if self.other_input_features_.shape[0] != 0:
-            Xt_reordered.append(Xt[:, self.other_input_features_])
-        return np.hstack(Xt_reordered)
+        return Xt[:, self.transform_order_]
 
     def inverse_transform(self, X):
         X = self._validate_data(X, reset=False)
         sklearn.utils.validation.check_is_fitted(self)
-        original_features = np.concatenate((self.original_state_features_,
-                                            self.original_input_features_))
-        breakpoint()
-        return X[:, original_features]
+        # Extract the original features from the lifted features
+        return X[:, self.inverse_transform_order_]
 
     def _validate_data(self, X, y=None, reset=True, **check_array_params):
         X = sklearn.utils.validation.check_array(X, **check_array_params)
@@ -156,7 +173,7 @@ class Delay(sklearn.base.BaseEstimator, sklearn.base.TransformerMixin):
         self.n_delay_x = n_delay_x
         self.n_delay_u = n_delay_u
 
-    def fit(self, X, y=None, n_u=-1):  # TODO THIS IS WRONG, RIGHT???
+    def fit(self, X, y=None, n_u=0):
         self._validate_parameters()
         X = self._validate_data(X, reset=True)
         self.n_x_ = X.shape[1] - n_u

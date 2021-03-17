@@ -82,39 +82,8 @@ def test_preprocess_fit_features():
     np.testing.assert_allclose(sin, pp.sin_)
 
 
-@pytest.mark.parametrize('X, Xt_exp, poly, inputs', [
-    # # Order 1, no inputs
-    # (
-    #     np.array([
-    #         [0,  1,  2,  3,  4,  5],
-    #         [0, -1, -2, -3, -4, -5],
-    #         [0,  2,  4,  5,  6, 10],
-    #     ]).T,
-    #     np.array([
-    #         [0,  1,  2,  3,  4,  5],
-    #         [0, -1, -2, -3, -4, -5],
-    #         [0,  2,  4,  5,  6, 10],
-    #     ]).T,
-    #     lifting_functions.PolynomialLiftingFn(order=1),
-    #     None,
-    # ),
-    # # Order 2, no inputs
-    # (
-    #     np.array([
-    #         [0,  1,  2,  3,  4,  5],
-    #         [0,  2,  4,  5,  6, 10],
-    #     ]).T,
-    #     np.array([
-    #         [0, 1, 2,   3,  4,   5],
-    #         [0, 2, 4,   5,  6,  10],
-    #         [0, 1, 4,   9, 16,  25],
-    #         [0, 2, 8,  15, 24,  50],
-    #         [0, 4, 16, 25, 36, 100],
-    #     ]).T,
-    #     lifting_functions.PolynomialLiftingFn(order=2),
-    #     None,
-    # ),
-    # Order 1, input in the middle (not very typical)
+poly_test_cases = [
+    # Order 1, no inputs
     (
         np.array([
             [0,  1,  2,  3,  4,  5],
@@ -123,17 +92,140 @@ def test_preprocess_fit_features():
         ]).T,
         np.array([
             [0,  1,  2,  3,  4,  5],
-            [0,  2,  4,  5,  6, 10],
             [0, -1, -2, -3, -4, -5],
+            [0,  2,  4,  5,  6, 10],
         ]).T,
         lifting_functions.PolynomialLiftingFn(order=1),
-        np.array([False, True, False]),
+        0,
     ),
-])
-def test_polynomial_lifting_fn(X, Xt_exp, poly, inputs):
-    poly.fit(X, inputs=inputs)
+    # Order 2, no inputs
+    (
+        np.array([
+            [0,  1,  2,  3,  4,  5],
+            [0,  2,  4,  5,  6, 10],
+        ]).T,
+        np.array([
+            [0, 1, 2,   3,  4,   5],
+            [0, 2, 4,   5,  6,  10],
+            [0, 1, 4,   9, 16,  25],
+            [0, 2, 8,  15, 24,  50],
+            [0, 4, 16, 25, 36, 100],
+        ]).T,
+        lifting_functions.PolynomialLiftingFn(order=2),
+        0,
+    ),
+    # Order 1, 1 input
+    (
+        np.array([
+            [0,  1,  2,  3,  4,  5],
+            [0, -1, -2, -3, -4, -5],
+            [0,  2,  4,  5,  6, 10],
+        ]).T,
+        np.array([
+            [0,  1,  2,  3,  4,  5],
+            [0, -1, -2, -3, -4, -5],
+            [0,  2,  4,  5,  6, 10],
+        ]).T,
+        lifting_functions.PolynomialLiftingFn(order=1),
+        1,
+    ),
+    # Order 2, 1 input
+    (
+        np.array([
+            [0,  1,  2,  3,  4,  5],
+            [0,  2,  4,  5,  6, 10],
+        ]).T,
+        np.array([
+            [0, 1, 2,   3,  4,   5],
+            [0, 1, 4,   9, 16,  25],
+            [0, 2, 4,   5,  6,  10],
+            [0, 2, 8,  15, 24,  50],
+            [0, 4, 16, 25, 36, 100],
+        ]).T,
+        lifting_functions.PolynomialLiftingFn(order=2),
+        1,
+    ),
+    # Order 2, 0 input
+    (
+        np.array([
+            [0,  1,  2,  3,  4,  5],
+            [0,  2,  4,  6,  8, 10],
+            [1,  3,  5,  7,  9, 11],
+        ]).T,
+        np.array([
+            [0, 1,  2,  3,  4,   5],
+            [0, 2,  4,  6,  8,  10],
+            [1, 3,  5,  7,  9,  11],
+            [0, 1,  4,  9, 16,  25],
+            [0, 2,  8, 18, 32,  50],
+            [0, 3, 10, 21, 36,  55],
+            [0, 4, 16, 36, 64, 100],
+            [0, 6, 20, 42, 72, 110],
+            [1, 9, 25, 49, 81, 121],
+        ]).T,
+        lifting_functions.PolynomialLiftingFn(order=2),
+        0,
+    ),
+    # Order 2, 1 input
+    (
+        np.array([
+            [0,  1,  2,  3,  4,  5],
+            [0,  2,  4,  6,  8, 10],
+            [1,  3,  5,  7,  9, 11],
+        ]).T,
+        np.array([
+            # State
+            [0, 1,  2,  3,  4,   5],
+            [0, 2,  4,  6,  8,  10],
+            [0, 1,  4,  9, 16,  25],
+            [0, 2,  8, 18, 32,  50],
+            [0, 4, 16, 36, 64, 100],
+            # Input
+            [1, 3,  5,  7,  9,  11],
+            [0, 3, 10, 21, 36,  55],
+            [0, 6, 20, 42, 72, 110],
+            [1, 9, 25, 49, 81, 121],
+        ]).T,
+        lifting_functions.PolynomialLiftingFn(order=2),
+        1,
+    ),
+    # Order 2, 2 input
+    (
+        np.array([
+            [0,  1,  2,  3,  4,  5],
+            [0,  2,  4,  6,  8, 10],
+            [1,  3,  5,  7,  9, 11],
+        ]).T,
+        np.array([
+            # State
+            [0, 1,  2,  3,  4,   5],
+            [0, 1,  4,  9, 16,  25],
+            # Input
+            [0, 2,  4,  6,  8,  10],
+            [1, 3,  5,  7,  9,  11],
+            [0, 2,  8, 18, 32,  50],
+            [0, 3, 10, 21, 36,  55],
+            [0, 4, 16, 36, 64, 100],
+            [0, 6, 20, 42, 72, 110],
+            [1, 9, 25, 49, 81, 121],
+        ]).T,
+        lifting_functions.PolynomialLiftingFn(order=2),
+        2,
+    ),
+]
+
+
+@pytest.mark.parametrize('X, Xt_exp, poly, n_u', poly_test_cases)
+def test_polynomial_forward(X, Xt_exp, poly, n_u):
+    poly.fit(X, n_u=n_u)
     Xt = poly.transform(X)
     np.testing.assert_allclose(Xt_exp, Xt)
+
+
+@pytest.mark.parametrize('X, Xt_exp, poly, n_u', poly_test_cases)
+def test_polynomial_inverse(X, Xt_exp, poly, n_u):
+    poly.fit(X, n_u=n_u)
+    Xt = poly.transform(X)
     Xt_inv = poly.inverse_transform(Xt)
     np.testing.assert_allclose(X, Xt_inv)
 
