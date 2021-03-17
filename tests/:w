@@ -23,7 +23,7 @@ X = np.vstack((
     np.zeros((1, sol.y.shape[1])),
     sol.y,
     u(sol.t),
-))
+)).T
 
 kp = koopman_pipeline.KoopmanPipeline(
     preprocessing=preprocessing.StandardScaler(),
@@ -32,26 +32,10 @@ kp = koopman_pipeline.KoopmanPipeline(
     estimator=dmd.Edmd()
 )
 
-kp.fit(X.T, n_u=1)
-
-n_samp = kp.delay_.n_samples_needed_
-u_sim = np.reshape(u(sol.t), (1, -1))
-
-X_sim = np.empty(sol.y.shape)
-X_sim[:, :n_samp] = sol.y[:, :n_samp]
-for k in range(n_samp, X.shape[1]):
-    Xk = np.vstack((
-        np.zeros((1, n_samp)),
-        X_sim[:, (k-n_samp):k],
-        u_sim[:, (k-n_samp):k]
-    ))
-    Xp = kp.predict(Xk.T).T
-    X_sim[:, [k]] = Xp[1:, [-1]]
+kp.fit(X, n_u=1)
 
 fig, ax = plt.subplots(3, 1)
 ax[0].plot(sol.t, sol.y[0, :])
-ax[0].plot(sol.t, X_sim[0, :])
 ax[1].plot(sol.t, sol.y[1, :])
-ax[1].plot(sol.t, X_sim[1, :])
 ax[2].plot(sol.t, u(sol.t))
 plt.show()

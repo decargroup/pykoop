@@ -5,11 +5,11 @@ import sklearn.metrics
 
 class KoopmanPipeline(sklearn.base.BaseEstimator):
 
-    def __init__(self, preprocessing=None, delay=None, lifting_functions=None,
+    def __init__(self, preprocessing=None, delay=None, lifting_function=None,
                  estimator=None):
         self.preprocessing = preprocessing
         self.delay = delay
-        self.lifting_functions = lifting_functions
+        self.lifting_function = lifting_function
         self.estimator = estimator
 
     def fit(self, X, y=None, n_u=0):
@@ -20,14 +20,14 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         self.lifting_function_ = sklearn.base.clone(self.lifting_function)
         # TODO Pre-processing
         Xp = np.hstack((
-            X[:, 0],
+            X[:, [0]],
             self.preprocessing_.fit_transform(X[:, 1:])
         ))
         # Delays
         self.delay_.fit(Xp[:, 1:], n_u=n_u)
         episodes = []
         for i in np.unique(Xp[:, 0]):
-            episodes.append((i, Xp[Xp[:, 0] == i, :]))
+            episodes.append((i, Xp[Xp[:, 0] == i, 1:]))
         delayed_episodes = []
         # Delay episode
         for (i, ep) in episodes:
@@ -39,9 +39,9 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         Xd = np.vstack(delayed_episodes)
         # TODO Lifting functions
         Xt = np.hstack((
-            Xd[:, 0],
-            self.lifting_functions_.fit_transform(Xd[:, 1:],
-                                                  n_u=self.delay_.n_ud_)
+            Xd[:, [0]],
+            self.lifting_function_.fit_transform(Xd[:, 1:],
+                                                 n_u=self.delay_.n_ud_)
         ))
         # Split into X and y
         transformed_episodes = []
@@ -77,7 +77,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
             pred = self.estimator_.predict(Xt)
             Xdp = np.hstack((
                 pred,
-                np.zeros((pred.shape[0], self.lifting_function_.n_up_))
+                np.zeros((pred.shape[0], self.lifting_function_.n_ul_))
             ))
             Xp = self.preprocessing_.inverse_transform(
                 self.delay_.inverse_transform(
