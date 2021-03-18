@@ -19,11 +19,13 @@ sol = integrate.solve_ivp(lambda t, x: pend.f(t, x, u(t)), t_range, x0,
                           t_eval=np.arange(*t_range, t_step), rtol=1e-8,
                           atol=1e-8)
 
-X = np.vstack((
+X_raw = np.vstack((
     np.zeros((1, sol.y.shape[1])),
     sol.y,
     u(sol.t),
 ))
+X = lifting_functions.AnglePreprocessor().fit_transform(
+    X_raw.T, angles=np.array([False, True, False, False])).T
 
 kp = koopman_pipeline.KoopmanPipeline(
     preprocessing=preprocessing.StandardScaler(),
@@ -39,8 +41,8 @@ crash_index = None
 n_samp = kp.delay_.n_samples_needed_
 u_sim = np.reshape(u(sol.t), (1, -1))
 
-X_sim = np.empty(sol.y.shape)
-X_sim[:, :n_samp] = sol.y[:, :n_samp]
+X_sim = np.empty((3, X.shape[1]))
+X_sim[:, :n_samp] = X[1:4, :n_samp]
 for k in range(n_samp, X.shape[1]):
     Xk = np.vstack((
         np.zeros((1, n_samp)),
@@ -58,13 +60,15 @@ if crash_index is not None:
     X_sim[:, crash_index:] = np.nan * np.ones((X_sim.shape[0], 1))
     X_sim = np.ma.masked_invalid(X_sim)
 
-fig, ax = plt.subplots(3, 1)
-ax[0].plot(sol.t, sol.y[0, :])
+fig, ax = plt.subplots(4, 1)
+ax[0].plot(sol.t, X[1, :])
 ax[0].plot(sol.t, X_sim[0, :])
-ax[1].plot(sol.t, sol.y[1, :])
+ax[1].plot(sol.t, X[2, :])
 ax[1].plot(sol.t, X_sim[1, :])
-ax[2].plot(sol.t, u(sol.t))
+ax[2].plot(sol.t, X[3, :])
+ax[2].plot(sol.t, X_sim[2, :])
+ax[3].plot(sol.t, u(sol.t))
 
-ax[0].set_ylim((-10, 10))
-ax[1].set_ylim((-10, 10))
+# ax[0].set_ylim((-10, 10))
+# ax[1].set_ylim((-10, 10))
 plt.show()

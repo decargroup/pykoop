@@ -32,6 +32,7 @@ class AnglePreprocessor(sklearn.base.BaseEstimator,
             else:
                 self.lin_[i] = True
                 i += 1
+        return self
 
     def transform(self, X):
         X = self._validate_data(X, reset=False)
