@@ -25,7 +25,8 @@ def random_state(low, high, rng=None):
         Random initial state.
 
     """
-    rng = np.random.default_rng()
+    if rng is None:
+        rng = np.random.default_rng()
     x_rand = rng.uniform(low, high, low.shape)
     return x_rand
 
