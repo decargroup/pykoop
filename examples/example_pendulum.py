@@ -36,6 +36,8 @@ kp = koopman_pipeline.KoopmanPipeline(
 )
 
 kp.fit(X.T, n_u=1)
+score = kp.score(X.T)
+print(f'score = {score}')
 
 crash_index = None
 n_samp = kp.delay_.n_samples_needed_

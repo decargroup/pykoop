@@ -18,6 +18,9 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         self.estimator_ = sklearn.base.clone(self.estimator)
         self.preprocessing_ = sklearn.base.clone(self.preprocessing)
         self.lifting_function_ = sklearn.base.clone(self.lifting_function)
+        # Save number of inputs
+        self.n_x_ = X.shape[1] - n_u - 1
+        self.n_u_ = n_u
         # TODO Pre-processing
         Xp = np.hstack((
             X[:, [0]],
@@ -95,27 +98,6 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
             predictions.append(Xp_reduced_group)
         return np.vstack(predictions)
 
-    def score_single_step(self, X, y=None):
-        episodes = []
-        for i in np.unique(X[:, 0]):
-            episodes.append((i, X[X[:, 0] == i, 1:]))
-        X_unshifted = []
-        X_shifted = []
-        for (i, ep) in episodes:
-            X_unshifted.append(np.hstack((
-                i * np.ones((ep.shape[0]-1, 1)),
-                ep[:-1, :]
-            )))
-            if self.delay_.n_ud_ == 0:
-                X_shifted.append(ep[1:, :])
-            else:
-                X_shifted.append(ep[1:, :-self.delay_.n_ud_])
-        X_unshifted = np.vstack(X_unshifted)
-        X_shifted = np.vstack(X_shifted)
-        # Predict
-        X_predicted = self.predict(X_unshifted)
-        return sklearn.metrics.r2_score(X_shifted, X_predicted[:, 1:])
-
     def score(self, X, y=None):
         episodes = []
         for i in np.unique(X[:, 0]):
@@ -124,15 +106,16 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         X_validation = []
         X_predicted = []
         for (i, ep) in episodes:
-            X_pred = np.empty(ep.shape)
-            X_pred[:n_samp, :] = ep[:n_samp, :]
+            X_pred = np.empty((ep.shape[0], self.n_x_))
+            X_pred[:n_samp, :] = ep[:n_samp, :self.n_x_]
             for k in range(n_samp, X_pred.shape[0]):
                 Xk = np.hstack((
                     i * np.ones((n_samp, 1)),
                     X_pred[(k-n_samp):k, :],
+                    ep[(k-n_samp):k, self.n_x_:],
                 ))
                 X_pred[[k], :] = self.predict(Xk)[[-1], 1:]
-            X_validation.append(ep[n_samp:, :])
+            X_validation.append(ep[n_samp:, :self.n_x_])
             X_predicted.append(X_pred[n_samp:, :])
         X_validation = np.vstack(X_validation)
         X_predicted = np.vstack(X_predicted)
