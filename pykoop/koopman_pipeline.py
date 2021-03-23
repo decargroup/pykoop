@@ -21,14 +21,11 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         # Save number of inputs
         self.n_x_ = X.shape[1] - n_u - 1
         self.n_u_ = n_u
-        # Pre-processing
-        if self.preprocessing_ is not None:
-            Xp = np.hstack((
-                X[:, [0]],
-                self.preprocessing_.fit_transform(X[:, 1:])
-            ))
-        else:
-            Xp = X
+        # TODO Pre-processing
+        Xp = np.hstack((
+            X[:, [0]],
+            self.preprocessing_.fit_transform(X[:, 1:])
+        ))
         # Delays
         self.delay_.fit(Xp[:, 1:], n_u=n_u)
         episodes = []
@@ -43,15 +40,12 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
                 delayed_ep,
             )))
         Xd = np.vstack(delayed_episodes)
-        # Lifting functions
-        if self.lifting_function_ is not None:
-            Xt = np.hstack((
-                Xd[:, [0]],
-                self.lifting_function_.fit_transform(Xd[:, 1:],
-                                                     n_u=self.delay_.n_ud_)
-            ))
-        else:
-            Xt = Xd
+        # TODO Lifting functions
+        Xt = np.hstack((
+            Xd[:, [0]],
+            self.lifting_function_.fit_transform(Xd[:, 1:],
+                                                 n_u=self.delay_.n_ud_)
+        ))
         # Split into X and y
         transformed_episodes = []
         for i in np.unique(Xt[:, 0]):
@@ -78,15 +72,9 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
             episodes.append((i, X[X[:, 0] == i, 1:]))
         predictions = []
         for (i, ep) in episodes:
-            if self.preprocessing_ is not None:
-                Xp = self.preprocessing_.transform(ep)
-            else:
-                Xp = ep
+            Xp = self.preprocessing_.transform(ep)
             Xd = self.delay_.transform(Xp)
-            if self.lifting_function_ is not None:
-                Xt = self.lifting_function_.transform(Xd)
-            else:
-                Xt = Xd
+            Xt = self.lifting_function_.transform(Xd)
             # Pad inputs with zeros so inverse_transform has same dimension as
             # fit(). TODO Is this necessary?
             pred = self.estimator_.predict(Xt)
@@ -94,20 +82,15 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
                 pred,
                 np.zeros((pred.shape[0], self.lifting_function_.n_ul_))
             ))
-            if self.lifting_function_ is not None:
-                Xti = self.lifting_function_.inverse_transform(Xdp)
-            else:
-                Xti = Xdp
-            Xdi = self.delay_.inverse_transform(Xti)
-            if self.preprocessing_ is not None:
-                Xpi = self.preprocessing_.inverse_transform(Xdi)
-            else:
-                Xpi = Xdi
+            Xp = self.preprocessing_.inverse_transform(
+                self.delay_.inverse_transform(
+                    self.lifting_function_.inverse_transform(
+                        Xdp)))
             # Take only most recent time step. Strip off dummy inputs.
             if self.delay_.n_u_ == 0:
-                Xp_reduced = Xpi[:, :]
+                Xp_reduced = Xp[:, :]
             else:
-                Xp_reduced = Xpi[:, :-self.delay_.n_u_]
+                Xp_reduced = Xp[:, :-self.delay_.n_u_]
             Xp_reduced_group = np.hstack((
                 i * np.ones((Xp_reduced.shape[0], 1)),
                 Xp_reduced
