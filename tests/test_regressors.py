@@ -15,49 +15,49 @@ from sklearn import linear_model
         'exact'
     ),
     (
-        lmi.LmiEdmd(inv_method='eig'),
+        lmi.LmiEdmdTikhonovReg(alpha=0, inv_method='eig'),
         'msd-no-input',
         1e-4,
         1e-5,
         'exact'
     ),
     (
-        lmi.LmiEdmd(inv_method='inv'),
+        lmi.LmiEdmdTikhonovReg(alpha=0, inv_method='inv'),
         'msd-no-input',
         1e-4,
         1e-5,
         'exact'
     ),
     (
-        lmi.LmiEdmd(inv_method='ldl'),
+        lmi.LmiEdmdTikhonovReg(alpha=0, inv_method='ldl'),
         'msd-no-input',
         1e-4,
         1e-5,
         'exact'
     ),
     (
-        lmi.LmiEdmd(inv_method='chol'),
+        lmi.LmiEdmdTikhonovReg(alpha=0, inv_method='chol'),
         'msd-no-input',
         1e-4,
         1e-5,
         'exact'
     ),
     (
-        lmi.LmiEdmd(inv_method='sqrt'),
+        lmi.LmiEdmdTikhonovReg(alpha=0, inv_method='sqrt'),
         'msd-no-input',
         1e-4,
         1e-5,
         'exact'
     ),
     (
-        lmi.LmiEdmdTikhonovReg(inv_method='chol', alpha=1),
+        lmi.LmiEdmdTikhonovReg(alpha=1, inv_method='chol'),
         'msd-no-input',
         1e-4,
         None,
         'sklearn-ridge'
     ),
     (
-        lmi.LmiEdmdTwoNormReg(inv_method='chol', alpha=1),
+        lmi.LmiEdmdTwoNormReg(alpha=1, inv_method='chol'),
         'msd-no-input',
         1e-4,
         None,
@@ -70,7 +70,7 @@ from sklearn import linear_model
         ])
     ),
     (
-        lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1),
+        lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1, ratio=1),
         'msd-no-input',
         1e-4,
         None,
@@ -105,7 +105,8 @@ from sklearn import linear_model
         ])
     ), marks=pytest.mark.slow),
     pytest.param((
-        lmi.LmiEdmdHinfReg(inv_method='eig', max_iter=100, tol=1e-6, alpha=1),
+        lmi.LmiEdmdHinfReg(inv_method='eig', max_iter=100, tol=1e-6, alpha=1,
+                           ratio=1),
         'msd-sin-input',
         1e-4,
         None,

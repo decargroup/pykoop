@@ -3,13 +3,15 @@ import sklearn.utils.validation
 import picos
 import numpy as np
 from scipy import linalg
+import logging
 
 
-class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
+class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
+                         sklearn.base.RegressorMixin):
 
-    # TODO: The real number of minimum samples is based on the data. But this
-    # value shuts up pytest for now. Picos also requires float64 so everything
-    # is promoted.
+    # The real number of minimum samples is based on the data. But this value
+    # shuts up pytest for now. Picos also requires float64 so everything is
+    # promoted.
     _check_X_y_params = {
         'multi_output': True,
         'y_numeric': True,
@@ -17,7 +19,13 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         'ensure_min_samples': 2,
     }
 
-    def __init__(self, inv_method='eig', solver='mosek', picos_eps=1e-9):
+    # If H has a condition number higher than `_warn_cond`, a warning will be
+    # generated.
+    _warn_cond = 1e6
+
+    def __init__(self, alpha=0.0, inv_method='eig', solver='mosek',
+                 picos_eps=1e-9):
+        self.alpha = alpha
         self.inv_method = inv_method
         self.solver = solver
         self.picos_eps = picos_eps
@@ -25,7 +33,8 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
     def fit(self, X, y):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
-        problem = self._base_problem(X, y)
+        self.alpha_tikhonov_reg_ = self.alpha
+        problem = self._get_base_problem(X, y)
         problem.solve(solver=self.solver)
         self.coef_ = self._extract_solution(problem)
         return self
@@ -38,8 +47,11 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         return Theta_p.T
 
     def _validate_parameters(self):
+        # Validate alpha
+        if self.alpha < 0:
+            raise ValueError('`alpha` must be greater than zero.')
         # Validate inverse method
-        valid_inv_methods = ['inv', 'eig', 'ldl', 'chol', 'sqrt']
+        valid_inv_methods = ['inv', 'pinv', 'eig', 'ldl', 'chol', 'sqrt']
         if self.inv_method not in valid_inv_methods:
             raise ValueError('`inv_method` must be one of: '
                              f'{" ".join(valid_inv_methods)}.')
@@ -59,28 +71,27 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
             self.n_features_in_ = X.shape[1]
         return X if y is None else (X, y)
 
-    def _compute_G_H(self, Psi, Theta_p, q):
-        G = (Theta_p @ Psi.T) / q
-        H = (Psi @ Psi.T) / q
-        return G, H
-
-    def _base_problem(self, X, y):
+    def _get_base_problem(self, X, y):
         # Compute G and H
         Psi = X.T
         Theta_p = y.T
+        p = Psi.shape[0]
         q = Psi.shape[1]
-        G, H = self._compute_G_H(Psi, Theta_p, q)
+        # Compute G and Tikhonov-regularized H
+        G = (Theta_p @ Psi.T) / q
+        H = (Psi @ Psi.T + self.alpha_tikhonov_reg_ * np.eye(p)) / q
         # Check rank of H
+        cond = np.linalg.cond(H)
         rk = np.linalg.matrix_rank(H)
+        if cond > self._warn_cond:
+            logging.warning('H has a high condition number. '
+                            f'H is {H.shape[0]}x{H.shape[1]}. rk(H)={rk}. '
+                            f'cond(H) = {cond}.')
         if rk < H.shape[0]:
-            # TODO Is it possible to use a pseudo-inverse here?
-            # That would mean H could be rank deficient.
-            # TODO Condition number warning? Log it?
-            raise ValueError(
+            logging.warning(
                 'H must be full rank. '
-                f'H is {H.shape[0]}x{X.shape[1]}. rk(H)={rk}.'
-                'TODO: Loosen this requirement with a '
-                'psuedo-inverse?'
+                f'H is {H.shape[0]}x{H.shape[1]}. rk(H)={rk}. '
+                f'cond(H) = {cond}.'
             )
         # Optimization problem
         problem = picos.Problem()
@@ -94,6 +105,12 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         # Choose method to handle inverse of H
         if self.inv_method == 'inv':
             H_inv = picos.Constant('H^-1', linalg.inv(H))
+            problem.add_constraint((
+                (  Z &     U) //  # noqa: E2
+                (U.T & H_inv)
+            ) >> 0)
+        elif self.inv_method == 'pinv':
+            H_inv = picos.Constant('H^+', linalg.pinv(H))
             problem.add_constraint((
                 (  Z &     U) //  # noqa: E2
                 (U.T & H_inv)
@@ -145,30 +162,22 @@ class LmiEdmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         }
 
 
-class LmiEdmdTikhonovReg(LmiEdmd):
+class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
 
-    def __init__(self, alpha=1.0, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, alpha=1.0, ratio=1.0, inv_method='eig', solver='mosek',
+                 picos_eps=1e-9):
         self.alpha = alpha
-
-    def _compute_G_H(self, Psi, Theta_p, q):
-        G = (Theta_p @ Psi.T) / q
-        # Add in regularizer to H
-        H = (Psi @ Psi.T + self.alpha * np.eye(Psi.shape[0])) / q
-        return G, H
-
-
-class LmiEdmdTwoNormReg(LmiEdmd):
-
-    def __init__(self, alpha=1.0, **kwargs):
-        super().__init__(**kwargs)
-        self.alpha = alpha
+        self.ratio = ratio
+        self.inv_method = inv_method
+        self.solver = solver
+        self.picos_eps = picos_eps
 
     def fit(self, X, y):
-        # TODO Warn if alpha is zero?
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
-        problem = self._base_problem(X, y)
+        self.alpha_tikhonov_reg_ = self.alpha * (1 - self.ratio)
+        self.alpha_other_reg_ = self.alpha * self.ratio
+        problem = self._get_base_problem(X, y)
         self._add_twonorm(X, y, problem)
         problem.solve(solver=self.solver)
         self.coef_ = self._extract_solution(problem)
@@ -190,21 +199,38 @@ class LmiEdmdTwoNormReg(LmiEdmd):
             (U & picos.diag(gamma, p_theta))
         ) >> 0)
         # Add term to cost function
-        alpha_scaled = picos.Constant('alpha/q', self.alpha/q)
+        alpha_scaled = picos.Constant('alpha_2/q', self.alpha_other_reg_/q)
         objective += alpha_scaled * gamma**2
         problem.set_objective(direction, objective)
 
+    def _validate_parameters(self):
+        if self.alpha == 0:
+            raise ValueError('Value of `alpha` should not be zero. Use '
+                             '`LmiEdmdTikhonovReg()` if you want to disable '
+                             'regularization.')
+        if self.ratio == 0:
+            raise ValueError('Value of `ratio` should not be zero. Use '
+                             '`LmiEdmdTikhonovReg()` if you want to disable '
+                             'regularization.')
+        super()._validate_parameters()
 
-class LmiEdmdNuclearNormReg(LmiEdmd):
 
-    def __init__(self, alpha=1.0, **kwargs):
-        super().__init__(**kwargs)
+class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
+
+    def __init__(self, alpha=1.0, ratio=1.0, inv_method='eig', solver='mosek',
+                 picos_eps=1e-9):
         self.alpha = alpha
+        self.ratio = ratio
+        self.inv_method = inv_method
+        self.solver = solver
+        self.picos_eps = picos_eps
 
     def fit(self, X, y):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
-        problem = self._base_problem(X, y)
+        self.alpha_tikhonov_reg_ = self.alpha * (1 - self.ratio)
+        self.alpha_other_reg_ = self.alpha * self.ratio
+        problem = self._get_base_problem(X, y)
         self._add_nuclear(X, y, problem)
         problem.solve(solver=self.solver)
         self.coef_ = self._extract_solution(problem)
@@ -230,22 +256,38 @@ class LmiEdmdNuclearNormReg(LmiEdmd):
             (U.T & W_2)
         ) >> 0)
         # Add term to cost function
-        alpha_scaled = picos.Constant('alpha/q', self.alpha/q)
+        alpha_scaled = picos.Constant('alpha_*/q', self.alpha_other_reg_/q)
         objective += alpha_scaled * gamma**2
         problem.set_objective(direction, objective)
 
+    def _validate_parameters(self):
+        if self.alpha == 0:
+            raise ValueError('Value of `alpha` should not be zero. Use '
+                             '`LmiEdmdTikhonovReg()` if you want to disable '
+                             'regularization.')
+        if self.ratio == 0:
+            raise ValueError('Value of `ratio` should not be zero. Use '
+                             '`LmiEdmdTikhonovReg()` if you want to disable '
+                             'regularization.')
+        super()._validate_parameters()
 
-class LmiEdmdSpectralRadiusConstr(LmiEdmd):
 
-    def __init__(self, rho_bar=1.0, max_iter=100, tol=1e-6, **kwargs):
-        super().__init__(**kwargs)
+class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
+
+    def __init__(self, rho_bar=1.0, alpha=0, max_iter=100, tol=1e-6,
+                 inv_method='eig', solver='mosek', picos_eps=1e-9):
         self.rho_bar = rho_bar
+        self.alpha = alpha
         self.max_iter = max_iter
         self.tol = tol
+        self.inv_method = inv_method
+        self.solver = solver
+        self.picos_eps = picos_eps
 
     def fit(self, X, y):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
+        self.alpha_tikhonov_reg_ = self.alpha
         # Get needed sizes
         p_theta = y.shape[1]
         p = X.shape[1]
@@ -254,8 +296,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmd):
         U_prev = np.zeros((p_theta, p))
         for k in range(self.max_iter):
             # Formulate Problem A
-            problem_a = self._base_problem(X, y)
-            self._add_constraint_a(X, y, Gamma, problem_a)
+            problem_a = self._get_problem_a(X, y, Gamma)
             # Solve Problem A
             problem_a.solve(solver=self.solver)
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
@@ -281,7 +322,8 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmd):
         self.P_ = P
         return self
 
-    def _add_constraint_a(self, X, y, Gamma, problem_a):
+    def _get_problem_a(self, X, y, Gamma):
+        problem_a = self._get_base_problem(X, y)
         # Extract information from problem
         U = problem_a.variables['U']
         # Get needed sizes
@@ -295,6 +337,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmd):
             (rho_bar_sq * P & U[:, :p_theta].T * Gamma) //
             (Gamma.T * U[:, :p_theta] & Gamma + Gamma.T - P)
         ) >> self.picos_eps)
+        return problem_a
 
     def _get_problem_b(self, X, y, U, P):
         # Create optimization problem
@@ -317,17 +360,23 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmd):
         return problem_b
 
 
-class LmiEdmdHinfReg(LmiEdmd):
+class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
 
-    def __init__(self, alpha=1.0, max_iter=100, tol=1e-6, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, alpha=1.0, ratio=1.0, max_iter=100, tol=1e-6,
+                 inv_method='eig', solver='mosek', picos_eps=1e-9):
         self.alpha = alpha
+        self.ratio = ratio
         self.max_iter = max_iter
         self.tol = tol
+        self.inv_method = inv_method
+        self.solver = solver
+        self.picos_eps = picos_eps
 
     def fit(self, X, y):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
+        self.alpha_tikhonov_reg_ = self.alpha * (1 - self.ratio)
+        self.alpha_other_reg_ = self.alpha * self.ratio
         # Get needed sizes
         p_theta = y.shape[1]
         p = X.shape[1]
@@ -344,8 +393,7 @@ class LmiEdmdHinfReg(LmiEdmd):
         U_prev = np.zeros((p_theta, p))
         for k in range(self.max_iter):
             # Formulate Problem A
-            problem_a = self._base_problem(X, y)
-            self._add_regularizer_a(X, y, P, problem_a)
+            problem_a = self._get_problem_a(X, y, P)
             # Solve Problem A
             problem_a.solve(solver=self.solver)
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
@@ -371,7 +419,8 @@ class LmiEdmdHinfReg(LmiEdmd):
         self.gamma_ = gamma
         return self
 
-    def _add_regularizer_a(self, X, y, P, problem_a):
+    def _get_problem_a(self, X, y, P):
+        problem_a = self._get_base_problem(X, y)
         # Extract information from problem
         U = problem_a.variables['U']
         direction = problem_a.objective.direction
@@ -397,9 +446,10 @@ class LmiEdmdHinfReg(LmiEdmd):
             (zero14.T &    C*P.T &      D &  geye2)     # noqa
         ) >> self.picos_eps)
         # Add term to cost function
-        alpha_scaled = picos.Constant('alpha/q', self.alpha/q)
+        alpha_scaled = picos.Constant('alpha_inf/q', self.alpha_other_reg_/q)
         objective += alpha_scaled * gamma**2
         problem_a.set_objective(direction, objective)
+        return problem_a
 
     def _get_problem_b(self, X, y, U, gamma):
         # Create optimization problem
@@ -431,8 +481,19 @@ class LmiEdmdHinfReg(LmiEdmd):
         problem_b.set_objective('find')
         return problem_b
 
+    def _validate_parameters(self):
+        if self.alpha == 0:
+            raise ValueError('Value of `alpha` should not be zero. Use '
+                             '`LmiEdmdTikhonovReg()` if you want to disable '
+                             'regularization.')
+        if self.ratio == 0:
+            raise ValueError('Value of `ratio` should not be zero. Use '
+                             '`LmiEdmdTikhonovReg()` if you want to disable '
+                             'regularization.')
+        super()._validate_parameters()
 
-class LmiEdmdDissipativityConstr(LmiEdmd):
+
+class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
     """See hara_2019_learning
 
     Supply rate:
@@ -454,14 +515,19 @@ class LmiEdmdDissipativityConstr(LmiEdmd):
     Currently not fully tested!
     """
 
-    def __init__(self, max_iter=100, tol=1e-6, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, alpha=0.0, max_iter=100, tol=1e-6,
+                 inv_method='eig', solver='mosek', picos_eps=1e-9):
+        self.alpha = 0
         self.max_iter = max_iter
         self.tol = tol
+        self.inv_method = inv_method
+        self.solver = solver
+        self.picos_eps = picos_eps
 
     def fit(self, X, y, supply_rate_xi=None):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
+        self.alpha_tikhonov_reg_ = self.alpha
         self.supply_rate_xi_ = supply_rate_xi
         # Get needed sizes
         p_theta = y.shape[1]
@@ -496,7 +562,7 @@ class LmiEdmdDissipativityConstr(LmiEdmd):
         return self
 
     def _get_problem_a(self, X, y, P):
-        problem_a = self._base_problem(X, y)
+        problem_a = self._get_base_problem(X, y)
         # Extract information from problem
         U = problem_a.variables['U']
         # Get needed sizes
