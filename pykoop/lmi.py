@@ -106,45 +106,45 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
         # Choose method to handle inverse of H
         if self.inv_method == 'inv':
             H_inv = picos.Constant('H^-1', linalg.inv(H))
-            problem.add_constraint((
-                (  Z &     U) //  # noqa: E2
-                (U.T & H_inv)
-            ) >> 0)
+            problem.add_constraint(picos.block([
+                [  Z,     U],  # noqa: E201
+                [U.T, H_inv]
+            ]) >> 0)
         elif self.inv_method == 'pinv':
             H_inv = picos.Constant('H^+', linalg.pinv(H))
-            problem.add_constraint((
-                (  Z &     U) //  # noqa: E2
-                (U.T & H_inv)
-            ) >> 0)
+            problem.add_constraint(picos.block([
+                [  Z,     U],  # noqa: E201
+                [U.T, H_inv]
+            ]) >> 0)
         elif self.inv_method == 'eig':
             lmb, V = linalg.eigh(H)
             VsqrtLmb = picos.Constant('(V Lambda^(1/2))',
                                       V @ np.diag(np.sqrt(lmb)))
-            problem.add_constraint((
-                (               Z &       U * VsqrtLmb) //  # noqa: E2
-                (VsqrtLmb.T * U.T & np.eye(U.shape[1]))     # noqa: E2
-            ) >> 0)
+            problem.add_constraint(picos.block([
+                [               Z, U * VsqrtLmb],  # noqa: E201
+                [VsqrtLmb.T * U.T,          'I']
+            ]) >> 0)
         elif self.inv_method == 'ldl':
             L, D, _ = linalg.ldl(H)
             LsqrtD = picos.Constant('(L D^(1/2))', L @ np.sqrt(D))
-            problem.add_constraint((
-                (             Z &         U * LsqrtD) //  # noqa: E2
-                (LsqrtD.T * U.T & np.eye(U.shape[1]))     # noqa: E2
-            ) >> 0)
+            problem.add_constraint(picos.block([
+                [             Z, U * LsqrtD],  # noqa: E201
+                [LsqrtD.T * U.T,        'I']
+            ]) >> 0)
         elif self.inv_method == 'chol':
             L = picos.Constant('L', linalg.cholesky(H, lower=True))
-            problem.add_constraint((
-                (        Z &              U * L) //  # noqa: E2
-                (L.T * U.T & np.eye(U.shape[1]))
-            ) >> 0)
+            problem.add_constraint(picos.block([
+                [        Z, U * L],  # noqa: E201
+                [L.T * U.T,   'I']
+            ]) >> 0)
         elif self.inv_method == 'sqrt':
             # Since H is symmetric, its square root is symmetric.
             # Otherwise, this would not work!
             sqrtH = picos.Constant('sqrt(H)', linalg.sqrtm(H))
-            problem.add_constraint((
-                (            Z &          U * sqrtH) //  # noqa: E2
-                (sqrtH.T * U.T & np.eye(U.shape[1]))
-            ) >> 0)
+            problem.add_constraint(picos.block([
+                [            Z, U * sqrtH],  # noqa: E201
+                [sqrtH.T * U.T,       'I']
+            ]) >> 0)
         else:
             # Should never get here since input validation is done in `fit()`.
             raise ValueError('Invalid value for `inv_method`.')
@@ -196,10 +196,10 @@ class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
         q = X.shape[0]
         # Add new constraint
         gamma = picos.RealVariable('gamma', 1)
-        problem.add_constraint((
-            (picos.diag(gamma, p) & U.T) //
-            (U & picos.diag(gamma, p_theta))
-        ) >> 0)
+        problem.add_constraint(picos.block([
+            [picos.diag(gamma, p),                        U.T],
+            [                   U, picos.diag(gamma, p_theta)]  # noqa: E201
+        ]) >> 0)
         # Add term to cost function
         alpha_scaled = picos.Constant('alpha_2/q', self.alpha_other_reg_/q)
         objective += alpha_scaled * gamma**2
@@ -254,10 +254,10 @@ class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
         W_2 = picos.SymmetricVariable('W_2', (p, p))
         problem.add_constraint(picos.trace(W_1) + picos.trace(W_2)
                                <= 2 * gamma)
-        problem.add_constraint((
-            (W_1 & U) //
-            (U.T & W_2)
-        ) >> 0)
+        problem.add_constraint(picos.block([
+            [W_1,   U],
+            [U.T, W_2]
+        ]) >> 0)
         # Add term to cost function
         alpha_scaled = picos.Constant('alpha_*/q', self.alpha_other_reg_/q)
         objective += alpha_scaled * gamma**2
@@ -338,10 +338,10 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
         Gamma = picos.Constant('Gamma', Gamma)
         P = picos.SymmetricVariable('P', p_theta)
         problem_a.add_constraint(P >> self.picos_eps)
-        problem_a.add_constraint((
-            (rho_bar_sq * P & U[:, :p_theta].T * Gamma) //
-            (Gamma.T * U[:, :p_theta] & Gamma + Gamma.T - P)
-        ) >> self.picos_eps)
+        problem_a.add_constraint(picos.block([
+            [          rho_bar_sq * P, U[:, :p_theta].T * Gamma],  # noqa: E201
+            [Gamma.T * U[:, :p_theta],      Gamma + Gamma.T - P]
+        ]) >> self.picos_eps)
         return problem_a
 
     def _get_problem_b(self, X, y, U, P):
@@ -356,10 +356,10 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
         # Create variables
         Gamma = picos.RealVariable('Gamma', P.shape)
         # Add constraints
-        problem_b.add_constraint((
-            (rho_bar_sq * P & U[:, :p_theta].T * Gamma) //
-            (Gamma.T * U[:, :p_theta] & Gamma + Gamma.T - P)
-        ) >> self.picos_eps)
+        problem_b.add_constraint(picos.block([
+            [          rho_bar_sq * P, U[:, :p_theta].T * Gamma],  # noqa: E201
+            [Gamma.T * U[:, :p_theta],      Gamma + Gamma.T - P]
+        ]) >> self.picos_eps)
         # Set objective
         problem_b.set_objective('find')
         return problem_b
@@ -442,16 +442,14 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         B = U[:p_theta, p_theta:]
         C = np.eye(p_theta)
         D = np.zeros((C.shape[0], B.shape[1]))
-        zero14 = np.zeros(C.T.shape)
-        zero23 = np.zeros(B.shape)
-        geye1 = gamma * np.eye(D.shape[1])
-        geye2 = gamma * np.eye(D.shape[0])
-        problem_a.add_constraint((
-            (       P &      A*P &      B & zero14) //  # noqa
-            ( P.T*A.T &        P & zero23 &  P*C.T) //  # noqa
-            (     B.T & zero23.T &  geye1 &    D.T) //  # noqa
-            (zero14.T &    C*P.T &      D &  geye2)     # noqa
-        ) >> self.picos_eps)
+        gamma_33 = picos.diag(gamma, D.shape[1])
+        gamma_44 = picos.diag(gamma, D.shape[0])
+        problem_a.add_constraint(picos.block([
+            [      P,   A*P,        B,        0],  # noqa: E201
+            [P.T*A.T,     P,        0,    P*C.T],
+            [    B.T,     0, gamma_33,      D.T],  # noqa: E201
+            [      0, C*P.T,        D, gamma_44]   # noqa: E201
+        ]) >> self.picos_eps)
         # Add term to cost function
         alpha_scaled = picos.Constant('alpha_inf/q', self.alpha_other_reg_/q)
         objective += alpha_scaled * gamma**2
@@ -474,16 +472,14 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         B = U[:p_theta, p_theta:]
         C = np.eye(p_theta)
         D = np.zeros((C.shape[0], B.shape[1]))
-        zero14 = np.zeros(C.T.shape)
-        zero23 = np.zeros(B.shape)
-        geye1 = gamma * np.eye(D.shape[1])
-        geye2 = gamma * np.eye(D.shape[0])
-        problem_b.add_constraint((
-            (       P &      A*P &      B & zero14) //  # noqa
-            ( P.T*A.T &        P & zero23 &  P*C.T) //  # noqa
-            (     B.T & zero23.T &  geye1 &    D.T) //  # noqa
-            (zero14.T &    C*P.T &      D &  geye2)     # noqa
-        ) >> self.picos_eps)
+        gamma_33 = picos.diag(gamma, D.shape[1])
+        gamma_44 = picos.diag(gamma, D.shape[0])
+        problem_b.add_constraint(picos.block([
+            [      P,   A*P,        B,        0],  # noqa: E201
+            [P.T*A.T,     P,        0,    P*C.T],
+            [    B.T,     0, gamma_33,      D.T],  # noqa: E201
+            [      0, C*P.T,        D, gamma_44]   # noqa: E201
+        ]) >> self.picos_eps)
         # Set objective
         problem_b.set_objective('find')
         return problem_b
@@ -587,11 +583,11 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
                               self.supply_rate_xi_[:p_theta, p_theta:])
         Xi22 = picos.Constant('Xi_22',
                               self.supply_rate_xi_[p_theta:, p_theta:])
-        problem_a.add_constraint((
-            (P - C.T*Xi11*C & -C.T*Xi12 & A.T*P) //
-            (     -Xi12.T*C &     -Xi22 & B.T*P) //  # noqa: E201 E221 E222
-            (           P*A &       P*B &     P)     # noqa: E201 E222
-        ) >> self.picos_eps)
+        problem_a.add_constraint(picos.block([
+            [P - C.T*Xi11*C, -C.T*Xi12, A.T*P],
+            [     -Xi12.T*C,     -Xi22, B.T*P],  # noqa: E201 E221
+            [           P*A,       P*B,     P]   # noqa: E201
+        ]) >> self.picos_eps)
         return problem_a
 
     def _get_problem_b(self, X, y, U):
@@ -614,11 +610,11 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
         Xi22 = picos.Constant('Xi_22',
                               self.supply_rate_xi_[p_theta:, p_theta:])
         problem_b.add_constraint(P >> self.picos_eps)
-        problem_b.add_constraint((
-            (P - C.T*Xi11*C & -C.T*Xi12 & A.T*P) //
-            (     -Xi12.T*C &     -Xi22 & B.T*P) //  # noqa: E201 E221 E222
-            (           P*A &       P*B &     P)     # noqa: E201 E222
-        ) >> self.picos_eps)
+        problem_b.add_constraint(picos.block([
+            [P - C.T*Xi11*C, -C.T*Xi12, A.T*P],
+            [     -Xi12.T*C,     -Xi22, B.T*P],  # noqa: E201 E221
+            [           P*A,       P*B,     P],  # noqa: E201 E222
+        ]) >> self.picos_eps)
         # Set objective
         problem_b.set_objective('find')
         return problem_b
