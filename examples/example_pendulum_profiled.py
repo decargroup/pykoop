@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import integrate
 from dynamics import pendulum
-from pykoop import koopman_pipeline, lifting_functions, lmi
+from pykoop import koopman_pipeline, lifting_functions, lmi, dmd
 from sklearn import preprocessing
 import cProfile
 import pstats
@@ -33,14 +33,17 @@ kp = koopman_pipeline.KoopmanPipeline(
     delay=lifting_functions.Delay(n_delay_x=1, n_delay_u=1),
     lifting_function=lifting_functions.PolynomialLiftingFn(order=2),
     # estimator=dmd.Edmd()
-    estimator=lmi.LmiEdmdTikhonovReg(alpha=1, inv_method='eig')
+    estimator=lmi.LmiEdmdTikhonovReg(alpha=1e-6, inv_method='sqrt',
+                                     solver='mosek')
 )
 
 # Set up profiling
-pr = cProfile.Profile()
-pr.enable()
+# pr = cProfile.Profile()
+# pr.enable()
 # Run profiled code
 kp.fit(X.T, n_u=1)
+score = kp.score(X.T)
+print(f'score = {score}')
 # Print profiling stats
-ps = pstats.Stats(pr)
-ps.strip_dirs().sort_stats('cumtime').reverse_order().print_stats()
+# ps = pstats.Stats(pr)
+# ps.strip_dirs().sort_stats('cumtime').print_stats()
