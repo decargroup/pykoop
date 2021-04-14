@@ -5,6 +5,10 @@ import numpy as np
 from scipy import linalg
 import logging
 
+# TODO Decide how to handle solve(primals=..., duals=...).
+# Should it crash when it can't find a solution?
+# Should I just catch the exception?
+
 
 class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
                          sklearn.base.RegressorMixin):
@@ -24,11 +28,12 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
     _warn_cond = 1e6
 
     def __init__(self, alpha=0.0, inv_method='chol', solver='mosek',
-                 picos_eps=1e-9, verbose=False):
+                 picos_eps=1e-9, picos_tol='solver', verbose=False):
         self.alpha = alpha
         self.inv_method = inv_method
         self.solver = solver
         self.picos_eps = picos_eps
+        self.picos_tol = picos_tol
         self.verbose = verbose
 
     def fit(self, X, y):
@@ -61,6 +66,11 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
         if self.solver not in valid_solvers:
             raise ValueError('`solver` must be one of: '
                              f'{", ".join(valid_solvers)}.')
+        # Validate picos_tol
+        valid_picos_tol = ['solver', 'picos']
+        if self.picos_tol not in valid_picos_tol:
+            raise ValueError('`picos_tol` must be one of: '
+                             f'{", ".join(valid_picos_tol)}.')
 
     def _validate_data(self, X, y=None, reset=True, **check_array_params):
         if y is None:
@@ -96,6 +106,10 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
             )
         # Optimization problem
         problem = picos.Problem()
+        # Set tolerance to solver default. Otherwise they are left at the picos
+        # default.
+        if self.picos_tol == 'solver':
+            problem.options['*_tol'] = None
         # Constants
         G_T = picos.Constant('G^T', G.T)
         # Variables
@@ -166,12 +180,13 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
 class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
 
     def __init__(self, alpha=1.0, ratio=1.0, inv_method='chol', solver='mosek',
-                 picos_eps=1e-9, verbose=False):
+                 picos_eps=1e-9, picos_tol='solver', verbose=False):
         self.alpha = alpha
         self.ratio = ratio
         self.inv_method = inv_method
         self.solver = solver
         self.picos_eps = picos_eps
+        self.picos_tol = picos_tol
         self.verbose = verbose
 
     def fit(self, X, y):
@@ -220,12 +235,13 @@ class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
 class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
 
     def __init__(self, alpha=1.0, ratio=1.0, inv_method='chol', solver='mosek',
-                 picos_eps=1e-9, verbose=False):
+                 picos_eps=1e-9, picos_tol='solver', verbose=False):
         self.alpha = alpha
         self.ratio = ratio
         self.inv_method = inv_method
         self.solver = solver
         self.picos_eps = picos_eps
+        self.picos_tol = picos_tol
         self.verbose = verbose
 
     def fit(self, X, y):
@@ -279,7 +295,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
 
     def __init__(self, rho_bar=1.0, alpha=0, max_iter=100, tol=1e-6,
                  inv_method='chol', solver='mosek', picos_eps=1e-9,
-                 verbose=False):
+                 picos_tol='solver', verbose=False):
         self.rho_bar = rho_bar
         self.alpha = alpha
         self.max_iter = max_iter
@@ -287,6 +303,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
         self.inv_method = inv_method
         self.solver = solver
         self.picos_eps = picos_eps
+        self.picos_tol = picos_tol
         self.verbose = verbose
 
     def fit(self, X, y):
@@ -347,6 +364,10 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
     def _get_problem_b(self, X, y, U, P):
         # Create optimization problem
         problem_b = picos.Problem()
+        # Set tolerance to solver default. Otherwise they are left at the picos
+        # default.
+        if self.picos_tol == 'solver':
+            problem_b.options['*_tol'] = None
         # Get needed sizes
         p_theta = U.shape[0]
         # Create constants
@@ -369,7 +390,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
 
     def __init__(self, alpha=1.0, ratio=1.0, max_iter=100, tol=1e-6,
                  inv_method='chol', solver='mosek', picos_eps=1e-9,
-                 verbose=False):
+                 picos_tol='solver', verbose=False):
         self.alpha = alpha
         self.ratio = ratio
         self.max_iter = max_iter
@@ -377,6 +398,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         self.inv_method = inv_method
         self.solver = solver
         self.picos_eps = picos_eps
+        self.picos_tol = picos_tol
         self.verbose = verbose
 
     def fit(self, X, y):
@@ -459,6 +481,10 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
     def _get_problem_b(self, X, y, U, gamma):
         # Create optimization problem
         problem_b = picos.Problem()
+        # Set tolerance to solver default. Otherwise they are left at the picos
+        # default.
+        if self.picos_tol == 'solver':
+            problem_b.options['*_tol'] = None
         # Get needed sizes
         p_theta = U.shape[0]
         # Create constants
@@ -520,13 +546,14 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
 
     def __init__(self, alpha=0.0, max_iter=100, tol=1e-6,
                  inv_method='chol', solver='mosek', picos_eps=1e-9,
-                 verbose=False):
+                 picos_tol='solver', verbose=False):
         self.alpha = 0
         self.max_iter = max_iter
         self.tol = tol
         self.inv_method = inv_method
         self.solver = solver
         self.picos_eps = picos_eps
+        self.picos_tol = picos_tol
         self.verbose = verbose
 
     def fit(self, X, y, supply_rate_xi=None):
@@ -593,6 +620,10 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
     def _get_problem_b(self, X, y, U):
         # Create optimization problem
         problem_b = picos.Problem()
+        # Set tolerance to solver default. Otherwise they are left at the picos
+        # default.
+        if self.picos_tol == 'solver':
+            problem_b.options['*_tol'] = None
         # Get needed sizes
         p_theta = U.shape[0]
         # Create constants
