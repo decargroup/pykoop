@@ -54,12 +54,12 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
         valid_inv_methods = ['inv', 'pinv', 'eig', 'ldl', 'chol', 'sqrt']
         if self.inv_method not in valid_inv_methods:
             raise ValueError('`inv_method` must be one of: '
-                             f'{" ".join(valid_inv_methods)}.')
+                             f'{", ".join(valid_inv_methods)}.')
         # Validate solver
-        valid_solvers = [None, 'mosek']
+        valid_solvers = [None, 'mosek', 'cvxopt', 'smcp']
         if self.solver not in valid_solvers:
             raise ValueError('`solver` must be one of: '
-                             f'{" ".join(valid_solvers)}.')
+                             f'{", ".join(valid_solvers)}.')
 
     def _validate_data(self, X, y=None, reset=True, **check_array_params):
         if y is None:
