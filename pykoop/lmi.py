@@ -23,19 +23,20 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
     # generated.
     _warn_cond = 1e6
 
-    def __init__(self, alpha=0.0, inv_method='eig', solver='mosek',
-                 picos_eps=1e-9):
+    def __init__(self, alpha=0.0, inv_method='chol', solver='mosek',
+                 picos_eps=1e-9, verbose=False):
         self.alpha = alpha
         self.inv_method = inv_method
         self.solver = solver
         self.picos_eps = picos_eps
+        self.verbose = verbose
 
     def fit(self, X, y):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha
         problem = self._get_base_problem(X, y)
-        problem.solve(solver=self.solver)
+        problem.solve(solver=self.solver, verbose=self.verbose)
         self.coef_ = self._extract_solution(problem)
         return self
 
@@ -164,13 +165,14 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
 
 class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
 
-    def __init__(self, alpha=1.0, ratio=1.0, inv_method='eig', solver='mosek',
-                 picos_eps=1e-9):
+    def __init__(self, alpha=1.0, ratio=1.0, inv_method='chol', solver='mosek',
+                 picos_eps=1e-9, verbose=False):
         self.alpha = alpha
         self.ratio = ratio
         self.inv_method = inv_method
         self.solver = solver
         self.picos_eps = picos_eps
+        self.verbose = verbose
 
     def fit(self, X, y):
         self._validate_parameters()
@@ -179,7 +181,7 @@ class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
         self.alpha_other_reg_ = self.alpha * self.ratio
         problem = self._get_base_problem(X, y)
         self._add_twonorm(X, y, problem)
-        problem.solve(solver=self.solver)
+        problem.solve(solver=self.solver, verbose=self.verbose)
         self.coef_ = self._extract_solution(problem)
         return self
 
@@ -217,13 +219,14 @@ class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
 
 class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
 
-    def __init__(self, alpha=1.0, ratio=1.0, inv_method='eig', solver='mosek',
-                 picos_eps=1e-9):
+    def __init__(self, alpha=1.0, ratio=1.0, inv_method='chol', solver='mosek',
+                 picos_eps=1e-9, verbose=False):
         self.alpha = alpha
         self.ratio = ratio
         self.inv_method = inv_method
         self.solver = solver
         self.picos_eps = picos_eps
+        self.verbose = verbose
 
     def fit(self, X, y):
         self._validate_parameters()
@@ -232,7 +235,7 @@ class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
         self.alpha_other_reg_ = self.alpha * self.ratio
         problem = self._get_base_problem(X, y)
         self._add_nuclear(X, y, problem)
-        problem.solve(solver=self.solver)
+        problem.solve(solver=self.solver, verbose=self.verbose)
         self.coef_ = self._extract_solution(problem)
         return self
 
@@ -275,7 +278,8 @@ class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
 class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
 
     def __init__(self, rho_bar=1.0, alpha=0, max_iter=100, tol=1e-6,
-                 inv_method='eig', solver='mosek', picos_eps=1e-9):
+                 inv_method='chol', solver='mosek', picos_eps=1e-9,
+                 verbose=False):
         self.rho_bar = rho_bar
         self.alpha = alpha
         self.max_iter = max_iter
@@ -283,6 +287,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
         self.inv_method = inv_method
         self.solver = solver
         self.picos_eps = picos_eps
+        self.verbose = verbose
 
     def fit(self, X, y):
         self._validate_parameters()
@@ -363,7 +368,8 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
 class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
 
     def __init__(self, alpha=1.0, ratio=1.0, max_iter=100, tol=1e-6,
-                 inv_method='eig', solver='mosek', picos_eps=1e-9):
+                 inv_method='chol', solver='mosek', picos_eps=1e-9,
+                 verbose=False):
         self.alpha = alpha
         self.ratio = ratio
         self.max_iter = max_iter
@@ -371,6 +377,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         self.inv_method = inv_method
         self.solver = solver
         self.picos_eps = picos_eps
+        self.verbose = verbose
 
     def fit(self, X, y):
         self._validate_parameters()
@@ -516,13 +523,15 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
     """
 
     def __init__(self, alpha=0.0, max_iter=100, tol=1e-6,
-                 inv_method='eig', solver='mosek', picos_eps=1e-9):
+                 inv_method='chol', solver='mosek', picos_eps=1e-9,
+                 verbose=False):
         self.alpha = 0
         self.max_iter = max_iter
         self.tol = tol
         self.inv_method = inv_method
         self.solver = solver
         self.picos_eps = picos_eps
+        self.verbose = verbose
 
     def fit(self, X, y, supply_rate_xi=None):
         self._validate_parameters()
