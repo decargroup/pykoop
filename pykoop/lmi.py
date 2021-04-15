@@ -320,13 +320,13 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
             # Formulate Problem A
             problem_a = self._get_problem_a(X, y, Gamma)
             # Solve Problem A
-            problem_a.solve(solver=self.solver)
+            problem_a.solve(solver=self.solver, verbose=self.verbose)
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             P = np.array(problem_a.get_valued_variable('P'), ndmin=2)
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U, P)
             # Solve Problem B
-            problem_b.solve(solver=self.solver)
+            problem_b.solve(solver=self.solver, verbose=self.verbose)
             Gamma = np.array(problem_b.get_valued_variable('Gamma'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
@@ -424,13 +424,13 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
             # Formulate Problem A
             problem_a = self._get_problem_a(X, y, P)
             # Solve Problem A
-            problem_a.solve(solver=self.solver)
+            problem_a.solve(solver=self.solver, verbose=self.verbose)
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             gamma = np.array(problem_a.get_valued_variable('gamma'))
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U, gamma)
             # Solve Problem B
-            problem_b.solve(solver=self.solver)
+            problem_b.solve(solver=self.solver, verbose=self.verbose)
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
@@ -571,12 +571,12 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
             # Formulate Problem A
             problem_a = self._get_problem_a(X, y, P)
             # Solve Problem A
-            problem_a.solve(solver=self.solver)
+            problem_a.solve(solver=self.solver, verbose=self.verbose)
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U)
             # Solve Problem B
-            problem_b.solve(solver=self.solver)
+            problem_b.solve(solver=self.solver, verbose=self.verbose)
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
