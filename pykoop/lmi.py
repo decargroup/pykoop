@@ -422,12 +422,16 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         U_prev = np.zeros((p_theta, p))
         for k in range(self.max_iter):
             # Formulate Problem A
+            if self.verbose:
+                print(f'Iteration A: {k}')
             problem_a = self._get_problem_a(X, y, P)
             # Solve Problem A
             problem_a.solve(solver=self.solver, verbose=self.verbose)
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             gamma = np.array(problem_a.get_valued_variable('gamma'))
             # Formulate Problem B
+            if self.verbose:
+                print(f'Iteration B: {k}')
             problem_b = self._get_problem_b(X, y, U, gamma)
             # Solve Problem B
             problem_b.solve(solver=self.solver, verbose=self.verbose)
