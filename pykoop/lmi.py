@@ -4,6 +4,7 @@ import picos
 import numpy as np
 from scipy import linalg
 import logging
+import functools
 
 # TODO Decide how to handle solve(primals=..., duals=...).
 # Should it crash when it can't find a solution?
@@ -27,21 +28,19 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
     # generated.
     _warn_cond = 1e6
 
-    def __init__(self, alpha=0.0, inv_method='chol', solver='mosek',
-                 picos_eps=1e-9, picos_tol='solver', verbose=False):
+    def __init__(self, alpha=0.0, inv_method='chol', picos_eps=0,
+                 **solver_params):
         self.alpha = alpha
         self.inv_method = inv_method
-        self.solver = solver
         self.picos_eps = picos_eps
-        self.picos_tol = picos_tol
-        self.verbose = verbose
+        self.solver_params = solver_params
 
     def fit(self, X, y):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha
         problem = self._get_base_problem(X, y)
-        problem.solve(solver=self.solver, verbose=self.verbose)
+        problem.solve(**self.solver_params)
         self.coef_ = self._extract_solution(problem)
         return self
 
@@ -61,16 +60,6 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
         if self.inv_method not in valid_inv_methods:
             raise ValueError('`inv_method` must be one of: '
                              f'{", ".join(valid_inv_methods)}.')
-        # Validate solver
-        valid_solvers = [None, 'mosek', 'cvxopt', 'smcp']
-        if self.solver not in valid_solvers:
-            raise ValueError('`solver` must be one of: '
-                             f'{", ".join(valid_solvers)}.')
-        # Validate picos_tol
-        valid_picos_tol = ['solver', 'picos']
-        if self.picos_tol not in valid_picos_tol:
-            raise ValueError('`picos_tol` must be one of: '
-                             f'{", ".join(valid_picos_tol)}.')
 
     def _validate_data(self, X, y=None, reset=True, **check_array_params):
         if y is None:
@@ -83,33 +72,10 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
         return X if y is None else (X, y)
 
     def _get_base_problem(self, X, y):
-        # Compute G and H
-        Psi = X.T
-        Theta_p = y.T
-        p = Psi.shape[0]
-        q = Psi.shape[1]
-        # Compute G and Tikhonov-regularized H
-        G = (Theta_p @ Psi.T) / q
-        H = (Psi @ Psi.T + self.alpha_tikhonov_reg_ * np.eye(p)) / q
-        # Check rank of H
-        cond = np.linalg.cond(H)
-        rk = np.linalg.matrix_rank(H)
-        if cond > self._warn_cond:
-            logging.warning('H has a high condition number. '
-                            f'H is {H.shape[0]}x{H.shape[1]}. rk(H)={rk}. '
-                            f'cond(H) = {cond}.')
-        if rk < H.shape[0]:
-            logging.warning(
-                'H must be full rank. '
-                f'H is {H.shape[0]}x{H.shape[1]}. rk(H)={rk}. '
-                f'cond(H) = {cond}.'
-            )
+        G, H, stats = _calc_G_H(X, y, self.alpha_tikhonov_reg_)
+        logging.info("_calc_G_H() stats: " + str(stats))
         # Optimization problem
         problem = picos.Problem()
-        # Set tolerance to solver default. Otherwise they are left at the picos
-        # default.
-        if self.picos_tol == 'solver':
-            problem.options['*_tol'] = None
         # Constants
         G_T = picos.Constant('G^T', G.T)
         # Variables
@@ -119,42 +85,37 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
         problem.add_constraint(Z >> self.picos_eps)
         # Choose method to handle inverse of H
         if self.inv_method == 'inv':
-            H_inv = picos.Constant('H^-1', linalg.inv(H))
+            H_inv = picos.Constant('H^-1', _calc_Hinv(H))
             problem.add_constraint(picos.block([
                 [  Z,     U],  # noqa: E201
                 [U.T, H_inv]
             ]) >> 0)
         elif self.inv_method == 'pinv':
-            H_inv = picos.Constant('H^+', linalg.pinv(H))
+            H_inv = picos.Constant('H^+', _calc_Hpinv(H))
             problem.add_constraint(picos.block([
                 [  Z,     U],  # noqa: E201
                 [U.T, H_inv]
             ]) >> 0)
         elif self.inv_method == 'eig':
-            lmb, V = linalg.eigh(H)
-            VsqrtLmb = picos.Constant('(V Lambda^(1/2))',
-                                      V @ np.diag(np.sqrt(lmb)))
+            VsqrtLmb = picos.Constant('(V Lambda^(1/2))', _calc_VsqrtLmb(H))
             problem.add_constraint(picos.block([
                 [               Z, U * VsqrtLmb],  # noqa: E201
                 [VsqrtLmb.T * U.T,          'I']
             ]) >> 0)
         elif self.inv_method == 'ldl':
-            L, D, _ = linalg.ldl(H)
-            LsqrtD = picos.Constant('(L D^(1/2))', L @ np.sqrt(D))
+            LsqrtD = picos.Constant('(L D^(1/2))', _calc_LsqrtD(H))
             problem.add_constraint(picos.block([
                 [             Z, U * LsqrtD],  # noqa: E201
                 [LsqrtD.T * U.T,        'I']
             ]) >> 0)
         elif self.inv_method == 'chol':
-            L = picos.Constant('L', linalg.cholesky(H, lower=True))
+            L = picos.Constant('L', _calc_L(H))
             problem.add_constraint(picos.block([
                 [        Z, U * L],  # noqa: E201
                 [L.T * U.T,   'I']
             ]) >> 0)
         elif self.inv_method == 'sqrt':
-            # Since H is symmetric, its square root is symmetric.
-            # Otherwise, this would not work!
-            sqrtH = picos.Constant('sqrt(H)', linalg.sqrtm(H))
+            sqrtH = picos.Constant('sqrt(H)', _calc_sqrtH(H))
             problem.add_constraint(picos.block([
                 [            Z, U * sqrtH],  # noqa: E201
                 [sqrtH.T * U.T,       'I']
@@ -163,8 +124,8 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
             # Should never get here since input validation is done in `fit()`.
             raise ValueError('Invalid value for `inv_method`.')
         # Set objective
-        problem.set_objective('min',
-                              (-2 * picos.trace(U * G_T) + picos.trace(Z)))
+        obj = -2 * picos.trace(U * G_T) + picos.trace(Z)
+        problem.set_objective('min', obj)
         return problem
 
     def _extract_solution(self, problem):
@@ -179,15 +140,13 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
 
 class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
 
-    def __init__(self, alpha=1.0, ratio=1.0, inv_method='chol', solver='mosek',
-                 picos_eps=1e-9, picos_tol='solver', verbose=False):
+    def __init__(self, alpha=1.0, ratio=1.0, inv_method='chol', picos_eps=0,
+                 **solver_params):
         self.alpha = alpha
         self.ratio = ratio
         self.inv_method = inv_method
-        self.solver = solver
         self.picos_eps = picos_eps
-        self.picos_tol = picos_tol
-        self.verbose = verbose
+        self.solver_params = solver_params
 
     def fit(self, X, y):
         self._validate_parameters()
@@ -196,7 +155,7 @@ class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
         self.alpha_other_reg_ = self.alpha * self.ratio
         problem = self._get_base_problem(X, y)
         self._add_twonorm(X, y, problem)
-        problem.solve(solver=self.solver, verbose=self.verbose)
+        problem.solve(**self.solver_params)
         self.coef_ = self._extract_solution(problem)
         return self
 
@@ -234,15 +193,13 @@ class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
 
 class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
 
-    def __init__(self, alpha=1.0, ratio=1.0, inv_method='chol', solver='mosek',
-                 picos_eps=1e-9, picos_tol='solver', verbose=False):
+    def __init__(self, alpha=1.0, ratio=1.0, inv_method='chol', picos_eps=0,
+                 **solver_params):
         self.alpha = alpha
         self.ratio = ratio
         self.inv_method = inv_method
-        self.solver = solver
         self.picos_eps = picos_eps
-        self.picos_tol = picos_tol
-        self.verbose = verbose
+        self.solver_params = solver_params
 
     def fit(self, X, y):
         self._validate_parameters()
@@ -294,17 +251,14 @@ class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
 class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
 
     def __init__(self, rho_bar=1.0, alpha=0, max_iter=100, tol=1e-6,
-                 inv_method='chol', solver='mosek', picos_eps=1e-9,
-                 picos_tol='solver', verbose=False):
+                 inv_method='chol', picos_eps=0, **solver_params):
         self.rho_bar = rho_bar
         self.alpha = alpha
         self.max_iter = max_iter
         self.tol = tol
         self.inv_method = inv_method
-        self.solver = solver
         self.picos_eps = picos_eps
-        self.picos_tol = picos_tol
-        self.verbose = verbose
+        self.solver_params = solver_params
 
     def fit(self, X, y):
         self._validate_parameters()
@@ -320,13 +274,13 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
             # Formulate Problem A
             problem_a = self._get_problem_a(X, y, Gamma)
             # Solve Problem A
-            problem_a.solve(solver=self.solver, verbose=self.verbose)
+            problem_a.solve(**self.solver_params)
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             P = np.array(problem_a.get_valued_variable('P'), ndmin=2)
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U, P)
             # Solve Problem B
-            problem_b.solve(solver=self.solver, verbose=self.verbose)
+            problem_b.solve(**self.solver_params)
             Gamma = np.array(problem_b.get_valued_variable('Gamma'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
@@ -364,10 +318,6 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
     def _get_problem_b(self, X, y, U, P):
         # Create optimization problem
         problem_b = picos.Problem()
-        # Set tolerance to solver default. Otherwise they are left at the picos
-        # default.
-        if self.picos_tol == 'solver':
-            problem_b.options['*_tol'] = None
         # Get needed sizes
         p_theta = U.shape[0]
         # Create constants
@@ -389,17 +339,14 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
 class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
 
     def __init__(self, alpha=1.0, ratio=1.0, max_iter=100, tol=1e-6,
-                 inv_method='chol', solver='mosek', picos_eps=1e-9,
-                 picos_tol='solver', verbose=False):
+                 inv_method='chol', picos_eps=0, **solver_params):
         self.alpha = alpha
         self.ratio = ratio
         self.max_iter = max_iter
         self.tol = tol
         self.inv_method = inv_method
-        self.solver = solver
         self.picos_eps = picos_eps
-        self.picos_tol = picos_tol
-        self.verbose = verbose
+        self.solver_params = solver_params
 
     def fit(self, X, y):
         self._validate_parameters()
@@ -422,19 +369,15 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         U_prev = np.zeros((p_theta, p))
         for k in range(self.max_iter):
             # Formulate Problem A
-            if self.verbose:
-                print(f'Iteration A: {k}')
             problem_a = self._get_problem_a(X, y, P)
             # Solve Problem A
-            problem_a.solve(solver=self.solver, verbose=self.verbose)
+            problem_a.solve(**self.solver_params)
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             gamma = np.array(problem_a.get_valued_variable('gamma'))
             # Formulate Problem B
-            if self.verbose:
-                print(f'Iteration B: {k}')
             problem_b = self._get_problem_b(X, y, U, gamma)
             # Solve Problem B
-            problem_b.solve(solver=self.solver, verbose=self.verbose)
+            problem_b.solve(**self.solver_params)
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
@@ -485,10 +428,6 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
     def _get_problem_b(self, X, y, U, gamma):
         # Create optimization problem
         problem_b = picos.Problem()
-        # Set tolerance to solver default. Otherwise they are left at the picos
-        # default.
-        if self.picos_tol == 'solver':
-            problem_b.options['*_tol'] = None
         # Get needed sizes
         p_theta = U.shape[0]
         # Create constants
@@ -548,17 +487,14 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
     Currently not fully tested!
     """
 
-    def __init__(self, alpha=0.0, max_iter=100, tol=1e-6,
-                 inv_method='chol', solver='mosek', picos_eps=1e-9,
-                 picos_tol='solver', verbose=False):
+    def __init__(self, alpha=0.0, max_iter=100, tol=1e-6, inv_method='chol',
+                 picos_eps=0, **solver_params):
         self.alpha = 0
         self.max_iter = max_iter
         self.tol = tol
         self.inv_method = inv_method
-        self.solver = solver
         self.picos_eps = picos_eps
-        self.picos_tol = picos_tol
-        self.verbose = verbose
+        self.solver_params = solver_params
 
     def fit(self, X, y, supply_rate_xi=None):
         self._validate_parameters()
@@ -575,12 +511,12 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
             # Formulate Problem A
             problem_a = self._get_problem_a(X, y, P)
             # Solve Problem A
-            problem_a.solve(solver=self.solver, verbose=self.verbose)
+            problem_a.solve(**self.solver_params)
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U)
             # Solve Problem B
-            problem_b.solve(solver=self.solver, verbose=self.verbose)
+            problem_b.solve(**self.solver_params)
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
@@ -624,10 +560,6 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
     def _get_problem_b(self, X, y, U):
         # Create optimization problem
         problem_b = picos.Problem()
-        # Set tolerance to solver default. Otherwise they are left at the picos
-        # default.
-        if self.picos_tol == 'solver':
-            problem_b.options['*_tol'] = None
         # Get needed sizes
         p_theta = U.shape[0]
         # Create constants
@@ -653,6 +585,79 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
         # Set objective
         problem_b.set_objective('find')
         return problem_b
+
+
+@functools.cache
+def _calc_G_H(X, y, alpha):
+    """Memoized computation of ``G`` and ``H``. If this function is called
+    a second time with the same parameters, cached versions of ``G`` and
+    ``H`` are returned.
+    """
+    # Compute G and H
+    Psi = X.T
+    Theta_p = y.T
+    p = Psi.shape[0]
+    q = Psi.shape[1]
+    # Compute G and Tikhonov-regularized H
+    G = (Theta_p @ Psi.T) / q
+    H_unreg = (Psi @ Psi.T) / q
+    H_reg = H_unreg + (alpha * np.eye(p)) / q
+    # Check condition number and rank of G and H
+    cond_G = np.linalg.cond(G)
+    rank_G = np.linalg.matrix_rank(G)
+    shape_G = G.shape
+    cond_H_unreg = np.linalg.cond(H_unreg)
+    rank_H_unreg = np.linalg.matrix_rank(H_unreg)
+    shape_H_unreg = H_unreg.shape
+    cond_H_reg = np.linalg.cond(H_reg)
+    rank_H_reg = np.linalg.matrix_rank(H_reg)
+    shape_H_reg = H_reg.shape
+    stats = {
+        'cond_G': cond_G,
+        'rank_G': rank_G,
+        'shape_G': shape_G,
+        'cond_H_unreg': cond_H_unreg,
+        'rank_H_unreg': rank_H_unreg,
+        'shape_H_unreg': shape_H_unreg,
+        'cond_H_reg': cond_H_reg,
+        'rank_H_reg': rank_H_reg,
+        'shape_H_reg': shape_H_reg,
+    }
+    return G, H_reg, stats
+
+
+@functools.cache
+def _calc_Hinv(H):
+    return linalg.inv(H)
+
+
+@functools.cache
+def _calc_Hpinv(H):
+    return linalg.pinv(H)
+
+
+@functools.cache
+def _calc_VsqrtLmb(H):
+    lmb, V = linalg.eigh(H)
+    return V @ np.diag(np.sqrt(lmb))
+
+
+@functools.cache
+def _calc_LsqrtD(H):
+    L, D, _ = linalg.ldl(H)
+    return L @ np.sqrt(D)
+
+
+@functools.cache
+def _calc_L(H):
+    return linalg.cholesky(H, lower=True)
+
+
+@functools.cache
+def _calc_sqrtH(H):
+    # Since H is symmetric, its square root is symmetric.
+    # Otherwise, this would not work!
+    return linalg.sqrtm(H)
 
 
 def _fast_frob_norm(A):
