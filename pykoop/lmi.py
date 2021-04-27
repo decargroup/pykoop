@@ -29,7 +29,7 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
     _warn_cond = 1e6
 
     def __init__(self, alpha=0.0, inv_method='chol', picos_eps=0,
-                 **solver_params):
+                 solver_params=None):
         self.alpha = alpha
         self.inv_method = inv_method
         self.picos_eps = picos_eps
@@ -40,7 +40,7 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha
         problem = self._get_base_problem(X, y)
-        problem.solve(**self.solver_params)
+        problem.solve(**self.solver_params_)
         self.coef_ = self._extract_solution(problem)
         return self
 
@@ -60,6 +60,9 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
         if self.inv_method not in valid_inv_methods:
             raise ValueError('`inv_method` must be one of: '
                              f'{", ".join(valid_inv_methods)}.')
+        # Set solver params
+        if self.solver_params is None:
+            self.solver_params_ = {}
 
     def _validate_data(self, X, y=None, reset=True, **check_array_params):
         if y is None:
@@ -141,7 +144,7 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
 class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
 
     def __init__(self, alpha=1.0, ratio=1.0, inv_method='chol', picos_eps=0,
-                 **solver_params):
+                 solver_params=None):
         self.alpha = alpha
         self.ratio = ratio
         self.inv_method = inv_method
@@ -155,7 +158,7 @@ class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
         self.alpha_other_reg_ = self.alpha * self.ratio
         problem = self._get_base_problem(X, y)
         self._add_twonorm(X, y, problem)
-        problem.solve(**self.solver_params)
+        problem.solve(**self.solver_params_)
         self.coef_ = self._extract_solution(problem)
         return self
 
@@ -194,7 +197,7 @@ class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
 class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
 
     def __init__(self, alpha=1.0, ratio=1.0, inv_method='chol', picos_eps=0,
-                 **solver_params):
+                 solver_params=None):
         self.alpha = alpha
         self.ratio = ratio
         self.inv_method = inv_method
@@ -208,7 +211,7 @@ class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
         self.alpha_other_reg_ = self.alpha * self.ratio
         problem = self._get_base_problem(X, y)
         self._add_nuclear(X, y, problem)
-        problem.solve(solver=self.solver, verbose=self.verbose)
+        problem.solve(**self.solver_params_)
         self.coef_ = self._extract_solution(problem)
         return self
 
@@ -251,7 +254,7 @@ class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
 class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
 
     def __init__(self, rho_bar=1.0, alpha=0, max_iter=100, tol=1e-6,
-                 inv_method='chol', picos_eps=0, **solver_params):
+                 inv_method='chol', picos_eps=0, solver_params=None):
         self.rho_bar = rho_bar
         self.alpha = alpha
         self.max_iter = max_iter
@@ -274,13 +277,13 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
             # Formulate Problem A
             problem_a = self._get_problem_a(X, y, Gamma)
             # Solve Problem A
-            problem_a.solve(**self.solver_params)
+            problem_a.solve(**self.solver_params_)
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             P = np.array(problem_a.get_valued_variable('P'), ndmin=2)
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U, P)
             # Solve Problem B
-            problem_b.solve(**self.solver_params)
+            problem_b.solve(**self.solver_params_)
             Gamma = np.array(problem_b.get_valued_variable('Gamma'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
@@ -339,7 +342,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
 class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
 
     def __init__(self, alpha=1.0, ratio=1.0, max_iter=100, tol=1e-6,
-                 inv_method='chol', picos_eps=0, **solver_params):
+                 inv_method='chol', picos_eps=0, solver_params=None):
         self.alpha = alpha
         self.ratio = ratio
         self.max_iter = max_iter
@@ -371,13 +374,13 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
             # Formulate Problem A
             problem_a = self._get_problem_a(X, y, P)
             # Solve Problem A
-            problem_a.solve(**self.solver_params)
+            problem_a.solve(**self.solver_params_)
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             gamma = np.array(problem_a.get_valued_variable('gamma'))
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U, gamma)
             # Solve Problem B
-            problem_b.solve(**self.solver_params)
+            problem_b.solve(**self.solver_params_)
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
@@ -488,7 +491,7 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
     """
 
     def __init__(self, alpha=0.0, max_iter=100, tol=1e-6, inv_method='chol',
-                 picos_eps=0, **solver_params):
+                 picos_eps=0, solver_params=None):
         self.alpha = 0
         self.max_iter = max_iter
         self.tol = tol
@@ -511,12 +514,12 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
             # Formulate Problem A
             problem_a = self._get_problem_a(X, y, P)
             # Solve Problem A
-            problem_a.solve(**self.solver_params)
+            problem_a.solve(**self.solver_params_)
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U)
             # Solve Problem B
-            problem_b.solve(**self.solver_params)
+            problem_b.solve(**self.solver_params_)
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
@@ -587,7 +590,7 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
         return problem_b
 
 
-@functools.cache
+# @functools.cache
 def _calc_G_H(X, y, alpha):
     """Memoized computation of ``G`` and ``H``. If this function is called
     a second time with the same parameters, cached versions of ``G`` and
@@ -626,34 +629,34 @@ def _calc_G_H(X, y, alpha):
     return G, H_reg, stats
 
 
-@functools.cache
+# @functools.cache
 def _calc_Hinv(H):
     return linalg.inv(H)
 
 
-@functools.cache
+# @functools.cache
 def _calc_Hpinv(H):
     return linalg.pinv(H)
 
 
-@functools.cache
+# @functools.cache
 def _calc_VsqrtLmb(H):
     lmb, V = linalg.eigh(H)
     return V @ np.diag(np.sqrt(lmb))
 
 
-@functools.cache
+# @functools.cache
 def _calc_LsqrtD(H):
     L, D, _ = linalg.ldl(H)
     return L @ np.sqrt(D)
 
 
-@functools.cache
+# @functools.cache
 def _calc_L(H):
     return linalg.cholesky(H, lower=True)
 
 
-@functools.cache
+# @functools.cache
 def _calc_sqrtH(H):
     # Since H is symmetric, its square root is symmetric.
     # Otherwise, this would not work!
