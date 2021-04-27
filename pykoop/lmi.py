@@ -19,6 +19,23 @@ memory = joblib.Memory(cachedir.name, verbose=0)
 class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
                          sklearn.base.RegressorMixin):
 
+    # Default solver parameters
+    _default_solver_params = {
+        'primals': None,
+        'duals': None,
+        'dualize': True,
+        'abs_bnb_opt_tol': None,
+        'abs_dual_fsb_tol': None,
+        'abs_ipm_opt_tol': None,
+        'abs_prim_fsb_tol': None,
+        'integrality_tol': None,
+        'markowitz_tol': None,
+        'rel_bnb_opt_tol': None,
+        'rel_dual_fsb_tol': None,
+        'rel_ipm_opt_tol': None,
+        'rel_prim_fsb_tol': None,
+    }
+
     # The real number of minimum samples is based on the data. But this value
     # shuts up pytest for now. Picos also requires float64 so everything is
     # promoted.
@@ -28,10 +45,6 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
         'dtype': 'float64',
         'ensure_min_samples': 2,
     }
-
-    # If H has a condition number higher than `_warn_cond`, a warning will be
-    # generated.
-    _warn_cond = 1e6
 
     def __init__(self, alpha=0.0, inv_method='chol', picos_eps=0,
                  solver_params=None):
@@ -66,8 +79,9 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
             raise ValueError('`inv_method` must be one of: '
                              f'{", ".join(valid_inv_methods)}.')
         # Set solver params
-        if self.solver_params is None:
-            self.solver_params_ = {}
+        self.solver_params_ = self._default_solver_params.copy()
+        if self.solver_params is not None:
+            self.solver_params_.update(self.solver_params)
 
     def _validate_data(self, X, y=None, reset=True, **check_array_params):
         if y is None:
