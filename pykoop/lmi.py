@@ -4,11 +4,16 @@ import picos
 import numpy as np
 from scipy import linalg
 import logging
-import functools
+import tempfile
+import joblib
 
 # TODO Decide how to handle solve(primals=..., duals=...).
 # Should it crash when it can't find a solution?
 # Should I just catch the exception?
+
+cachedir = tempfile.TemporaryDirectory(prefix='pykoop_')
+logging.info(f'Temporary directory created at `{cachedir.name}`')
+memory = joblib.Memory(cachedir.name, verbose=0)
 
 
 class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
@@ -179,7 +184,7 @@ class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
         ]) >> 0)
         # Add term to cost function
         alpha_scaled = picos.Constant('alpha_2/q', self.alpha_other_reg_/q)
-        objective += alpha_scaled * gamma**2
+        objective += alpha_scaled * gamma
         problem.set_objective(direction, objective)
 
     def _validate_parameters(self):
@@ -236,7 +241,7 @@ class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
         ]) >> 0)
         # Add term to cost function
         alpha_scaled = picos.Constant('alpha_*/q', self.alpha_other_reg_/q)
-        objective += alpha_scaled * gamma**2
+        objective += alpha_scaled * gamma
         problem.set_objective(direction, objective)
 
     def _validate_parameters(self):
@@ -424,7 +429,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         ]) >> self.picos_eps)
         # Add term to cost function
         alpha_scaled = picos.Constant('alpha_inf/q', self.alpha_other_reg_/q)
-        objective += alpha_scaled * gamma**2
+        objective += alpha_scaled * gamma
         problem_a.set_objective(direction, objective)
         return problem_a
 
@@ -590,7 +595,6 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
         return problem_b
 
 
-# @functools.cache
 def _calc_G_H(X, y, alpha):
     """Memoized computation of ``G`` and ``H``. If this function is called
     a second time with the same parameters, cached versions of ``G`` and
@@ -629,34 +633,34 @@ def _calc_G_H(X, y, alpha):
     return G, H_reg, stats
 
 
-# @functools.cache
+@memory.cache
 def _calc_Hinv(H):
     return linalg.inv(H)
 
 
-# @functools.cache
+@memory.cache
 def _calc_Hpinv(H):
     return linalg.pinv(H)
 
 
-# @functools.cache
+@memory.cache
 def _calc_VsqrtLmb(H):
     lmb, V = linalg.eigh(H)
     return V @ np.diag(np.sqrt(lmb))
 
 
-# @functools.cache
+@memory.cache
 def _calc_LsqrtD(H):
     L, D, _ = linalg.ldl(H)
     return L @ np.sqrt(D)
 
 
-# @functools.cache
+@memory.cache
 def _calc_L(H):
     return linalg.cholesky(H, lower=True)
 
 
-# @functools.cache
+@memory.cache
 def _calc_sqrtH(H):
     # Since H is symmetric, its square root is symmetric.
     # Otherwise, this would not work!
