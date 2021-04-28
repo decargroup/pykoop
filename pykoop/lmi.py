@@ -50,7 +50,7 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
-    def fit(self, X, y):
+    def fit(self, X, y, **kwargs):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha
@@ -168,7 +168,7 @@ class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
-    def fit(self, X, y):
+    def fit(self, X, y, **kwargs):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha * (1 - self.ratio)
@@ -222,7 +222,7 @@ class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
-    def fit(self, X, y):
+    def fit(self, X, y, **kwargs):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha * (1 - self.ratio)
@@ -282,7 +282,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
-    def fit(self, X, y):
+    def fit(self, X, y, **kwargs):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha
@@ -307,6 +307,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
                     'Unable to solve `problem_a`. Used last valid `U`. '
                     f'Solution status: `{solution_status_a}`.'
                 )
+                logging.warn(self.stop_reason_)
                 break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             P = np.array(problem_a.get_valued_variable('P'), ndmin=2)
@@ -320,6 +321,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
                     'Unable to solve `problem_b`. Used last valid `U`. '
                     f'Solution status: `{solution_status_b}`.'
                 )
+                logging.warn(self.stop_reason_)
                 break
             Gamma = np.array(problem_b.get_valued_variable('Gamma'), ndmin=2)
             # Check stopping condition
@@ -330,6 +332,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
             U_prev = U
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
+            logging.warn(self.stop_reason_)
         self.tol_reached_ = difference
         self.n_iter_ = k + 1
         self.coef_ = U.T
@@ -388,7 +391,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
-    def fit(self, X, y, P_0=None):
+    def fit(self, X, y, **kwargs):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha * (1 - self.ratio)
@@ -405,6 +408,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
                              'numbers of features. `X and y` both have '
                              f'{p} feature(s).')
         # Make initial guesses and iterate
+        P_0 = kwargs['P_0']
         if P_0 is None:
             P = np.eye(p_theta)
         elif P_0 == 'hot':
@@ -427,6 +431,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
                     'Unable to solve `problem_a`. Used last valid `U`. '
                     f'Solution status: `{solution_status_a}`.'
                 )
+                logging.warn(self.stop_reason_)
                 break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             gamma = np.array(problem_a.get_valued_variable('gamma'))
@@ -440,6 +445,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
                     'Unable to solve `problem_b`. Used last valid `U`. '
                     'Solution status: f`{solution_status_b}`.'
                 )
+                logging.warn(self.stop_reason_)
                 break
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
@@ -450,6 +456,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
             U_prev = U
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
+            logging.warn(self.stop_reason_)
         self.tol_reached_ = difference
         self.n_iter_ = k + 1
         self.coef_ = U.T
@@ -517,6 +524,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         return problem_b
 
     def _hot_start(self, X, y):
+        logging.info('Running `_hot_start() to estimate P_0')
         _, G, H, _ = _calc_c_G_H(X, y, 0)
         U_un = linalg.lstsq(H.T, G.T)[0].T
         A_un = U_un[:, :U_un.shape[0]]
@@ -526,7 +534,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
             if np.absolute(lmb[k]) >= 1:
                 lmb[k] = lmb[k] / np.absolute(lmb[k]) / 1.1
         Lmb = np.diag(lmb)
-        A_norm = V @ Lmb @ linalg.inv(V)
+        A_norm = np.real(V @ Lmb @ linalg.inv(V))
         U_norm = np.hstack((A_norm, B_un))
 
         problem = picos.Problem()
@@ -550,6 +558,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         problem.set_objective('min', gamma)
         problem.solve(**self.solver_params_)
         P_0 = np.array(problem.get_valued_variable('P'), ndmin=2)
+        breakpoint()
         return P_0
 
     def _validate_parameters(self):
@@ -595,11 +604,11 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
-    def fit(self, X, y, supply_rate_xi=None):
+    def fit(self, X, y, **kwargs):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha
-        self.supply_rate_xi_ = supply_rate_xi
+        self.supply_rate_xi_ = kwargs['supply_rate_xi']
         # Get needed sizes
         p_theta = y.shape[1]
         p = X.shape[1]
@@ -620,6 +629,7 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
                     'Unable to solve `problem_a`. Used last valid `U`. '
                     f'Solution status: `{solution_status_a}`.'
                 )
+                logging.warn(self.stop_reason_)
                 break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             # Formulate Problem B
@@ -632,6 +642,7 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
                     'Unable to solve `problem_b`. Used last valid `U`. '
                     f'Solution status: `{solution_status_b}`.'
                 )
+                logging.warn(self.stop_reason_)
                 break
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
@@ -642,6 +653,7 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
             U_prev = U
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
+            logging.warn(self.stop_reason_)
         self.tol_reached_ = difference
         self.n_iter_ = k + 1
         self.coef_ = U.T

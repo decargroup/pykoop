@@ -12,13 +12,14 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         self.lifting_function = lifting_function
         self.estimator = estimator
 
-    def fit(self, X, y=None, n_u=0):
+    def fit(self, X, y=None, **kwargs):
         # Clone estimators
         self.delay_ = sklearn.base.clone(self.delay)
         self.estimator_ = sklearn.base.clone(self.estimator)
         self.preprocessing_ = sklearn.base.clone(self.preprocessing)
         self.lifting_function_ = sklearn.base.clone(self.lifting_function)
         # Save number of inputs
+        n_u = kwargs.pop('n_u')
         self.n_x_ = X.shape[1] - n_u - 1
         self.n_u_ = n_u
         # TODO Pre-processing
@@ -61,7 +62,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         Xt_unshifted = np.vstack(Xt_unshifted)
         Xt_shifted = np.vstack(Xt_shifted)
         # Fit estimator
-        self.estimator_.fit(Xt_unshifted, Xt_shifted)
+        self.estimator_.fit(Xt_unshifted, Xt_shifted, **kwargs)
 
     def predict(self, X):
         # TODO HANDLE SPLITTING HERE?
