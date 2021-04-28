@@ -43,17 +43,10 @@ def main():
     reg_no_const.fit(X.T, Xp.T)
     U_no_const = reg_no_const.coef_.T
 
-    # Regressor with no constraint
-    reg_pass_const = lmi.LmiEdmdDissipativityConstr(alpha=0)
-    n_x = sol.y.shape[0]
-    n_u = 1
-    gamma = 1.5
-    Xi = np.block([
-        [ 1/gamma*np.eye(n_x), np.zeros((n_x, n_u))],  # noqa: E201
-        [np.zeros((n_u, n_x)),   -gamma*np.eye(n_u)]
-    ])
-    reg_pass_const.fit(X.T, Xp.T, supply_rate_xi=Xi)
-    U_pass_const = reg_pass_const.coef_.T
+    # Regressor with Hinf regularization
+    reg_hinf = lmi.LmiEdmdHinfReg(alpha=0.1)
+    reg_hinf.fit(X.T, Xp.T)
+    U_hinf = reg_hinf.coef_.T
 
     # Plot results
     fig = plt.figure()  # noqa: F841
@@ -61,7 +54,7 @@ def main():
     ax.set_xlabel(r'$\mathrm{Re}(\lambda)$')
     ax.set_ylabel(r'$\mathrm{Im}(\lambda)$')
     plt_eig(U_no_const[:2, :2], ax, 'True system', marker='o')
-    plt_eig(U_pass_const[:2, :2], ax, r'Passivity-constrained')
+    plt_eig(U_hinf[:2, :2], ax, r'Hinf-regularized')
     ax.set_rmax(1.1)
     ax.legend()
     plt.show()

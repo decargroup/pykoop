@@ -7,9 +7,6 @@ import logging
 import tempfile
 import joblib
 
-# TODO Decide how to handle solve(primals=..., duals=...).
-# Should it crash when it can't find a solution?
-# Should I just catch the exception?
 
 cachedir = tempfile.TemporaryDirectory(prefix='pykoop_')
 logging.info(f'Temporary directory created at `{cachedir.name}`')
@@ -59,6 +56,7 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
         self.alpha_tikhonov_reg_ = self.alpha
         problem = self._get_base_problem(X, y)
         problem.solve(**self.solver_params_)
+        self.solution_status_ = problem.last_solution.claimedStatus
         self.coef_ = self._extract_solution(problem)
         return self
 
@@ -178,6 +176,7 @@ class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
         problem = self._get_base_problem(X, y)
         self._add_twonorm(X, y, problem)
         problem.solve(**self.solver_params_)
+        self.solution_status_ = problem.last_solution.claimedStatus
         self.coef_ = self._extract_solution(problem)
         return self
 
@@ -231,6 +230,7 @@ class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
         problem = self._get_base_problem(X, y)
         self._add_nuclear(X, y, problem)
         problem.solve(**self.solver_params_)
+        self.solution_status_ = problem.last_solution.claimedStatus
         self.coef_ = self._extract_solution(problem)
         return self
 
@@ -292,17 +292,35 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
         # Make initial guesses and iterate
         Gamma = np.eye(p_theta)
         U_prev = np.zeros((p_theta, p))
+        # Set scope of other variables
+        U = np.zeros((p_theta, p))
+        P = np.zeros((p_theta, p_theta))
+        difference = None
         for k in range(self.max_iter):
             # Formulate Problem A
             problem_a = self._get_problem_a(X, y, Gamma)
             # Solve Problem A
             problem_a.solve(**self.solver_params_)
+            solution_status_a = problem_a.last_solution.claimedStatus
+            if solution_status_a != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_a`. Used last valid `U`. '
+                    'Solution status: `{solution_status_a}`.'
+                )
+                break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             P = np.array(problem_a.get_valued_variable('P'), ndmin=2)
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U, P)
             # Solve Problem B
             problem_b.solve(**self.solver_params_)
+            solution_status_b = problem_b.last_solution.claimedStatus
+            if solution_status_b != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_b`. Used last valid `U`. '
+                    'Solution status: `{solution_status_b}`.'
+                )
+                break
             Gamma = np.array(problem_b.get_valued_variable('Gamma'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
@@ -389,17 +407,35 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         # Make initial guesses and iterate
         P = np.eye(p_theta)
         U_prev = np.zeros((p_theta, p))
+        # Set scope of other variables
+        U = np.zeros((p_theta, p))
+        gamma = 0
+        difference = None
         for k in range(self.max_iter):
             # Formulate Problem A
             problem_a = self._get_problem_a(X, y, P)
             # Solve Problem A
             problem_a.solve(**self.solver_params_)
+            solution_status_a = problem_a.last_solution.claimedStatus
+            if solution_status_a != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_a`. Used last valid `U`. '
+                    'Solution status: `{solution_status_a}`.'
+                )
+                break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             gamma = np.array(problem_a.get_valued_variable('gamma'))
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U, gamma)
             # Solve Problem B
             problem_b.solve(**self.solver_params_)
+            solution_status_b = problem_b.last_solution.claimedStatus
+            if solution_status_b != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_b`. Used last valid `U`. '
+                    'Solution status: `{solution_status_b}`.'
+                )
+                break
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
@@ -529,16 +565,33 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
         # Make initial guess and iterate
         P = np.eye(p_theta)
         U_prev = np.zeros((p_theta, p))
+        # Set scope of other variables
+        difference = None
+        U = np.zeros((p_theta, p))
         for k in range(self.max_iter):
             # Formulate Problem A
             problem_a = self._get_problem_a(X, y, P)
             # Solve Problem A
             problem_a.solve(**self.solver_params_)
+            solution_status_a = problem_a.last_solution.claimedStatus
+            if solution_status_a != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_a`. Used last valid `U`. '
+                    'Solution status: `{solution_status_a}`.'
+                )
+                break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U)
             # Solve Problem B
             problem_b.solve(**self.solver_params_)
+            solution_status_b = problem_b.last_solution.claimedStatus
+            if solution_status_b != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_b`. Used last valid `U`. '
+                    'Solution status: `{solution_status_b}`.'
+                )
+                break
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
