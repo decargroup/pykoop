@@ -405,7 +405,12 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
                              'numbers of features. `X and y` both have '
                              f'{p} feature(s).')
         # Make initial guesses and iterate
-        P = np.eye(p_theta) if P_0 is None else P_0
+        if P_0 is None:
+            P = np.eye(p_theta)
+        elif P_0 == 'hot':
+            P = self._hot_start(X, y)
+        else:
+            P = P_0
         U_prev = np.zeros((p_theta, p))
         # Set scope of other variables
         U = np.zeros((p_theta, p))
@@ -510,6 +515,42 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         # Set objective
         problem_b.set_objective('find')
         return problem_b
+
+    def _hot_start(self, X, y):
+        G, H, _ = _calc_G_H(X, y, 0)
+        U_un = linalg.lstsq(H.T, G.T)[0].T
+        A_un = U_un[:, :U_un.shape[0]]
+        B_un = U_un[:, U_un.shape[0]:]
+        lmb, V = linalg.eig(A_un)
+        for k in range(lmb.shape[0]):
+            if np.absolute(lmb[k]) >= 1:
+                lmb[k] = lmb[k] / np.absolute(lmb[k]) / 1.1
+        Lmb = np.diag(lmb)
+        A_norm = V @ Lmb @ linalg.inv(V)
+        U_norm = np.hstack((A_norm, B_un))
+
+        problem = picos.Problem()
+        p_theta = U_norm.shape[0]
+        U = picos.Constant('U_norm', U_norm)
+        A = U[:p_theta, :p_theta]
+        B = U[:p_theta, p_theta:]
+        C = np.eye(p_theta)
+        D = np.zeros((C.shape[0], B.shape[1]))
+        gamma = picos.RealVariable('gamma', 1)
+        P = picos.SymmetricVariable('P', p_theta)
+        gamma_33 = picos.diag(gamma, D.shape[1])
+        gamma_44 = picos.diag(gamma, D.shape[0])
+        problem.add_constraint(P >> self.picos_eps)
+        problem.add_constraint(picos.block([
+            [      P,   A*P,        B,        0],  # noqa: E201
+            [P.T*A.T,     P,        0,    P*C.T],
+            [    B.T,     0, gamma_33,      D.T],  # noqa: E201
+            [      0, C*P.T,        D, gamma_44]   # noqa: E201
+        ]) >> self.picos_eps)
+        problem.set_objective('min', gamma)
+        problem.solve(**self.solver_params_)
+        P_0 = np.array(problem.get_valued_variable('P'), ndmin=2)
+        return P_0
 
     def _validate_parameters(self):
         if self.alpha == 0:
