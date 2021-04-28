@@ -662,6 +662,7 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
         return problem_b
 
 
+@memory.cache
 def _calc_G_H(X, y, alpha):
     """Memoized computation of ``G`` and ``H``. If this function is called
     a second time with the same parameters, cached versions of ``G`` and
