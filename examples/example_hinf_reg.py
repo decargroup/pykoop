@@ -3,6 +3,7 @@ from scipy import integrate, linalg
 from pykoop import lmi
 from dynamics import mass_spring_damper
 from matplotlib import pyplot as plt
+import logging
 
 plt.rc('lines', linewidth=2)
 plt.rc('axes', grid=True)
@@ -10,6 +11,10 @@ plt.rc('grid', linestyle='--')
 
 
 def main():
+    # logger = logging.getLogger('lmi')
+    # logger.setLevel(logging.INFO)
+    logging.basicConfig(level=logging.INFO)
+
     # Set up problem
     t_range = (0, 5)
     t_step = 0.1

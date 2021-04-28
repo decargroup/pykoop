@@ -6,11 +6,28 @@ from scipy import linalg
 import logging
 import tempfile
 import joblib
+import signal
 
 
+# Create logger
+log = logging.getLogger(__name__)
+
+
+# Create temporary cache directory for memoized computations
 cachedir = tempfile.TemporaryDirectory(prefix='pykoop_')
-logging.info(f'Temporary directory created at `{cachedir.name}`')
+log.info(f'Temporary directory created at `{cachedir.name}`')
 memory = joblib.Memory(cachedir.name, verbose=0)
+
+
+# Create signal handler to politely stop computations
+polite_stop = False
+
+def sigint_handler(sig, frame):  # noqa: E302
+    """Signal handler for ^C."""
+    global polite_stop
+    polite_stop = True
+
+signal.signal(signal.SIGINT, sigint_handler)  # noqa: E305
 
 
 class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
@@ -92,8 +109,7 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
         return X if y is None else (X, y)
 
     def _get_base_problem(self, X, y):
-        c, G, H, stats = _calc_c_G_H(X, y, self.alpha_tikhonov_reg_)
-        logging.info("_calc_c_G_H() stats: " + str(stats))
+        c, G, H, _ = _calc_c_G_H(X, y, self.alpha_tikhonov_reg_)
         # Optimization problem
         problem = picos.Problem()
         # Constants
@@ -300,7 +316,11 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
             # Formulate Problem A
             problem_a = self._get_problem_a(X, y, Gamma)
             # Solve Problem A
-            logging.info(f'Solving problem A{k}')
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem A{k}')
             problem_a.solve(**self.solver_params_)
             solution_status_a = problem_a.last_solution.claimedStatus
             if solution_status_a != 'optimal':
@@ -308,14 +328,18 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
                     'Unable to solve `problem_a`. Used last valid `U`. '
                     f'Solution status: `{solution_status_a}`.'
                 )
-                logging.warn(self.stop_reason_)
+                log.warn(self.stop_reason_)
                 break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             P = np.array(problem_a.get_valued_variable('P'), ndmin=2)
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U, P)
             # Solve Problem B
-            logging.info(f'Solving problem B{k}')
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem B{k}')
             problem_b.solve(**self.solver_params_)
             solution_status_b = problem_b.last_solution.claimedStatus
             if solution_status_b != 'optimal':
@@ -323,7 +347,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
                     'Unable to solve `problem_b`. Used last valid `U`. '
                     f'Solution status: `{solution_status_b}`.'
                 )
-                logging.warn(self.stop_reason_)
+                log.warn(self.stop_reason_)
                 break
             Gamma = np.array(problem_b.get_valued_variable('Gamma'), ndmin=2)
             # Check stopping condition
@@ -334,7 +358,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
             U_prev = U
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
-            logging.warn(self.stop_reason_)
+            log.warn(self.stop_reason_)
         self.tol_reached_ = difference
         self.n_iter_ = k + 1
         self.coef_ = U.T
@@ -426,7 +450,11 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
             # Formulate Problem A
             problem_a = self._get_problem_a(X, y, P)
             # Solve Problem A
-            logging.info(f'Solving problem A{k}')
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem A{k}')
             problem_a.solve(**self.solver_params_)
             solution_status_a = problem_a.last_solution.claimedStatus
             if solution_status_a != 'optimal':
@@ -434,14 +462,18 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
                     'Unable to solve `problem_a`. Used last valid `U`. '
                     f'Solution status: `{solution_status_a}`.'
                 )
-                logging.warn(self.stop_reason_)
+                log.warn(self.stop_reason_)
                 break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             gamma = np.array(problem_a.get_valued_variable('gamma'))
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U, gamma)
             # Solve Problem B
-            logging.info(f'Solving problem B{k}')
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem B{k}')
             problem_b.solve(**self.solver_params_)
             solution_status_b = problem_b.last_solution.claimedStatus
             if solution_status_b != 'optimal':
@@ -449,7 +481,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
                     'Unable to solve `problem_b`. Used last valid `U`. '
                     'Solution status: f`{solution_status_b}`.'
                 )
-                logging.warn(self.stop_reason_)
+                log.warn(self.stop_reason_)
                 break
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
@@ -460,7 +492,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
             U_prev = U
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
-            logging.warn(self.stop_reason_)
+            log.warn(self.stop_reason_)
         self.tol_reached_ = difference
         self.n_iter_ = k + 1
         self.coef_ = U.T
@@ -528,7 +560,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         return problem_b
 
     def _hot_start(self, X, y):
-        logging.info('Running `_hot_start() to estimate P_0')
+        log.info('Running `_hot_start() to estimate P_0')
         _, G, H, _ = _calc_c_G_H(X, y, 0)
         U_un = linalg.lstsq(H.T, G.T)[0].T
         A_un = U_un[:, :U_un.shape[0]]
@@ -624,9 +656,13 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
         U = np.zeros((p_theta, p))
         for k in range(self.max_iter):
             # Formulate Problem A
-            logging.info(f'Solving problem A{k}')
+            log.info(f'Solving problem A{k}')
             problem_a = self._get_problem_a(X, y, P)
             # Solve Problem A
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
             problem_a.solve(**self.solver_params_)
             solution_status_a = problem_a.last_solution.claimedStatus
             if solution_status_a != 'optimal':
@@ -634,13 +670,17 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
                     'Unable to solve `problem_a`. Used last valid `U`. '
                     f'Solution status: `{solution_status_a}`.'
                 )
-                logging.warn(self.stop_reason_)
+                log.warn(self.stop_reason_)
                 break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U)
             # Solve Problem B
-            logging.info(f'Solving problem B{k}')
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem B{k}')
             problem_b.solve(**self.solver_params_)
             solution_status_b = problem_b.last_solution.claimedStatus
             if solution_status_b != 'optimal':
@@ -648,7 +688,7 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
                     'Unable to solve `problem_b`. Used last valid `U`. '
                     f'Solution status: `{solution_status_b}`.'
                 )
-                logging.warn(self.stop_reason_)
+                log.warn(self.stop_reason_)
                 break
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
@@ -659,7 +699,7 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
             U_prev = U
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
-            logging.warn(self.stop_reason_)
+            log.warn(self.stop_reason_)
         self.tol_reached_ = difference
         self.n_iter_ = k + 1
         self.coef_ = U.T
@@ -759,6 +799,13 @@ def _calc_c_G_H(X, y, alpha):
         'rank_H_reg': rank_H_reg,
         'shape_H_reg': shape_H_reg,
     }
+    stats_str = {}
+    for key in stats:
+        if 'cond' in key:
+            stats_str[key] = f'{stats[key]:.2e}'
+        else:
+            stats_str[key] = stats[key]
+    log.info(f'_calc_c_G_H() stats: {stats_str}')
     return c, G, H_reg, stats
 
 
