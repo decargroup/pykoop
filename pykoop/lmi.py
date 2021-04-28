@@ -305,7 +305,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
             if solution_status_a != 'optimal':
                 self.stop_reason_ = (
                     'Unable to solve `problem_a`. Used last valid `U`. '
-                    'Solution status: `{solution_status_a}`.'
+                    f'Solution status: `{solution_status_a}`.'
                 )
                 break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
@@ -318,18 +318,18 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
             if solution_status_b != 'optimal':
                 self.stop_reason_ = (
                     'Unable to solve `problem_b`. Used last valid `U`. '
-                    'Solution status: `{solution_status_b}`.'
+                    f'Solution status: `{solution_status_b}`.'
                 )
                 break
             Gamma = np.array(problem_b.get_valued_variable('Gamma'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
             if (difference < self.tol):
-                self.stop_reason_ = 'Reached tolerance {self.tol}'
+                self.stop_reason_ = f'Reached tolerance {self.tol}'
                 break
             U_prev = U
         else:
-            self.stop_reason_ = 'Reached maximum iterations {self.max_iter}'
+            self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
         self.tol_reached_ = difference
         self.n_iter_ = k + 1
         self.coef_ = U.T
@@ -420,7 +420,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
             if solution_status_a != 'optimal':
                 self.stop_reason_ = (
                     'Unable to solve `problem_a`. Used last valid `U`. '
-                    'Solution status: `{solution_status_a}`.'
+                    f'Solution status: `{solution_status_a}`.'
                 )
                 break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
@@ -433,18 +433,18 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
             if solution_status_b != 'optimal':
                 self.stop_reason_ = (
                     'Unable to solve `problem_b`. Used last valid `U`. '
-                    'Solution status: `{solution_status_b}`.'
+                    'Solution status: f`{solution_status_b}`.'
                 )
                 break
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
             if (difference < self.tol):
-                self.stop_reason_ = 'Reached tolerance {self.tol}'
+                self.stop_reason_ = f'Reached tolerance {self.tol}'
                 break
             U_prev = U
         else:
-            self.stop_reason_ = 'Reached maximum iterations {self.max_iter}'
+            self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
         self.tol_reached_ = difference
         self.n_iter_ = k + 1
         self.coef_ = U.T
@@ -577,7 +577,7 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
             if solution_status_a != 'optimal':
                 self.stop_reason_ = (
                     'Unable to solve `problem_a`. Used last valid `U`. '
-                    'Solution status: `{solution_status_a}`.'
+                    f'Solution status: `{solution_status_a}`.'
                 )
                 break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
@@ -589,18 +589,18 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
             if solution_status_b != 'optimal':
                 self.stop_reason_ = (
                     'Unable to solve `problem_b`. Used last valid `U`. '
-                    'Solution status: `{solution_status_b}`.'
+                    f'Solution status: `{solution_status_b}`.'
                 )
                 break
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
             difference = _fast_frob_norm(U_prev - U)
             if (difference < self.tol):
-                self.stop_reason_ = 'Reached tolerance {self.tol}'
+                self.stop_reason_ = f'Reached tolerance {self.tol}'
                 break
             U_prev = U
         else:
-            self.stop_reason_ = 'Reached maximum iterations {self.max_iter}'
+            self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
         self.tol_reached_ = difference
         self.n_iter_ = k + 1
         self.coef_ = U.T
