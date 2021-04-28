@@ -92,8 +92,8 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
         return X if y is None else (X, y)
 
     def _get_base_problem(self, X, y):
-        G, H, stats = _calc_G_H(X, y, self.alpha_tikhonov_reg_)
-        logging.info("_calc_G_H() stats: " + str(stats))
+        c, G, H, stats = _calc_c_G_H(X, y, self.alpha_tikhonov_reg_)
+        logging.info("_calc_c_G_H() stats: " + str(stats))
         # Optimization problem
         problem = picos.Problem()
         # Constants
@@ -144,7 +144,7 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
             # Should never get here since input validation is done in `fit()`.
             raise ValueError('Invalid value for `inv_method`.')
         # Set objective
-        obj = -2 * picos.trace(U * G_T) + picos.trace(Z)
+        obj = c - 2 * picos.trace(U * G_T) + picos.trace(Z)
         problem.set_objective('min', obj)
         return problem
 
@@ -517,7 +517,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         return problem_b
 
     def _hot_start(self, X, y):
-        G, H, _ = _calc_G_H(X, y, 0)
+        _, G, H, _ = _calc_c_G_H(X, y, 0)
         U_un = linalg.lstsq(H.T, G.T)[0].T
         A_un = U_un[:, :U_un.shape[0]]
         B_un = U_un[:, U_un.shape[0]:]
@@ -704,7 +704,7 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
 
 
 @memory.cache
-def _calc_G_H(X, y, alpha):
+def _calc_c_G_H(X, y, alpha):
     """Memoized computation of ``G`` and ``H``. If this function is called
     a second time with the same parameters, cached versions of ``G`` and
     ``H`` are returned.
@@ -718,6 +718,8 @@ def _calc_G_H(X, y, alpha):
     G = (Theta_p @ Psi.T) / q
     H_unreg = (Psi @ Psi.T) / q
     H_reg = H_unreg + (alpha * np.eye(p)) / q
+    # Compute c
+    c = np.trace(Theta_p @ Theta_p.T) / q
     # Check condition number and rank of G and H
     cond_G = np.linalg.cond(G)
     rank_G = np.linalg.matrix_rank(G)
@@ -739,7 +741,7 @@ def _calc_G_H(X, y, alpha):
         'rank_H_reg': rank_H_reg,
         'shape_H_reg': shape_H_reg,
     }
-    return G, H_reg, stats
+    return c, G, H_reg, stats
 
 
 @memory.cache
