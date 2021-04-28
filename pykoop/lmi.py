@@ -408,7 +408,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
                              'numbers of features. `X and y` both have '
                              f'{p} feature(s).')
         # Make initial guesses and iterate
-        P_0 = kwargs['P_0']
+        P_0 = kwargs.pop('P_0', None)
         if P_0 is None:
             P = np.eye(p_theta)
         elif P_0 == 'hot':
