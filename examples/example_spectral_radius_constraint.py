@@ -29,6 +29,12 @@ def main():
 
     # Regressor with no constraint
     reg_no_const = lmi.LmiEdmdTikhonovReg(alpha=0)
+
+    # Can call _calc_G_H to preview G and H and their condition numbers.
+    # Might be helpful to make sure your data isn't "bad"
+    a = lmi._calc_G_H(X.T, Xp.T, 1)
+    print(a)
+
     reg_no_const.fit(X.T, Xp.T)
     U_no_const = reg_no_const.coef_.T
     # Regressor with constraint larger than actual spectral radius.
