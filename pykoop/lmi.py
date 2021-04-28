@@ -594,7 +594,6 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         problem.set_objective('min', gamma)
         problem.solve(**self.solver_params_)
         P_0 = np.array(problem.get_valued_variable('P'), ndmin=2)
-        breakpoint()
         return P_0
 
     def _validate_parameters(self):
