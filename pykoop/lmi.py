@@ -300,6 +300,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
             # Formulate Problem A
             problem_a = self._get_problem_a(X, y, Gamma)
             # Solve Problem A
+            logging.info(f'Solving problem A{k}')
             problem_a.solve(**self.solver_params_)
             solution_status_a = problem_a.last_solution.claimedStatus
             if solution_status_a != 'optimal':
@@ -314,6 +315,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U, P)
             # Solve Problem B
+            logging.info(f'Solving problem B{k}')
             problem_b.solve(**self.solver_params_)
             solution_status_b = problem_b.last_solution.claimedStatus
             if solution_status_b != 'optimal':
@@ -424,6 +426,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
             # Formulate Problem A
             problem_a = self._get_problem_a(X, y, P)
             # Solve Problem A
+            logging.info(f'Solving problem A{k}')
             problem_a.solve(**self.solver_params_)
             solution_status_a = problem_a.last_solution.claimedStatus
             if solution_status_a != 'optimal':
@@ -438,6 +441,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U, gamma)
             # Solve Problem B
+            logging.info(f'Solving problem B{k}')
             problem_b.solve(**self.solver_params_)
             solution_status_b = problem_b.last_solution.claimedStatus
             if solution_status_b != 'optimal':
@@ -620,6 +624,7 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
         U = np.zeros((p_theta, p))
         for k in range(self.max_iter):
             # Formulate Problem A
+            logging.info(f'Solving problem A{k}')
             problem_a = self._get_problem_a(X, y, P)
             # Solve Problem A
             problem_a.solve(**self.solver_params_)
@@ -635,6 +640,7 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U)
             # Solve Problem B
+            logging.info(f'Solving problem B{k}')
             problem_b.solve(**self.solver_params_)
             solution_status_b = problem_b.last_solution.claimedStatus
             if solution_status_b != 'optimal':
