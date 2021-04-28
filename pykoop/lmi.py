@@ -388,7 +388,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
-    def fit(self, X, y):
+    def fit(self, X, y, P_0=None):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha * (1 - self.ratio)
@@ -405,7 +405,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
                              'numbers of features. `X and y` both have '
                              f'{p} feature(s).')
         # Make initial guesses and iterate
-        P = np.eye(p_theta)
+        P = np.eye(p_theta) if P_0 is None else P_0
         U_prev = np.zeros((p_theta, p))
         # Set scope of other variables
         U = np.zeros((p_theta, p))
