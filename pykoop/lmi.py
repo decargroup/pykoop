@@ -560,7 +560,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         return problem_b
 
     def _hot_start(self, X, y):
-        log.info('Running `_hot_start() to estimate P_0')
+        log.info('Running `_hot_start()` to estimate P_0')
         _, G, H, _ = _calc_c_G_H(X, y, 0)
         U_un = linalg.lstsq(H.T, G.T)[0].T
         A_un = U_un[:, :U_un.shape[0]]
