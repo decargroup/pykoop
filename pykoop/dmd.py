@@ -5,7 +5,7 @@ from scipy import linalg
 
 class Edmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
 
-    def fit(self, X, y):
+    def fit(self, X, y, **kwargs):
         X, y = sklearn.utils.validation.check_X_y(X, y,
                                                   multi_output=True,
                                                   y_numeric=True)

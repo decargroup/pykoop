@@ -22,7 +22,8 @@ from sklearn import linear_model
         'exact'
     ),
     (
-        lmi.LmiEdmdTikhonovReg(alpha=0, inv_method='inv'),
+        lmi.LmiEdmdTikhonovReg(alpha=0, inv_method='inv',
+                               solver_params={'dualize': False}),
         'msd-no-input',
         1e-4,
         1e-5,
@@ -57,29 +58,39 @@ from sklearn import linear_model
         'sklearn-ridge'
     ),
     (
-        lmi.LmiEdmdTwoNormReg(alpha=1, inv_method='chol'),
+        lmi.LmiEdmdTwoNormReg(alpha=1, inv_method='chol',
+                              solver_params={'dualize': False}),
         'msd-no-input',
         1e-4,
         None,
-        # Test vector generated from old code. More of a regression test than
-        # anything. If the same error is present in that old code and this
-        # code, this test is meaningless!
+        # Regression test! Not unit test!
+        # If regularizing using the norm squared, use:
+        # np.array([
+        #     [ 0.89995985, 0.07048035],  # noqa: E201
+        #     [-0.07904385, 0.89377084]
+        # ])
+        # If regularizing using the norm alone, use:
         np.array([
-            [ 0.89995985, 0.07048035],  # noqa: E201
-            [-0.07904385, 0.89377084]
+            [ 0.929949, 0.065987],  # noqa: E201
+            [-0.102050, 0.893498]
         ])
     ),
     (
-        lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1, ratio=1),
+        lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1, ratio=1,
+                                  solver_params={'dualize': False}),
         'msd-no-input',
         1e-4,
         None,
-        # Test vector generated from old code. More of a regression test than
-        # anything. If the same error is present in that old code and this
-        # code, this test is meaningless!
+        # Regression test! Not unit test!
+        # If regularizing using the norm squared, use:
+        # np.array([
+        #     [ 0.70623152, -0.17749238],  # noqa: E201
+        #     [-0.32354638,  0.50687639]
+        # ])
+        # If regularizing using the norm alone, use:
         np.array([
-            [ 0.70623152, -0.17749238],  # noqa: E201
-            [-0.32354638,  0.50687639]
+            [ 0.875848, -0.017190],  # noqa: E201
+            [-0.210071,  0.727786]
         ])
     ),
     pytest.param((
@@ -92,7 +103,8 @@ from sklearn import linear_model
         'exact'
     ), marks=pytest.mark.slow),
     pytest.param((
-        lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=0.8),
+        lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=0.8,
+                                        solver_params={'dualize': False}),
         'msd-no-input',
         1e-4,
         None,
@@ -106,19 +118,21 @@ from sklearn import linear_model
     ), marks=pytest.mark.slow),
     pytest.param((
         lmi.LmiEdmdHinfReg(inv_method='eig', max_iter=100, tol=1e-6, alpha=1,
-                           ratio=1),
+                           ratio=1, solver_params={'dualize': False}),
         'msd-sin-input',
         1e-4,
         None,
-        # Test vector generated from old code. More of a regression test than
-        # anything. If the same error is present in that old code and this
-        # code, this test is meaningless! In this case, the algorithm reaches
-        # the maximum number of iterations before it converges!
+        # Regression test! Not unit test!
+        # If regularizing using the norm squared, use:
+        # np.array([
+        #     [ 0.54830794, -0.29545739, 0.48111973],  # noqa: E201
+        #     [-0.31602199,  0.17028950, 0.86402040]
+        # ])
+        # If regularizing using the norm alone, use:
         np.array([
-            [ 0.54830794, -0.29545739, 0.48111973],  # noqa: E201
-            [-0.31602199,  0.17028950, 0.86402040]
+            [ 0.759993, -0.423835,  0.466796],  # noqa: E201
+            [-0.417579,  0.232879,  0.837136]
         ])
-
     ), marks=pytest.mark.slow),
 ], ids=lambda value: f'{value[0]}-{value[1]}')  # Formatting for test IDs
 def scenario(request):
