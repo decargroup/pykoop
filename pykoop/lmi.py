@@ -405,6 +405,146 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
         return problem_b
 
 
+class LmiEdmdSpectralRadiusConstrIco(LmiEdmdTikhonovReg):
+
+    def __init__(self, rho_bar=1.0, alpha=0, max_iter=100, tol=1e-6,
+                 inv_method='chol', picos_eps=0, solver_params=None):
+        self.rho_bar = rho_bar
+        self.alpha = alpha
+        self.max_iter = max_iter
+        self.tol = tol
+        self.inv_method = inv_method
+        self.picos_eps = picos_eps
+        self.solver_params = solver_params
+
+    def fit(self, X, y, **kwargs):
+        self._validate_parameters()
+        X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
+        self.alpha_tikhonov_reg_ = self.alpha
+        # Get needed sizes
+        p_theta = y.shape[1]
+        p = X.shape[1]
+        # Make initial guess
+        R, S = self._initial_guess(X, y)
+        U = np.zeros((p_theta, p))
+        U_prev = np.zeros((p_theta, p))
+        difference = None
+        for k in range(self.max_iter):
+            problem = self._get_problem(X, y, R, S)
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem {k}')
+            problem.solve(**self.solver_params_)
+            solution_status = problem.last_solution.claimedStatus
+            if solution_status != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem`. Used last valid `U`. '
+                    f'Solution status: `{solution_status}`.'
+                )
+                log.warn(self.stop_reason_)
+                break
+            U = np.array(problem.get_valued_variable('U'), ndmin=2)
+            P = np.array(problem.get_valued_variable('P'), ndmin=2)
+            R = self._R(U)
+            S = self._S(P)
+            # Check stopping condition
+            difference = _fast_frob_norm(U_prev - U)
+            if (difference < self.tol):
+                self.stop_reason_ = f'Reached tolerance {self.tol}'
+                break
+            U_prev = U
+        else:
+            self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
+            log.warn(self.stop_reason_)
+        self.tol_reached_ = difference
+        self.n_iter_ = k + 1
+        self.coef_ = U.T
+
+    def _R(self, U):
+        A = U[:, :U.shape[0]]
+        R = np.block([
+            [np.eye(A.shape[0]),                  A],
+            [ np.zeros(A.shape), np.eye(A.shape[0])],  # noqa: E201
+        ])
+        return R
+
+    def _S(self, P):
+        S = 0.5 * self.rho_bar * np.block([
+            [                P, np.zeros(P.shape)],  # noqa: E201
+            [np.zeros(P.shape),                 P],
+        ])
+        return S
+
+    def _initial_guess(self, X, y):
+        # Get stable A
+        _, G, H, _ = _calc_c_G_H(X, y, 0)
+        U_un = linalg.lstsq(H.T, G.T)[0].T
+        A_un = U_un[:, :U_un.shape[0]]
+        lmb, V = linalg.eig(A_un)
+        for k in range(lmb.shape[0]):
+            if np.absolute(lmb[k]) >= self.rho_bar:
+                lmb[k] = (lmb[k] / np.absolute(lmb[k])) * self.rho_bar
+                lmb[k] = lmb[k] / (1 + 1e-1)
+        Lmb = np.diag(lmb)
+        A_norm = np.real(linalg.solve(V.T, Lmb @ V.T).T)
+        # Find feasible P
+        problem = picos.Problem()
+        p_theta = A_norm.shape[0]
+        A = picos.Constant('A', A_norm)
+        rho_bar = picos.Constant('rho_bar', self.rho_bar)
+        P = picos.SymmetricVariable('P', (p_theta, p_theta))
+        problem.add_constraint(P >> self.picos_eps)
+        problem.add_constraint(picos.block([
+            [rho_bar*P,       A*P],
+            [  P.T*A.T, rho_bar*P],  # noqa: E201
+        ]) >> 0)
+        problem.set_objective('min', picos.trace(P))
+        problem.solve(**self.solver_params_)
+        P_0 = np.array(problem.get_valued_variable('P'), ndmin=2)
+        # Form R and S
+        R = np.block([
+            [np.eye(A_norm.shape[0]),                  A_norm],
+            [ np.zeros(A_norm.shape), np.eye(A_norm.shape[0])],  # noqa: E201
+        ])
+        S = 0.5 * self.rho_bar * np.block([
+            [                P_0, np.zeros(P_0.shape)],  # noqa: E201
+            [np.zeros(P_0.shape),                 P_0],
+        ])
+        return (R, S)
+
+
+    def _get_problem(self, X, y, R_0, S_0):
+        problem = self._get_base_problem(X, y)
+        # Extract information from problem
+        U = problem.variables['U']
+        # Get needed sizes
+        p_theta = U.shape[0]
+        # Add new constraints
+        rho_bar = picos.Constant('rho_bar', self.rho_bar)
+        R_0 = picos.Constant('R_0', R_0)
+        S_0 = picos.Constant('S_0', S_0)
+        W = picos.Constant('W', 1e-2*np.eye(R_0.shape[1]))
+        P = picos.SymmetricVariable('P', (p_theta, p_theta))
+        problem.add_constraint(P >> self.picos_eps)
+        A = U[:, :p_theta]
+        R = picos.block([
+            ['I', A],
+            [0, 'I'],
+        ], shapes=((p_theta, p_theta), (p_theta, p_theta)))
+        S = picos.block([
+            [0.5 * self.rho_bar * P, 0],  # noqa: E201
+            [0, 0.5 * self.rho_bar * P],
+        ])
+        phi = (R * S_0) + (R_0 * S) - (R_0 * S_0)
+        problem.add_constraint(picos.block([
+            [(phi + phi.T), W.T * (R - R_0).T + (S - S_0)],
+            [(R - R_0) * W + (S - S_0).T, -W],
+        ]) << self.picos_eps)
+        return problem
+
+
 class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
 
     def __init__(self, alpha=1.0, ratio=1.0, max_iter=100, tol=1e-6,
