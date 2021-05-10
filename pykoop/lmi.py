@@ -177,31 +177,40 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
 class LmiEdmdTikhonovRegSvd(LmiEdmdTikhonovReg):
 
     def fit(self, X, y, **kwargs):
-        self.Q_X_, s_X, self.Vt_X_ = linalg.svd(X.T, full_matrices=False)
-        self.Q_y_, s_y, self.Vt_y_ = linalg.svd(y.T, full_matrices=False)
-        self.S_X_ = np.diag(s_X)
-        self.Si_X_ = np.diag(1/s_X)
-        self.S_y_ = np.diag(s_y)
-        self.Si_y_ = np.diag(1/s_y)
+        self.r_X_ = kwargs.pop('r_X', X.shape[1])
+        self.r_y_ = kwargs.pop('r_y', y.shape[1])
+        Q_X, s_X, Vt_X = linalg.svd(X.T, full_matrices=False)
+        Q_y, s_y, Vt_y = linalg.svd(y.T, full_matrices=False)
+        # Truncate X
+        self.Q_X_ = Q_X[:, :self.r_X_]
+        self.s_X_ = s_X[:self.r_X_]
+        self.Vt_X_ = Vt_X[:self.r_X_, :]
+        # Truncate y
+        self.Q_y_ = Q_y[:, :self.r_y_]
+        self.s_y_ = s_y[:self.r_y_]
+        self.Vt_y_ = Vt_y[:self.r_y_, :]
+        # Form S
+        self.S_X_ = np.diag(self.s_X_)
+        self.Si_X_ = np.diag(1 / self.s_X_)
+        self.S_y_ = np.diag(self.s_y_)
+        self.Si_y_ = np.diag(1 / self.s_y_)
         super().fit(X, y, **kwargs)
 
     def _get_base_problem(self, X, y):
-        p = X.shape[1]
-        p_theta = y.shape[1]
         problem = picos.Problem()
         V_hat = picos.Constant('V_hat', self.Vt_X_ @ self.Vt_y_.T)
-        U_hat = picos.RealVariable('U_hat', (p_theta, p))
-        Z = picos.SymmetricVariable('Z', (p_theta, p_theta))
+        U_hat = picos.RealVariable('U_hat', (self.r_y_, self.r_X_))
+        Z = picos.SymmetricVariable('Z', (self.r_y_, self.r_y_))
         problem.add_constraint(picos.block([
-            [np.eye(p_theta) - Z, U_hat],
-            [U_hat.T, -np.eye(p)],
+            [np.eye(self.r_y_) - Z, U_hat],
+            [U_hat.T, -np.eye(self.r_X_)],
         ]) << self.picos_eps)
         problem.set_objective('min', picos.trace(Z - 2 * U_hat * V_hat))
         return problem
 
     def _extract_solution(self, problem):
         U_hat = np.array(problem.get_valued_variable('U_hat'), ndmin=2)
-        U = self.S_y_ @ self.Q_y_ @ U_hat @ self.Q_X_.T @ self.Si_X_
+        U = self.Q_y_ @ self.S_y_ @ U_hat @ self.Si_X_ @ self.Q_X_.T
         return U.T
 
 
