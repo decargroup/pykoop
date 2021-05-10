@@ -1049,6 +1049,8 @@ def _calc_QSig(X, r, alpha):
     Sr_reg = np.diag(sr_reg)
     # Multiply with Q and return
     QSig = Qr @ Sr_reg
+    log.info(f'_calc_QSig() stats: r={r}, alpha={alpha}, len(s)={len(s)}, '
+             f's[0]={s[0]}, s[-1]={s[-1]}')
     return QSig
 
 
