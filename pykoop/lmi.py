@@ -238,6 +238,7 @@ class LmiEdmdTwoNormReg(LmiEdmdTikhonovReg):
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha * (1 - self.ratio)
         self.alpha_other_reg_ = self.alpha * self.ratio
+        self.r_svd_ = kwargs.pop('r_svd', None)
         problem = self._get_base_problem(X, y)
         self._add_twonorm(X, y, problem)
         problem.solve(**self.solver_params_)
@@ -292,6 +293,7 @@ class LmiEdmdNuclearNormReg(LmiEdmdTikhonovReg):
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha * (1 - self.ratio)
         self.alpha_other_reg_ = self.alpha * self.ratio
+        self.r_svd_ = kwargs.pop('r_svd', None)
         problem = self._get_base_problem(X, y)
         self._add_nuclear(X, y, problem)
         problem.solve(**self.solver_params_)
@@ -351,6 +353,7 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha
+        self.r_svd_ = kwargs.pop('r_svd', None)
         # Get needed sizes
         p_theta = y.shape[1]
         p = X.shape[1]
@@ -470,6 +473,7 @@ class LmiEdmdSpectralRadiusConstrIco(LmiEdmdTikhonovReg):
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha
+        self.r_svd_ = kwargs.pop('r_svd', None)
         # Get needed sizes
         p_theta = y.shape[1]
         p = X.shape[1]
@@ -611,6 +615,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha * (1 - self.ratio)
         self.alpha_other_reg_ = self.alpha * self.ratio
+        self.r_svd_ = kwargs.pop('r_svd', None)
         # Get needed sizes
         p_theta = y.shape[1]
         p = X.shape[1]
@@ -833,6 +838,7 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha
         self.supply_rate_xi_ = kwargs['supply_rate_xi']
+        self.r_svd_ = kwargs.pop('r_svd', None)
         # Get needed sizes
         p_theta = y.shape[1]
         p = X.shape[1]
