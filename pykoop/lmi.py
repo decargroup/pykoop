@@ -71,6 +71,7 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
         self._validate_parameters()
         X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
         self.alpha_tikhonov_reg_ = self.alpha
+        self.r_svd_ = kwargs.pop('r_svd', None)
         problem = self._get_base_problem(X, y)
         problem.solve(**self.solver_params_)
         self.solution_status_ = problem.last_solution.claimedStatus
@@ -89,7 +90,8 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
         if self.alpha < 0:
             raise ValueError('`alpha` must be greater than zero.')
         # Validate inverse method
-        valid_inv_methods = ['inv', 'pinv', 'eig', 'ldl', 'chol', 'sqrt']
+        valid_inv_methods = ['inv', 'pinv', 'eig', 'ldl', 'chol', 'sqrt',
+                             'svd']
         if self.inv_method not in valid_inv_methods:
             raise ValueError('`inv_method` must be one of: '
                              f'{", ".join(valid_inv_methods)}.')
@@ -155,6 +157,13 @@ class LmiEdmdTikhonovReg(sklearn.base.BaseEstimator,
             problem.add_constraint(picos.block([
                 [            Z, U * sqrtH],  # noqa: E201
                 [sqrtH.T * U.T,       'I']
+            ]) >> 0)
+        elif self.inv_method == 'svd':
+            QSig = picos.Constant('Q Sigma',
+                _calc_QSig(X, self.r_svd_, self.alpha_tikhonov_reg_))
+            problem.add_constraint(picos.block([
+                [           Z, U * QSig],  # noqa: E201
+                [QSig.T * U.T,      'I']
             ]) >> 0)
         else:
             # Should never get here since input validation is done in `fit()`.
@@ -1020,6 +1029,21 @@ def _calc_sqrtH(H):
     # Since H is symmetric, its square root is symmetric.
     # Otherwise, this would not work!
     return linalg.sqrtm(H)
+
+@memory.cache
+def _calc_QSig(X, r, alpha):
+    # SVD
+    Q, s, _ = linalg.svd(X.T, full_matrices=False)
+    # Truncate
+    Qr = Q[:, :r]
+    sr = s[:r]
+    # Regularize
+    q = X.shape[0]
+    sr_reg = np.sqrt((sr**2 + alpha) / q)
+    Sr_reg = np.diag(sr_reg)
+    # Multiply with Q and return
+    QSig = Qr @ Sr_reg
+    return QSig
 
 
 def _fast_frob_norm(A):

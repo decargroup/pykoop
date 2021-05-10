@@ -30,12 +30,13 @@ X = lifting_functions.AnglePreprocessor().fit_transform(
 kp = koopman_pipeline.KoopmanPipeline(
     preprocessing=preprocessing.StandardScaler(),
     # preprocessing=preprocessing.MinMaxScaler((-1, 1)),
-    delay=lifting_functions.Delay(n_delay_x=2, n_delay_u=2),
+    delay=lifting_functions.Delay(n_delay_x=1, n_delay_u=1),
     lifting_function=lifting_functions.PolynomialLiftingFn(order=2),
-    estimator=dmd.Edmd()
+    # estimator=dmd.Edmd()
+    estimator=lmi.LmiEdmdTikhonovReg(alpha=1e-6, inv_method='svd'),
 )
 
-kp.fit(X.T, n_u=1)
+kp.fit(X.T, n_u=1, r=44)
 score = kp.score(X.T)
 print(f'score = {score}')
 
