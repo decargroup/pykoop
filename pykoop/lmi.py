@@ -539,7 +539,7 @@ class LmiEdmdSpectralRadiusConstrIco(LmiEdmdTikhonovReg):
         for k in range(lmb.shape[0]):
             if np.absolute(lmb[k]) >= self.rho_bar:
                 lmb[k] = (lmb[k] / np.absolute(lmb[k])) * self.rho_bar
-                lmb[k] = lmb[k] / (1 + 1e-1)
+                # lmb[k] = lmb[k] / (1 + 1e-1)
         Lmb = np.diag(lmb)
         A_norm = np.real(linalg.solve(V.T, Lmb @ V.T).T)
         # Find feasible P
@@ -578,7 +578,7 @@ class LmiEdmdSpectralRadiusConstrIco(LmiEdmdTikhonovReg):
         rho_bar = picos.Constant('rho_bar', self.rho_bar)
         R_0 = picos.Constant('R_0', R_0)
         S_0 = picos.Constant('S_0', S_0)
-        W = picos.Constant('W', 1e-2*np.eye(R_0.shape[1]))
+        W = picos.Constant('W', 0.1*np.eye(R_0.shape[1]))
         P = picos.SymmetricVariable('P', (p_theta, p_theta))
         problem.add_constraint(P >> self.picos_eps)
         A = U[:, :p_theta]
@@ -596,6 +596,234 @@ class LmiEdmdSpectralRadiusConstrIco(LmiEdmdTikhonovReg):
             [(R - R_0) * W + (S - S_0).T, -W],
         ]) << self.picos_eps)
         return problem
+
+class LmiEdmdSpectralRadiusConstrIco2(LmiEdmdTikhonovReg):
+
+    def __init__(self, rho_bar=1.0, alpha=0, max_iter=100, tol=1e-6,
+                 inv_method='chol', picos_eps=0, solver_params=None):
+        self.rho_bar = rho_bar
+        self.alpha = alpha
+        self.max_iter = max_iter
+        self.tol = tol
+        self.inv_method = inv_method
+        self.picos_eps = picos_eps
+        self.solver_params = solver_params
+
+    def fit(self, X, y, **kwargs):
+        self._validate_parameters()
+        X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
+        self.alpha_tikhonov_reg_ = self.alpha
+        self.r_svd_ = kwargs.pop('r_svd', None)
+        # Get needed sizes
+        p_theta = y.shape[1]
+        p = X.shape[1]
+        # Make initial guess
+        R, S = self._initial_guess(X, y)
+        weights = self._initial_weights(R, S)
+        U = np.zeros((p_theta, p))
+        U_prev = np.zeros((p_theta, p))
+        P_prev = np.zeros((p_theta, p_theta))
+        difference = None
+        for k in range(self.max_iter):
+            problem = self._get_problem(X, y, R, S, *weights)
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem {k}')
+            problem.solve(**self.solver_params_)
+            solution_status = problem.last_solution.claimedStatus
+            if solution_status != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem`. Used last valid `U`. '
+                    f'Solution status: `{solution_status}`.'
+                )
+                log.warn(self.stop_reason_)
+                break
+            U = np.array(problem.get_valued_variable('U'), ndmin=2)
+            P = np.array(problem.get_valued_variable('P'), ndmin=2)
+            R = self._R(U)
+            S = self._S(P)
+            # Update weights
+            R_tilde_ast = R - self._R(U_prev)
+            S_tilde_ast = S - self._S(P_prev)
+            # weights = self._get_weights(R_tilde_ast, S_tilde_ast)
+            # Check stopping condition
+            difference = _fast_frob_norm(U_prev - U)
+            print('---')
+            print(difference)
+            print(_fast_frob_norm(P_prev - P))
+            print(_fast_frob_norm(R_tilde_ast))
+            print(_fast_frob_norm(S_tilde_ast))
+            print('---')
+            if (difference < self.tol):
+                self.stop_reason_ = f'Reached tolerance {self.tol}'
+                break
+            U_prev = U
+            P_prev = P
+        else:
+            self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
+            log.warn(self.stop_reason_)
+        self.tol_reached_ = difference
+        self.n_iter_ = k + 1
+        self.coef_ = U.T
+
+    def _R(self, U):
+        A = U[:, :U.shape[0]]
+        R = np.block([
+            [np.eye(A.shape[0]), A],
+            [np.zeros(A.shape), np.eye(A.shape[0])],
+        ])
+        return R
+
+    def _S(self, P):
+        S = 0.5 * self.rho_bar * np.block([
+            [P, np.zeros(P.shape)],
+            [np.zeros(P.shape), P],
+        ])
+        return S
+
+    def _initial_guess(self, X, y):
+        # Get stable A
+        _, G, H, _ = _calc_c_G_H(X, y, 0)
+        U_un = linalg.lstsq(H.T, G.T)[0].T
+        A_un = U_un[:, :U_un.shape[0]]
+        lmb, V = linalg.eig(A_un)
+        for k in range(lmb.shape[0]):
+            if np.absolute(lmb[k]) >= self.rho_bar:
+                lmb[k] = (lmb[k] / np.absolute(lmb[k])) * self.rho_bar
+                lmb[k] = lmb[k] / (1 + 1e-9) # TODO YIKES
+        Lmb = np.diag(lmb)
+        A_norm = np.real(linalg.solve(V.T, Lmb @ V.T).T)
+        # Find feasible P
+        problem = picos.Problem()
+        p_theta = A_norm.shape[0]
+        A = picos.Constant('A', A_norm)
+        rho_bar = picos.Constant('rho_bar', self.rho_bar)
+        P = picos.SymmetricVariable('P', (p_theta, p_theta))
+        problem.add_constraint(P >> self.picos_eps)
+        problem.add_constraint(picos.block([
+            [rho_bar*P,       A*P],
+            [  P.T*A.T, rho_bar*P],  # noqa: E201
+        ]) >> 0)
+        problem.set_objective('min', picos.trace(P))
+        problem.solve(**self.solver_params_)
+        P_0 = np.array(problem.get_valued_variable('P'), ndmin=2)
+        # Form R and S
+        R = np.block([
+            [np.eye(A_norm.shape[0]), A_norm],
+            [np.zeros(A_norm.shape), np.eye(A_norm.shape[0])],
+        ])
+        S = 0.5 * self.rho_bar * np.block([
+            [P_0, np.zeros(P_0.shape)],
+            [np.zeros(P_0.shape), P_0],
+        ])
+        return (R, S)
+
+    def _initial_weights(self, R, S):
+        L_1 = 1 * np.eye(S.shape[0])
+        L_2 = L_1
+        Lmb = 0.5 * np.eye(S.shape[0])
+        # Calculate weights
+        W_tilde_1 = _He(L_1 @ Lmb @ L_1.T) / 2
+        W_hat_1 = _He(L_1 @ linalg.solve(Lmb, L_1.T)) / 2
+        W_hat_2 = _He(L_2 @ linalg.solve(np.eye(Lmb.shape[0]) - Lmb, L_2.T)) / 2
+        W_2 = _He(L_2 @ L_2.T) / 2
+        return (W_tilde_1, W_hat_1, W_hat_2, W_2)
+        # return (
+        #     np.eye(S.shape[0]),
+        #     np.eye(S.shape[0]),
+        #     np.eye(S.shape[0]),
+        #     np.eye(S.shape[0]),
+        # )
+
+
+    def _get_problem(self, X, y, R_0, S_0, W_tilde_1, W_hat_1, W_hat_2, W_2):
+        problem = self._get_base_problem(X, y)
+        # Extract information from problem
+        U = problem.variables['U']
+        # Get needed sizes
+        p_theta = U.shape[0]
+        # Add new constraints
+        rho_bar = picos.Constant('rho_bar', self.rho_bar)
+        R_0 = picos.Constant('R_0', R_0)
+        S_0 = picos.Constant('S_0', S_0)
+        # Weights
+        W_tilde_1_inv = picos.Constant('W_tilde^-1',
+                                       _He(linalg.inv(W_tilde_1)) / 2)
+        W_hat_1 = picos.Constant('W_hat_1', W_hat_1)
+        W_hat_2 = picos.Constant('W_hat_2', W_hat_2)
+        W_2 = picos.Constant('W_2', W_2)
+        # Hinf constraint matrices
+        P = picos.SymmetricVariable('P', (p_theta, p_theta))
+        problem.add_constraint(P >> self.picos_eps)
+        A = U[:, :p_theta]
+        R = picos.block([
+            ['I', A],
+            [0, 'I'],
+        ], shapes=((p_theta, p_theta), (p_theta, p_theta)))
+        S = picos.block([
+            [0.5 * self.rho_bar * P, 0],  # noqa: E201
+            [0, 0.5 * self.rho_bar * P],
+        ])
+        phi = (R * S_0) + (R_0 * S) + (R_0 * S_0)
+        const_41 = W_2 * (R - R_0) + (S - S_0).T
+        problem.add_constraint(picos.block([
+            [_He(phi), (R - R_0), (S - S_0).T, const_41.T],
+            [(R - R_0).T, -W_tilde_1_inv, 0, 0],
+            [(S - S_0), 0, -W_hat_1, 0],
+            [const_41, 0, 0, -W_hat_2],
+        ]) << self.picos_eps)
+        return problem
+
+    def _get_weights(self, R_tilde_ast, S_tilde_ast):
+        # Solve for L1 and L2
+        problem_L = picos.Problem()
+        R_tilde_ast = picos.Constant('R_tilde_ast', R_tilde_ast)
+        S_tilde_ast = picos.Constant('S_tilde_ast', S_tilde_ast)
+        Z = picos.SymmetricVariable('Z', R_tilde_ast.shape[0])
+        W = picos.SymmetricVariable('W', S_tilde_ast.shape[0])
+        problem_L.add_constraint(W >> self.picos_eps)
+        problem_L.add_constraint(Z >> self.picos_eps)  # TODO Why?
+        problem_L.add_constraint(picos.block([
+            [Z - R_tilde_ast * W * R_tilde_ast.T, S_tilde_ast.T],
+            [S_tilde_ast, W],
+        ]) >> self.picos_eps)
+        problem_L.set_objective('min', picos.trace(Z))
+        problem_L.solve(**self.solver_params_)
+        # Compute weights
+        W_ast = np.array(problem_L.get_valued_variable('W'), ndmin=2)
+        # TODO Cholesky here?
+        L_1_np = linalg.cholesky(W_ast, lower=True)
+        L_2_np = L_1_np
+
+        # Solve for Lambda
+        problem_Lmb = picos.Problem()
+        L_1 = picos.Constant('L_1', L_1_np)
+        L_1_inv = picos.Constant('L_1^-1', linalg.inv(L_1_np))
+        L_2 = picos.Constant('L_2', L_2_np)
+        L_2_inv = picos.Constant('L_2^-1', linalg.inv(L_2_np))
+        Lmb = picos.SymmetricVariable('Lmb', L_1.shape[0])
+        problem_Lmb.add_constraint(Lmb >> 0)
+        problem_Lmb.add_constraint(Lmb << np.eye(Lmb.shape[0]))
+        # Objective function
+        eta = R_tilde_ast * L_1 - S_tilde_ast.T * L_1_inv.T
+        gamma = R_tilde_ast * L_2
+        chi = S_tilde_ast.T * L_2_inv.T
+        obj = picos.trace(eta * (np.eye(Lmb.shape[0]) - Lmb) * eta.T
+                          + gamma * Lmb * gamma.T
+                          + chi * Lmb * chi.T)
+        problem_Lmb.set_objective('min', obj)
+        problem_Lmb.solve(**self.solver_params_)
+        Lmb_np = np.array(problem_Lmb.get_valued_variable('Lmb'), ndmin=2)
+
+        # Compute weights and return
+        W_tilde_1 = _He(L_1_np @ Lmb_np @ L_1_np.T) / 2
+        W_hat_1 = _He(L_1_np @ linalg.solve(Lmb_np, L_1_np.T)) / 2
+        W_hat_2 = _He(L_2_np @ linalg.solve(
+            np.eye(Lmb_np.shape[0]) - Lmb_np, L_2_np.T)) / 2
+        W_2 = _He(L_2_np @ L_2_np.T) / 2
+        return (W_tilde_1, W_hat_1, W_hat_2, W_2)
 
 
 class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
@@ -1058,3 +1286,7 @@ def _fast_frob_norm(A):
     # Maybe this is premature optimization but scipy.linalg.norm() is
     # notoriously slow.
     return np.sqrt(np.trace(A @ A.T))
+
+
+def _He(A):
+    return (A + A.T)

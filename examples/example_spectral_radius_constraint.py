@@ -16,16 +16,17 @@ def main():
     # Set up problem
     t_range = (0, 5)
     t_step = 0.1
-    msd = mass_spring_damper.MassSpringDamper(
-        mass=0.5,
-        stiffness=0.7,
-        damping=0.6
-    )
+    msd = mass_spring_damper.MassSpringDamper(mass=0.5,
+                                              stiffness=0.7,
+                                              damping=0.6)
     # Solve ODE for training data
     x0 = msd.x0(np.array([1, 0]))
-    sol = integrate.solve_ivp(lambda t, x: msd.f(t, x, 0), t_range, x0,
+    sol = integrate.solve_ivp(lambda t, x: msd.f(t, x, 0),
+                              t_range,
+                              x0,
                               t_eval=np.arange(*t_range, t_step),
-                              rtol=1e-8, atol=1e-8)
+                              rtol=1e-8,
+                              atol=1e-8)
     # Split the data
     X = sol.y[:, :-1]
     Xp = sol.y[:, 1:]
@@ -33,18 +34,32 @@ def main():
     # Regressor with no constraint
     reg_no_const = lmi.LmiEdmdTikhonovReg(alpha=0)
 
+    sp = {
+        'dualize': False,
+    }
+
     reg_no_const.fit(X.T, Xp.T)
     U_no_const = reg_no_const.coef_.T
     # Regressor with constraint larger than actual spectral radius.
     # Should not have any effect on the problem.
-    reg_big_const = lmi.LmiEdmdSpectralRadiusConstrIco(rho_bar=1.1,
-                                                       max_iter=100)
+    reg_big_const = lmi.LmiEdmdSpectralRadiusConstrIco2(
+        rho_bar=1.1,
+        max_iter=100,
+        tol=1e-3,
+        picos_eps=0,
+        solver_params=sp,
+    )
     reg_big_const.fit(X.T, Xp.T)
     U_big_const = reg_big_const.coef_.T
     # Regressor with significant constraint on spectral radius.
     # Will push eigenvalues toward centre of unit circle.
-    reg_small_const = lmi.LmiEdmdSpectralRadiusConstrIco(rho_bar=0.8,
-                                                         max_iter=100)
+    reg_small_const = lmi.LmiEdmdSpectralRadiusConstrIco2(
+        rho_bar=0.8,
+        max_iter=100,
+        tol=1e-9,
+        picos_eps=0,
+        solver_params=sp,
+    )
     reg_small_const.fit(X.T, Xp.T)
     U_small_const = reg_small_const.coef_.T
 
