@@ -694,7 +694,7 @@ class LmiEdmdSpectralRadiusConstrIco2(LmiEdmdTikhonovReg):
         for k in range(lmb.shape[0]):
             if np.absolute(lmb[k]) >= self.rho_bar:
                 lmb[k] = (lmb[k] / np.absolute(lmb[k])) * self.rho_bar
-                lmb[k] = lmb[k] / (1 + 1) # TODO YIKES
+                # lmb[k] = lmb[k] / (1 + 1) # TODO YIKES
         Lmb = np.diag(lmb)
         A_norm = np.real(linalg.solve(V.T, Lmb @ V.T).T)
         # Find feasible P
@@ -912,7 +912,7 @@ class LmiEdmdSpectralRadiusConstrIco3(LmiEdmdTikhonovReg):
         for k in range(lmb.shape[0]):
             if np.absolute(lmb[k]) >= self.rho_bar:
                 lmb[k] = (lmb[k] / np.absolute(lmb[k])) * self.rho_bar
-                lmb[k] = lmb[k] / (1 + 1)
+                # lmb[k] = lmb[k] / (1 + 1)
         Lmb = np.diag(lmb)
         A_norm = np.real(linalg.solve(V.T, Lmb @ V.T).T)
         # Find feasible P
@@ -1176,6 +1176,204 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
                              '`LmiEdmdTikhonovReg()` if you want to disable '
                              'regularization.')
         super()._validate_parameters()
+
+
+class LmiEdmdHinfRegIco(LmiEdmdTikhonovReg):
+    """First ICO method with the inverse."""
+
+    def __init__(self, alpha=1.0, ratio=1.0, max_iter=100, tol=1e-6,
+                 inv_method='chol', picos_eps=0, solver_params=None):
+        self.alpha = alpha
+        self.ratio = ratio
+        self.max_iter = max_iter
+        self.tol = tol
+        self.inv_method = inv_method
+        self.picos_eps = picos_eps
+        self.solver_params = solver_params
+
+    def fit(self, X, y, **kwargs):
+        self._validate_parameters()
+        X, y = self._validate_data(X, y, reset=True, **self._check_X_y_params)
+        self.alpha_tikhonov_reg_ = self.alpha * (1 - self.ratio)
+        self.alpha_other_reg_ = self.alpha * self.ratio
+        self.r_svd_ = kwargs.pop('r_svd', None)
+        # Get needed sizes
+        p_theta = y.shape[1]
+        p = X.shape[1]
+        # Make initial guess
+        R, S = self._initial_guess(X, y)
+        U = np.zeros((p_theta, p))
+        U_prev = np.zeros((p_theta, p))
+        difference = None
+        for k in range(self.max_iter):
+            problem = self._get_problem(X, y, R, S)
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem {k}')
+            problem.solve(**self.solver_params_)
+            solution_status = problem.last_solution.claimedStatus
+            if solution_status != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem`. Used last valid `U`. '
+                    f'Solution status: `{solution_status}`.'
+                )
+                log.warn(self.stop_reason_)
+                break
+            U = np.array(problem.get_valued_variable('U'), ndmin=2)
+            P = np.array(problem.get_valued_variable('P'), ndmin=2)
+            gamma = np.array(problem.get_valued_variable('gamma'))
+            R = self._R(U, P, gamma)
+            S = self._S(U, P)
+            # Check stopping condition
+            difference = _fast_frob_norm(U_prev - U)
+            log.info(f'Difference at iteration {k}: {difference}')
+            if (difference < self.tol):
+                self.stop_reason_ = f'Reached tolerance {self.tol}'
+                break
+            U_prev = U
+        else:
+            self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
+            log.warn(self.stop_reason_)
+        self.tol_reached_ = difference
+        self.n_iter_ = k + 1
+        self.coef_ = U.T
+
+    def _R(self, U, P, gamma):
+        A = U[:, :U.shape[0]]
+        B = U[:, U.shape[0]:]
+        p_th = B.shape[0]
+        p = B.shape[1]  # Wrong notation
+        R = -1 * np.block([
+            [
+                0.5 * np.eye(p_th),
+                A,
+                B,
+                np.zeros((p_th, p_th)),
+            ], [
+                np.zeros((p_th, p_th)),
+                0.5 * np.eye(p_th),
+                np.zeros((p_th, p)),
+                P,
+            ], [
+                np.zeros((p, p_th + p_th)),
+                0.5 * gamma * np.eye(p),
+                np.zeros((p, p_th)),
+            ], [
+                np.zeros((p_th, p_th + p_th + p)),
+                0.5 * gamma * np.eye(p_th),
+            ],
+        ])
+        return R
+
+    def _S(self, U, P):
+        B = U[:, U.shape[0]:]
+        p_th = B.shape[0]
+        p = B.shape[1]
+        S = linalg.block_diag(P, P, np.eye(p), np.eye(p_th))
+        return S
+
+    def _initial_guess(self, X, y):
+        # Get stable A
+        _, G, H, _ = _calc_c_G_H(X, y, 0)
+        U_un = linalg.lstsq(H.T, G.T)[0].T
+        A_un = U_un[:, :U_un.shape[0]]
+        B_un = U_un[:, U_un.shape[0]:]
+        lmb, V = linalg.eig(A_un)
+        for k in range(lmb.shape[0]):
+            if np.absolute(lmb[k]) > 1:
+                lmb[k] = (lmb[k] / np.absolute(lmb[k]))
+        Lmb = np.diag(lmb)
+        A_norm = np.real(linalg.solve(V.T, Lmb @ V.T).T)
+        A_norm = A_un
+
+        C_un = np.eye(U_un.shape[0])
+        D_un = np.zeros((C_un.shape[0], B_un.shape[1]))
+
+        problem = picos.Problem()
+        A = picos.Constant('A', A_norm)
+        B = picos.Constant('B', B_un)
+        C = picos.Constant('C', C_un)
+        D = picos.Constant('D', D_un)
+        P = picos.SymmetricVariable('P', A_norm.shape)
+        problem.add_constraint(P >> self.picos_eps)
+        gamma = picos.RealVariable('gamma', 1)
+        # problem.add_constraint(gamma >= 0)
+        gamma_33 = picos.diag(gamma, D.shape[1])
+        gamma_44 = picos.diag(gamma, D.shape[0])
+        problem.add_constraint(picos.block([
+            [      P,   A*P,        B,        0],  # noqa: E201
+            [P.T*A.T,     P,        0,    P*C.T],
+            [    B.T,     0, gamma_33,      D.T],  # noqa: E201
+            [      0, C*P.T,        D, gamma_44]   # noqa: E201
+        ]) >> self.picos_eps)
+        problem.set_objective('min', gamma)
+        # problem.set_objective('min', picos.trace(P))
+        problem.solve(**self.solver_params_)
+
+        U_np = np.hstack((A_norm, B_un))
+        P_np = np.array(problem.get_valued_variable('P'), ndmin=2)
+        gamma_np = np.array(problem.get_valued_variable('gamma'))
+
+        R = self._R(U_np, P_np, gamma_np)
+        S = self._S(U_np, P_np)
+
+        return (R, S)
+
+    def _get_problem(self, X, y, R_0, S_0):
+        problem = self._get_base_problem(X, y)
+        # Extract information from problem
+        U = problem.variables['U']
+        # Get needed sizes
+        p_theta = U.shape[0]
+        # Add new constraints
+
+        R_0 = picos.Constant('R_0', R_0)
+        S_0 = picos.Constant('S_0', S_0)
+        w = 1
+        W = picos.Constant('W', w * np.eye(R_0.shape[1]))
+        W_inv = picos.Constant('W^-1', (1 / w) * np.eye(R_0.shape[1]))
+        P = picos.SymmetricVariable('P', (p_theta, p_theta))
+        problem.add_constraint(P >> self.picos_eps)
+        gamma = picos.RealVariable('gamma', 1)
+        # problem.add_constraint(gamma >= 0)
+        A = U[:, :p_theta]
+        B = U[:, p_theta:]
+        p = B.shape[1]
+
+        R = -1 * picos.block([
+            [picos.diag(0.5, p_theta), A, B, 0],
+            [0, picos.diag(0.5, p_theta), 0, P],
+            [0, 0, picos.diag(0.5 * gamma, p), 0],
+            [0, 0, 0, picos.diag(0.5 * gamma, p_theta)],
+        ])
+        S_shapes = (
+            (p_theta, p_theta, p, p_theta),
+            (p_theta, p_theta, p, p_theta),
+        )
+        S = picos.block([
+            [P, 0, 0, 0],
+            [0, P, 0, 0],
+            [0, 0, 'I', 0],
+            [0, 0, 0, 'I'],
+        ], shapes=S_shapes)
+
+        phi = (R * S_0) + (R_0 * S) - (R_0 * S_0)
+        problem.add_constraint(picos.block([
+            [_He(phi), (R - R_0), (S - S_0).T],
+            [(R - R_0).T, -W_inv, 0],
+            [(S - S_0), 0, -W],
+        ]) << self.picos_eps)  # TODO SIGN???
+
+        q = X.shape[0]
+        direction = problem.objective.direction
+        objective = problem.objective.function
+        alpha_scaled = picos.Constant('alpha_inf/q', self.alpha_other_reg_/q)
+        objective += alpha_scaled * gamma
+        problem.set_objective(direction, objective)
+
+        return problem
 
 
 class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):

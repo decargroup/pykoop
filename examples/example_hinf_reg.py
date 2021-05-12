@@ -49,7 +49,12 @@ def main():
     U_no_const = reg_no_const.coef_.T
 
     # Regressor with Hinf regularization
-    reg_hinf = lmi.LmiEdmdHinfReg(alpha=0.1)
+    reg_hinf_old = lmi.LmiEdmdHinfReg(alpha=0.1)
+    reg_hinf_old.fit(X.T, Xp.T)
+    U_hinf_old = reg_hinf_old.coef_.T
+
+    # Regressor with Hinf regularization
+    reg_hinf = lmi.LmiEdmdHinfRegIco(alpha=0.1, max_iter=1000)
     reg_hinf.fit(X.T, Xp.T)
     U_hinf = reg_hinf.coef_.T
 
@@ -59,6 +64,7 @@ def main():
     ax.set_xlabel(r'$\mathrm{Re}(\lambda)$')
     ax.set_ylabel(r'$\mathrm{Im}(\lambda)$')
     plt_eig(U_no_const[:2, :2], ax, 'True system', marker='o')
+    plt_eig(U_hinf_old[:2, :2], ax, r'Hinf-regularized-old')
     plt_eig(U_hinf[:2, :2], ax, r'Hinf-regularized')
     ax.set_rmax(1.1)
     ax.legend()
