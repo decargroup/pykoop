@@ -1205,6 +1205,7 @@ class LmiEdmdHinfRegIco(LmiEdmdTikhonovReg):
         U = np.zeros((p_theta, p))
         U_prev = np.zeros((p_theta, p))
         difference = None
+        self.U_log_ = []
         for k in range(self.max_iter):
             problem = self._get_problem(X, y, R, S)
             if polite_stop:
@@ -1233,6 +1234,7 @@ class LmiEdmdHinfRegIco(LmiEdmdTikhonovReg):
                 self.stop_reason_ = f'Reached tolerance {self.tol}'
                 break
             U_prev = U
+            self.U_log_.append(U)
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
             log.warn(self.stop_reason_)
