@@ -1014,6 +1014,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         U_prev = np.zeros((p_theta, p))
         # Set scope of other variables
         U = np.zeros((p_theta, p))
+        self.U_log_ = []
         gamma = 0
         difference = None
         for k in range(self.max_iter):
@@ -1060,6 +1061,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
                 self.stop_reason_ = f'Reached tolerance {self.tol}'
                 break
             U_prev = U
+            self.U_log_.append(U)
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
             log.warn(self.stop_reason_)
@@ -1197,6 +1199,7 @@ class LmiEdmdHinfRegIco(LmiEdmdTikhonovReg):
         self.alpha_tikhonov_reg_ = self.alpha * (1 - self.ratio)
         self.alpha_other_reg_ = self.alpha * self.ratio
         self.r_svd_ = kwargs.pop('r_svd', None)
+        self.w_ = kwargs.pop('w', 1)
         # Get needed sizes
         p_theta = y.shape[1]
         p = X.shape[1]
@@ -1333,8 +1336,7 @@ class LmiEdmdHinfRegIco(LmiEdmdTikhonovReg):
 
         R_0 = picos.Constant('R_0', R_0)
         S_0 = picos.Constant('S_0', S_0)
-        w = 1
-        W = picos.Constant('W', w * np.eye(R_0.shape[1]))
+        W = picos.Constant('W', self.w_ * np.eye(R_0.shape[1]))
         W_inv = picos.Constant('W^-1', (1 / w) * np.eye(R_0.shape[1]))
         P = picos.SymmetricVariable('P', (p_theta, p_theta))
         problem.add_constraint(P >> self.picos_eps)
