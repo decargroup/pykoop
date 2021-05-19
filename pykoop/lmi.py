@@ -1133,27 +1133,26 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
 
     def _hot_start(self, X, y):
         log.info('Running `_hot_start()` to estimate P_0')
-        _, G, H, _ = _calc_c_G_H(X, y, 0)
+        _, G, H, _ = _calc_c_G_H(X, y, self.alpha_tikhonov_reg_)
         U_un = linalg.lstsq(H.T, G.T)[0].T
         A_un = U_un[:, :U_un.shape[0]]
         B_un = U_un[:, U_un.shape[0]:]
         lmb, V = linalg.eig(A_un)
         for k in range(lmb.shape[0]):
-            if np.absolute(lmb[k]) >= 1:
-                lmb[k] = lmb[k] / np.absolute(lmb[k]) / 1.1
+            if np.absolute(lmb[k]) > 1:
+                lmb[k] = lmb[k] / np.absolute(lmb[k])
         Lmb = np.diag(lmb)
-        A_norm = np.real(V @ Lmb @ linalg.inv(V))
-        U_norm = np.hstack((A_norm, B_un))
+        A_norm = np.real(linalg.solve(V.T, Lmb @ V.T).T)
+        C_un = np.eye(U_un.shape[0])
+        D_un = np.zeros((C_un.shape[0], B_un.shape[1]))
 
         problem = picos.Problem()
-        p_theta = U_norm.shape[0]
-        U = picos.Constant('U_norm', U_norm)
-        A = U[:p_theta, :p_theta]
-        B = U[:p_theta, p_theta:]
-        C = np.eye(p_theta)
-        D = np.zeros((C.shape[0], B.shape[1]))
-        gamma = picos.RealVariable('gamma', 1)
-        P = picos.SymmetricVariable('P', p_theta)
+        A = picos.Constant('A', A_norm)
+        B = picos.Constant('B', B_un)
+        C = picos.Constant('C', C_un)
+        D = picos.Constant('D', D_un)
+        gamma = picos.RealVariable('gamma', 1, lower=0)
+        P = picos.SymmetricVariable('P', A_norm.shape)
         gamma_33 = picos.diag(gamma, D.shape[1])
         gamma_44 = picos.diag(gamma, D.shape[0])
         problem.add_constraint(P >> self.picos_eps)
