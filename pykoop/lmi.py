@@ -1007,19 +1007,25 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         U_0 = kwargs.pop('U_0', None)
         gamma_0 = kwargs.pop('gamma_0', None)
         P_0 = kwargs.pop('P_0', None)
-        if (U_0 is not None) and (P_0 is not None):
+        safety = kwargs.pop('safety', 0)
+        if U_0 is not None:
             # Ignore P_0 if both are given
-            U = U_0
-            gamma = gamma_0
-            P = None
-        elif U_0 is not None:
-            U = U_0
-            gamma = gamma_0
-            P = None
+            if U_0 == 'hot':
+                U, gamma, _ = self._hot_start(X, y, safety)
+                P = None
+            else:
+                U = U_0
+                gamma = gamma_0
+                P = None
         elif P_0 is not None:
-            U = None
-            gamma = None
-            P = P_0
+            if P_0 == 'hot':
+                U = None
+                gamma = None
+                _, _, P = self._hot_start(X, y, safety)
+            else:
+                U = U_0
+                gamma = gamma_0
+                P = None
         else:
             U = None
             gamma = None
