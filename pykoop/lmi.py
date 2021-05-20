@@ -1004,39 +1004,51 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
                              'numbers of features. `X and y` both have '
                              f'{p} feature(s).')
         # Make initial guesses and iterate
+        U_0 = kwargs.pop('U_0', None)
+        gamma_0 = kwargs.pop('gamma_0', None)
         P_0 = kwargs.pop('P_0', None)
-        if P_0 is None:
-            P = np.eye(p_theta)
-        elif P_0 == 'hot':
-            P = self._hot_start(X, y)
-        else:
+        if (U_0 is not None) and (P_0 is not None):
+            # Ignore P_0 if both are given
+            U = U_0
+            gamma = gamma_0
+            P = None
+        elif U_0 is not None:
+            U = U_0
+            gamma = gamma_0
+            P = None
+        elif P_0 is not None:
+            U = None
+            gamma = None
             P = P_0
+        else:
+            U = None
+            gamma = None
+            P = np.eye(p_theta)
         U_prev = np.zeros((p_theta, p))
         # Set scope of other variables
-        U = np.zeros((p_theta, p))
         self.U_log_ = []
-        gamma = 0
         difference = None
         for k in range(self.max_iter):
-            # Formulate Problem A
-            problem_a = self._get_problem_a(X, y, P)
-            # Solve Problem A
-            if polite_stop:
-                self.stop_reason_ = 'User requested stop.'
-                log.warn(self.stop_reason_)
-                break
-            log.info(f'Solving problem A{k}')
-            problem_a.solve(**self.solver_params_)
-            solution_status_a = problem_a.last_solution.claimedStatus
-            if solution_status_a != 'optimal':
-                self.stop_reason_ = (
-                    'Unable to solve `problem_a`. Used last valid `U`. '
-                    f'Solution status: `{solution_status_a}`.'
-                )
-                log.warn(self.stop_reason_)
-                break
-            U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
-            gamma = np.array(problem_a.get_valued_variable('gamma'))
+            if P is not None:
+                # Formulate Problem A
+                problem_a = self._get_problem_a(X, y, P)
+                # Solve Problem A
+                if polite_stop:
+                    self.stop_reason_ = 'User requested stop.'
+                    log.warn(self.stop_reason_)
+                    break
+                log.info(f'Solving problem A{k}')
+                problem_a.solve(**self.solver_params_)
+                solution_status_a = problem_a.last_solution.claimedStatus
+                if solution_status_a != 'optimal':
+                    self.stop_reason_ = (
+                        'Unable to solve `problem_a`. Used last valid `U`. '
+                        f'Solution status: `{solution_status_a}`.'
+                    )
+                    log.warn(self.stop_reason_)
+                    break
+                U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
+                gamma = np.array(problem_a.get_valued_variable('gamma'))
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U, gamma)
             # Solve Problem B
@@ -1131,7 +1143,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         problem_b.set_objective('find')
         return problem_b
 
-    def _hot_start(self, X, y):
+    def _hot_start(self, X, y, safety=0):
         log.info('Running `_hot_start()` to estimate P_0')
         _, G, H, _ = _calc_c_G_H(X, y, self.alpha_tikhonov_reg_)
         U_un = linalg.lstsq(H.T, G.T)[0].T
@@ -1140,7 +1152,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         lmb, V = linalg.eig(A_un)
         for k in range(lmb.shape[0]):
             if np.absolute(lmb[k]) > 1:
-                lmb[k] = lmb[k] / np.absolute(lmb[k])
+                lmb[k] = lmb[k] / np.absolute(lmb[k]) / (1 + safety)
         Lmb = np.diag(lmb)
         A_norm = np.real(linalg.solve(V.T, Lmb @ V.T).T)
         C_un = np.eye(U_un.shape[0])
@@ -1164,8 +1176,10 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         ]) >> self.picos_eps)
         problem.set_objective('min', gamma)
         problem.solve(**self.solver_params_)
+        U_0 = np.hstack((A_norm, B_un))
+        gamma_0 = np.array(problem.get_valued_variable('gamma'), ndmin=1)
         P_0 = np.array(problem.get_valued_variable('P'), ndmin=2)
-        return P_0
+        return U_0, gamma_0, P_0
 
     def _validate_parameters(self):
         if self.alpha == 0:
