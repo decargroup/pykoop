@@ -1356,7 +1356,7 @@ class LmiEdmdHinfRegIco(LmiEdmdTikhonovReg):
         R_0 = picos.Constant('R_0', R_0)
         S_0 = picos.Constant('S_0', S_0)
         W = picos.Constant('W', self.w_ * np.eye(R_0.shape[1]))
-        W_inv = picos.Constant('W^-1', (1 / w) * np.eye(R_0.shape[1]))
+        W_inv = picos.Constant('W^-1', (1 / self.w_) * np.eye(R_0.shape[1]))
         P = picos.SymmetricVariable('P', (p_theta, p_theta))
         problem.add_constraint(P >> self.picos_eps)
         gamma = picos.RealVariable('gamma', 1)
