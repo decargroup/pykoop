@@ -992,6 +992,8 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         self.alpha_tikhonov_reg_ = self.alpha * (1 - self.ratio)
         self.alpha_other_reg_ = self.alpha * self.ratio
         self.r_svd_ = kwargs.pop('r_svd', None)
+        self.weight_ = kwargs.pop('weight', None)
+        self.weight_type_ = kwargs.pop('weight_type', 'pre')
         # Get needed sizes
         p_theta = y.shape[1]
         p = X.shape[1]
@@ -1029,7 +1031,10 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         else:
             U = None
             gamma = None
-            P = np.eye(p_theta)
+            if self.weight_ is None:
+                P = np.eye(p_theta)
+            else:
+                P = np.eye(p_theta + self.weight_[0].shape[0])
         U_prev = np.zeros((p_theta, p))
         # Set scope of other variables
         self.U_log_ = []
@@ -1091,6 +1096,52 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         self.gamma_ = gamma
         return self
 
+    def _get_ss(self, U):
+        p_theta = U.shape[0]
+        if self.weight_ is None:
+            A = U[:, :p_theta]
+            B = U[:, p_theta:]
+            C = np.eye(p_theta)
+            D = np.zeros((C.shape[0], B.shape[1]))
+        else:
+            Aw = picos.Constant('Aw', self.weight_[0])
+            Bw = picos.Constant('Bw', self.weight_[1])
+            Cw = picos.Constant('Cw', self.weight_[2])
+            Dw = picos.Constant('Dw', self.weight_[3])
+            Am = U[:, :p_theta]
+            Bm = U[:, p_theta:]
+            Cm = picos.Constant('Cm', np.eye(p_theta))
+            Dm = picos.Constant('Dm', np.zeros((Cm.shape[0], Bm.shape[1])))
+            if self.weight_type_ == 'pre':
+                A = picos.block([
+                    [Aw, 0],
+                    [Bm * Cw, Am],
+                ])
+                B = picos.block([
+                    [Bw],
+                    [Bm * Dw],
+                ])
+                C = picos.block([
+                    [Dm * Cw, Cm],
+                ])
+                D = Dm * Dw
+            elif self.weight_type_ == 'post':
+                A = picos.block([
+                    [Am, 0],
+                    [Bw * Cm, Aw],
+                ])
+                B = picos.block([
+                    [Bm],
+                    [Bw * Dm],
+                ])
+                C = picos.block([
+                    [Dw * Cm, Cw],
+                ])
+                D = Dw * Dm
+            else:
+                raise ValueError("`weight_type` must be 'pre' or 'post'.")
+        return (A, B, C, D)
+
     def _get_problem_a(self, X, y, P):
         problem_a = self._get_base_problem(X, y)
         # Extract information from problem
@@ -1103,10 +1154,8 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         # Add new constraint
         P = picos.Constant('P', P)
         gamma = picos.RealVariable('gamma', 1)
-        A = U[:p_theta, :p_theta]
-        B = U[:p_theta, p_theta:]
-        C = np.eye(p_theta)
-        D = np.zeros((C.shape[0], B.shape[1]))
+        # Get weighted state space matrices
+        A, B, C, D = self._get_ss(U)
         gamma_33 = picos.diag(gamma, D.shape[1])
         gamma_44 = picos.diag(gamma, D.shape[0])
         problem_a.add_constraint(picos.block([
@@ -1129,14 +1178,12 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
         # Create constants
         U = picos.Constant('U', U)
         gamma = picos.Constant('gamma', gamma)
+        # Get weighted state space matrices
+        A, B, C, D = self._get_ss(U)
         # Create variables
-        P = picos.SymmetricVariable('P', p_theta)
+        P = picos.SymmetricVariable('P', A.shape[0])
         # Add constraints
         problem_b.add_constraint(P >> self.picos_eps)
-        A = U[:p_theta, :p_theta]
-        B = U[:p_theta, p_theta:]
-        C = np.eye(p_theta)
-        D = np.zeros((C.shape[0], B.shape[1]))
         gamma_33 = picos.diag(gamma, D.shape[1])
         gamma_44 = picos.diag(gamma, D.shape[0])
         problem_b.add_constraint(picos.block([
