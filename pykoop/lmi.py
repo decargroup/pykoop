@@ -24,6 +24,7 @@ polite_stop = False
 
 def sigint_handler(sig, frame):  # noqa: E302
     """Signal handler for ^C."""
+    print('Stop requested. Regression will terminate at next iteration...')
     global polite_stop
     polite_stop = True
 
