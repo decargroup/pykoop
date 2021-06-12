@@ -1035,7 +1035,14 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
             if self.weight_ is None:
                 P = np.eye(p_theta)
             else:
-                P = np.eye(p_theta + self.weight_[0].shape[0])
+                if self.weight_type_ == 'pre':
+                    n_u = p - p_theta
+                    P = np.eye(p_theta + n_u * self.weight_[0].shape[0])
+                elif self.weight_type_ == 'post':
+                    n_x = p_theta
+                    P = np.eye(p_theta + n_x * self.weight_[0].shape[0])
+                else:
+                    raise ValueError("`weight_type` must be 'pre' or 'post'.")
         U_prev = np.zeros((p_theta, p))
         # Set scope of other variables
         self.U_log_ = []
