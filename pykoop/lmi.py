@@ -1105,15 +1105,20 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
             C = np.eye(p_theta)
             D = np.zeros((C.shape[0], B.shape[1]))
         else:
-            Aw = picos.Constant('Aw', self.weight_[0])
-            Bw = picos.Constant('Bw', self.weight_[1])
-            Cw = picos.Constant('Cw', self.weight_[2])
-            Dw = picos.Constant('Dw', self.weight_[3])
             Am = U[:, :p_theta]
             Bm = U[:, p_theta:]
             Cm = picos.Constant('Cm', np.eye(p_theta))
             Dm = picos.Constant('Dm', np.zeros((Cm.shape[0], Bm.shape[1])))
             if self.weight_type_ == 'pre':
+                n_u = Bm.shape[1]
+                Aw_blk = linalg.block_diag(*([self.weight_[0]] * n_u))
+                Bw_blk = linalg.block_diag(*([self.weight_[1]] * n_u))
+                Cw_blk = linalg.block_diag(*([self.weight_[2]] * n_u))
+                Dw_blk = linalg.block_diag(*([self.weight_[3]] * n_u))
+                Aw = picos.Constant('Aw', Aw_blk)
+                Bw = picos.Constant('Bw', Bw_blk)
+                Cw = picos.Constant('Cw', Cw_blk)
+                Dw = picos.Constant('Dw', Dw_blk)
                 A = picos.block([
                     [Aw, 0],
                     [Bm * Cw, Am],
@@ -1127,6 +1132,15 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
                 ])
                 D = Dm * Dw
             elif self.weight_type_ == 'post':
+                n_x = Bm.shape[0]
+                Aw_blk = linalg.block_diag(*([self.weight_[0]] * n_x))
+                Bw_blk = linalg.block_diag(*([self.weight_[1]] * n_x))
+                Cw_blk = linalg.block_diag(*([self.weight_[2]] * n_x))
+                Dw_blk = linalg.block_diag(*([self.weight_[3]] * n_x))
+                Aw = picos.Constant('Aw', Aw_blk)
+                Bw = picos.Constant('Bw', Bw_blk)
+                Cw = picos.Constant('Cw', Cw_blk)
+                Dw = picos.Constant('Dw', Dw_blk)
                 A = picos.block([
                     [Am, 0],
                     [Bw * Cm, Aw],
