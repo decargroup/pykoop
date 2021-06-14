@@ -22,11 +22,13 @@ memory = joblib.Memory(cachedir.name, verbose=0)
 # Create signal handler to politely stop computations
 polite_stop = False
 
+
 def sigint_handler(sig, frame):  # noqa: E302
     """Signal handler for ^C."""
     print('Stop requested. Regression will terminate at next iteration...')
     global polite_stop
     polite_stop = True
+
 
 signal.signal(signal.SIGINT, sigint_handler)  # noqa: E305
 
@@ -360,11 +362,10 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
         p = X.shape[1]
         # Make initial guesses and iterate
         Gamma = np.eye(p_theta)
-        U_prev = np.zeros((p_theta, p))
         # Set scope of other variables
         U = np.zeros((p_theta, p))
         P = np.zeros((p_theta, p_theta))
-        difference = None
+        self.objective_log_ = []
         for k in range(self.max_iter):
             # Formulate Problem A
             problem_a = self._get_problem_a(X, y, Gamma)
@@ -385,6 +386,15 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
                 break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             P = np.array(problem_a.get_valued_variable('P'), ndmin=2)
+            # Check stopping condition
+            self.objective_log_.append(problem_a.value)
+            if len(self.objective_log_) > 1:
+                diff = np.absolute(
+                    self.objective_log_[-2] - self.objective_log_[-1]
+                )
+                if (diff < self.tol):
+                    self.stop_reason_ = f'Reached tolerance {diff}'
+                    break
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U, P)
             # Solve Problem B
@@ -403,16 +413,9 @@ class LmiEdmdSpectralRadiusConstr(LmiEdmdTikhonovReg):
                 log.warn(self.stop_reason_)
                 break
             Gamma = np.array(problem_b.get_valued_variable('Gamma'), ndmin=2)
-            # Check stopping condition
-            difference = _fast_frob_norm(U_prev - U)
-            if (difference < self.tol):
-                self.stop_reason_ = f'Reached tolerance {self.tol}'
-                break
-            U_prev = U
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
             log.warn(self.stop_reason_)
-        self.tol_reached_ = difference
         self.n_iter_ = k + 1
         self.coef_ = U.T
         # Only useful for debugging
@@ -1043,10 +1046,8 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
                     P = np.eye(p_theta + n_x * self.weight_[0].shape[0])
                 else:
                     raise ValueError("`weight_type` must be 'pre' or 'post'.")
-        U_prev = np.zeros((p_theta, p))
         # Set scope of other variables
-        self.U_log_ = []
-        difference = None
+        self.objective_log_ = []
         for k in range(self.max_iter):
             if P is not None:
                 # Formulate Problem A
@@ -1068,6 +1069,14 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
                     break
                 U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
                 gamma = np.array(problem_a.get_valued_variable('gamma'))
+            self.objective_log_.append(problem_a.value)
+            if len(self.objective_log_) > 1:
+                diff = np.absolute(
+                    self.objective_log_[-2] - self.objective_log_[-1]
+                )
+                if (diff < self.tol):
+                    self.stop_reason_ = f'Reached tolerance {diff}'
+                    break
             # Formulate Problem B
             problem_b = self._get_problem_b(X, y, U, gamma)
             # Solve Problem B
@@ -1086,17 +1095,9 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
                 log.warn(self.stop_reason_)
                 break
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
-            # Check stopping condition
-            difference = _fast_frob_norm(U_prev - U)
-            if (difference < self.tol):
-                self.stop_reason_ = f'Reached tolerance {self.tol}'
-                break
-            U_prev = U
-            self.U_log_.append(U)
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
             log.warn(self.stop_reason_)
-        self.tol_reached_ = difference
         self.n_iter_ = k + 1
         self.coef_ = U.T
         # Only useful for debugging
@@ -1701,6 +1702,7 @@ def _calc_sqrtH(H):
     # Since H is symmetric, its square root is symmetric.
     # Otherwise, this would not work!
     return linalg.sqrtm(H)
+
 
 @memory.cache
 def _calc_QSig(X, r, alpha):
