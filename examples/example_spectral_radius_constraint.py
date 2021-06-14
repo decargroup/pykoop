@@ -42,7 +42,7 @@ def main():
     U_no_const = reg_no_const.coef_.T
     # Regressor with constraint larger than actual spectral radius.
     # Should not have any effect on the problem.
-    reg_big_const = lmi.LmiEdmdSpectralRadiusConstrIco2(
+    reg_big_const = lmi.LmiEdmdSpectralRadiusConstr(
         rho_bar=1.1,
         max_iter=100,
         tol=1e-3,
@@ -53,10 +53,10 @@ def main():
     U_big_const = reg_big_const.coef_.T
     # Regressor with significant constraint on spectral radius.
     # Will push eigenvalues toward centre of unit circle.
-    reg_small_const = lmi.LmiEdmdSpectralRadiusConstrIco2(
+    reg_small_const = lmi.LmiEdmdSpectralRadiusConstr(
         rho_bar=0.8,
         max_iter=100,
-        tol=1e-9,
+        tol=1e-3,
         picos_eps=0,
         solver_params=sp,
     )
@@ -73,6 +73,12 @@ def main():
     plt_eig(U_small_const, ax, r'Constrained, $\bar{\rho}=0.8$')
     ax.set_rmax(1.1)
     ax.legend()
+
+    fig, ax = plt.subplots(2, 1)
+    ax[0].plot(np.array(reg_big_const.objective_log_))
+    ax[0].plot(np.array(reg_small_const.objective_log_))
+    ax[1].plot(np.diff(np.array(reg_big_const.objective_log_)))
+    ax[1].plot(np.diff(np.array(reg_small_const.objective_log_)))
     plt.show()
 
 
