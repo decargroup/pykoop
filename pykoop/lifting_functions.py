@@ -8,7 +8,7 @@ import abc
 import numpy as np
 
 
-class LiftingFunction(sklearn.base.baseEstimator,
+class LiftingFunction(sklearn.base.BaseEstimator,
                       sklearn.base.TransformerMixin,
                       metaclass=abc.ABCMeta):
     """Koopman lifting function."""
@@ -17,7 +17,7 @@ class LiftingFunction(sklearn.base.baseEstimator,
             X: np.ndarray,
             y: np.ndarray = None,
             n_inputs: int = 0,
-            episode_feature: bool = True) -> LiftingFunction:
+            episode_feature: bool = True) -> 'LiftingFunction':
         """Fit lifting function.
 
         Parameters
@@ -72,7 +72,7 @@ class LiftingFunction(sklearn.base.baseEstimator,
     def _fit(self,
              X: np.ndarray,
              y: np.ndarray = None,
-             n_inputs: int = 0) -> LiftingFunction:
+             n_inputs: int = 0) -> 'LiftingFunction':
         """Internal fit method that operates on a single episode."""
         raise NotImplementedError()
 

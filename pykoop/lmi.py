@@ -611,7 +611,7 @@ class LmiEdmdHinfReg(LmiEdmdTikhonovReg):
 class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
     """See hara_2019_learning
 
-    Supply rate:
+    Supply rate is
         s(u, y) = -[y, u] Xi [y; u],
     where
         Xi = [0, -1; -1, 0] -> passivity,
@@ -619,13 +619,14 @@ class LmiEdmdDissipativityConstr(LmiEdmdTikhonovReg):
 
     (Using MATLAB array notation here. To clean up and LaTeX)
 
+    BibTeX::
 
-    @article{hara_2019_learning,
-        title={Learning Koopman Operator under Dissipativity Constraints},
-        author={Keita Hara and Masaki Inoue and Noboru Sebe},
-        year={2019},
-        journaltitle={{\tt arXiv:1911.03884v1 [eess.SY]}}
-    }
+        @article{hara_2019_learning,
+            title={Learning Koopman Operator under Dissipativity Constraints},
+            author={Keita Hara and Masaki Inoue and Noboru Sebe},
+            year={2019},
+            journaltitle={{\tt arXiv:1911.03884v1 [eess.SY]}}
+        }
 
     Currently not fully tested!
     """
