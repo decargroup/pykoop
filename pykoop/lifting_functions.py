@@ -1,6 +1,91 @@
+"""Lifting functions and preprocessors compatible with the ``KoopmanPipeline``
+object.
+"""
+
 import sklearn.base
 import sklearn.preprocessing
+import abc
 import numpy as np
+
+
+class LiftingFunction(sklearn.base.baseEstimator,
+                      sklearn.base.TransformerMixin,
+                      metaclass=abc.ABCMeta):
+    """Koopman lifting function."""
+
+    def fit(self,
+            X: np.ndarray,
+            y: np.ndarray = None,
+            n_inputs: int = 0,
+            episode_feature: bool = True) -> LiftingFunction:
+        """Fit lifting function.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+        y : np.ndarray
+            Ignored.
+        n_inputs : int
+            Number of input features at the end of ``X``.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+
+        Returns
+        -------
+        LiftingFunction :
+            Instance of itself.
+        """
+        pass
+
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        """Transform data.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+
+        Returns
+        -------
+        np.ndarray :
+            Transformed data matrix.
+        """
+        pass
+
+    def inverse_transform(self, X: np.ndarray) -> np.ndarray:
+        """Invert transformed data.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Transformed data matrix.
+
+        Returns
+        -------
+        np.ndarray :
+            Inverted transformed data matrix.
+        """
+        pass
+
+    @abc.abstractmethod
+    def _fit(self,
+             X: np.ndarray,
+             y: np.ndarray = None,
+             n_inputs: int = 0) -> LiftingFunction:
+        """Internal fit method that operates on a single episode."""
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def _transform(self, X: np.ndarray) -> np.ndarray:
+        """Internal transform method that operates on a single episode."""
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def _inverse_transform(self, X: np.ndarray) -> np.ndarray:
+        """Internal inverse transform method that operates on a single
+        episode."""
+        raise NotImplementedError()
 
 
 class AnglePreprocessor(sklearn.base.BaseEstimator,
@@ -15,14 +100,14 @@ class AnglePreprocessor(sklearn.base.BaseEstimator,
     def fit(self, X, y=None, angles=None):  # TODO Make angles list of ints?
         X = self._validate_data(X, reset=True)
         if angles is None:
-            self.angles_ = np.zeros((self.n_features_in_,), dtype=bool)
+            self.angles_ = np.zeros((self.n_features_in_, ), dtype=bool)
         else:
             self.angles_ = angles
         # Figure out what the new angle features will be
         self.n_features_out_ = np.sum(~self.angles_) + 2 * np.sum(self.angles_)
-        self.lin_ = np.zeros((self.n_features_out_,), dtype=bool)
-        self.cos_ = np.zeros((self.n_features_out_,), dtype=bool)
-        self.sin_ = np.zeros((self.n_features_out_,), dtype=bool)
+        self.lin_ = np.zeros((self.n_features_out_, ), dtype=bool)
+        self.cos_ = np.zeros((self.n_features_out_, ), dtype=bool)
+        self.sin_ = np.zeros((self.n_features_out_, ), dtype=bool)
         i = 0
         for j in range(self.n_features_in_):
             if self.angles_[j]:
@@ -75,8 +160,7 @@ class PolynomialLiftingFn(sklearn.base.BaseEstimator,
         self.transformer_ = sklearn.preprocessing.PolynomialFeatures(
             degree=self.order,
             interaction_only=self.interaction_only,
-            include_bias=False
-        )
+            include_bias=False)
         self.transformer_.fit(X)
         self.n_features_out_ = self.transformer_.powers_.shape[0]
         self.n_x_ = X.shape[1] - n_u
@@ -87,8 +171,8 @@ class PolynomialLiftingFn(sklearn.base.BaseEstimator,
         orig_inputs = []
         eye = np.eye(self.n_features_in_)
         for i in range(self.n_features_in_):
-            index = np.nonzero(np.all(self.transformer_.powers_ == eye[i, :],
-                                      axis=1))
+            index = np.nonzero(
+                np.all(self.transformer_.powers_ == eye[i, :], axis=1))
             if i < self.n_x_:
                 orig_states.append(index)
             else:
@@ -96,10 +180,9 @@ class PolynomialLiftingFn(sklearn.base.BaseEstimator,
         original_state_features = np.ravel(orig_states).astype(int)
         original_input_features = np.ravel(orig_inputs).astype(int)
         # Figure out which other lifted states contain inputs
-        all_input_features = np.nonzero(np.any(
-            (self.transformer_.powers_ != 0)[:, self.n_x_:],
-            axis=1
-        ))[0].astype(int)
+        all_input_features = np.nonzero(
+            np.any((self.transformer_.powers_ != 0)[:, self.n_x_:],
+                   axis=1))[0].astype(int)
         other_input_features = np.setdiff1d(all_input_features,
                                             original_input_features)
         # Figure out which other lifted states contain states (but are not the
@@ -107,37 +190,26 @@ class PolynomialLiftingFn(sklearn.base.BaseEstimator,
         other_state_features = np.setdiff1d(
             np.arange(self.n_features_out_),
             np.union1d(
-                np.union1d(
-                    original_state_features,
-                    original_input_features
-                ),
-                other_input_features
-            )
-        ).astype(int)
+                np.union1d(original_state_features, original_input_features),
+                other_input_features)).astype(int)
         # Form new order
-        self.transform_order_ = np.concatenate((
-            original_state_features,
-            other_state_features,
-            original_input_features,
-            other_input_features
-        ))
+        self.transform_order_ = np.concatenate(
+            (original_state_features, other_state_features,
+             original_input_features, other_input_features))
         # Figure out original order of features
-        self.inverse_transform_order_ = np.concatenate((
-            np.arange(original_state_features.shape[0]),
-            np.arange(
-                (original_state_features.shape[0]
-                 + other_state_features.shape[0]),
-                (original_state_features.shape[0]
-                 + other_state_features.shape[0]
-                 + original_input_features.shape[0])
-            )
-        ))
+        self.inverse_transform_order_ = np.concatenate(
+            (np.arange(original_state_features.shape[0]),
+             np.arange((original_state_features.shape[0] +
+                        other_state_features.shape[0]),
+                       (original_state_features.shape[0] +
+                        other_state_features.shape[0] +
+                        original_input_features.shape[0]))))
         # Compute how many input-independent lifted states and input-dependent
         # lifted states there are
-        self.n_xl_ = (original_state_features.shape[0]
-                      + other_state_features.shape[0])
-        self.n_ul_ = (original_input_features.shape[0]
-                      + other_state_features.shape[0])
+        self.n_xl_ = (original_state_features.shape[0] +
+                      other_state_features.shape[0])
+        self.n_ul_ = (original_input_features.shape[0] +
+                      other_state_features.shape[0])
         return self
 
     def transform(self, X):
@@ -191,7 +263,8 @@ class Delay(sklearn.base.BaseEstimator, sklearn.base.TransformerMixin):
         if X.shape[1] != self.n_features_in_:
             raise ValueError(f'Delay `fit()` called wth {self.n_features_in_} '
                              'features, but `transform() called with '
-                             f'{X.shape[1]}' 'features.')
+                             f'{X.shape[1]}'
+                             'features.')
         X_x = X[:, :self.n_x_]
         X_u = X[:, self.n_x_:]
         Xd_x = self._delay(X_x, self.n_delay_x)
