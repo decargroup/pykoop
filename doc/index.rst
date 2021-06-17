@@ -6,7 +6,7 @@
 pykoop Documentation
 ====================
 
-Koopman operator identification library in Python
+Koopman operator identification library in Python.
 
 .. toctree::
    :maxdepth: 2

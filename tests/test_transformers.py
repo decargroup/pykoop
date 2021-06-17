@@ -215,16 +215,46 @@ poly_test_cases = [
 ]
 
 
-@pytest.mark.parametrize('X, Xt_exp, poly, n_u', poly_test_cases)
-def test_polynomial_forward(X, Xt_exp, poly, n_u):
-    poly.fit(X, n_u=n_u)
+@pytest.mark.parametrize('X, Xt_exp, poly, n_inputs', poly_test_cases)
+def test_polynomial_forward_noeps(X, Xt_exp, poly, n_inputs):
+    poly.fit(X, n_inputs=n_inputs, episode_feature=False)
     Xt = poly.transform(X)
     np.testing.assert_allclose(Xt_exp, Xt)
 
 
-@pytest.mark.parametrize('X, Xt_exp, poly, n_u', poly_test_cases)
-def test_polynomial_inverse(X, Xt_exp, poly, n_u):
-    poly.fit(X, n_u=n_u)
+@pytest.mark.parametrize('X, Xt_exp, poly, n_inputs', poly_test_cases)
+def test_polynomial_inverse_noeps(X, Xt_exp, poly, n_inputs):
+    poly.fit(X, n_inputs=n_inputs, episode_feature=False)
+    Xt = poly.transform(X)
+    Xt_inv = poly.inverse_transform(Xt)
+    np.testing.assert_allclose(X, Xt_inv)
+
+@pytest.mark.parametrize('X, Xt_exp, poly, n_inputs', poly_test_cases)
+def test_polynomial_forward_eps(X, Xt_exp, poly, n_inputs):
+    X = np.hstack((
+        np.zeros((X.shape[0], 1)),
+        X,
+    ))
+    Xt_exp = np.hstack((
+        np.zeros((X.shape[0], 1)),
+        Xt_exp,
+    ))
+    poly.fit(X, n_inputs=n_inputs, episode_feature=True)
+    Xt = poly.transform(X)
+    np.testing.assert_allclose(Xt_exp, Xt)
+
+
+@pytest.mark.parametrize('X, Xt_exp, poly, n_inputs', poly_test_cases)
+def test_polynomial_inverse_eps(X, Xt_exp, poly, n_inputs):
+    X = np.hstack((
+        np.zeros((X.shape[0], 1)),
+        X,
+    ))
+    Xt_exp = np.hstack((
+        np.zeros((X.shape[0], 1)),
+        Xt_exp,
+    ))
+    poly.fit(X, n_inputs=n_inputs, episode_feature=True)
     Xt = poly.transform(X)
     Xt_inv = poly.inverse_transform(Xt)
     np.testing.assert_allclose(X, Xt_inv)
