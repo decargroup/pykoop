@@ -5,13 +5,15 @@ import pykoop.lifting_functions
 
 
 @sklearn.utils.estimator_checks.parametrize_with_checks([
-    pykoop.dmd.Edmd(),
-    pykoop.lmi.LmiEdmdTikhonovReg(alpha=0),
-    pykoop.lmi.LmiEdmdTwoNormReg(alpha=1, ratio=1),
-    pykoop.lmi.LmiEdmdNuclearNormReg(alpha=1, ratio=1),
-    pykoop.lmi.LmiEdmdSpectralRadiusConstr(tol=100),  # Loosen tol
-    pykoop.lmi.LmiEdmdHinfReg(alpha=1, ratio=1, tol=100),  # Loosen tol
-    pykoop.lifting_functions.Delay(),
+    # pykoop.dmd.Edmd(),
+    # pykoop.lmi.LmiEdmdTikhonovReg(alpha=0),
+    # pykoop.lmi.LmiEdmdTwoNormReg(alpha=1, ratio=1),
+    # pykoop.lmi.LmiEdmdNuclearNormReg(alpha=1, ratio=1),
+    # pykoop.lmi.LmiEdmdSpectralRadiusConstr(tol=100),  # Loosen tol
+    # pykoop.lmi.LmiEdmdHinfReg(alpha=1, ratio=1, tol=100),  # Loosen tol
+    # pykoop.lifting_functions.Delay(),
+    pykoop.lifting_functions.PolynomialLiftingFn(),
+    pykoop.lifting_functions.AnglePreprocessor(),
 ])
 def test_sklearn_compatible_estimator(estimator, check):
     check(estimator)
