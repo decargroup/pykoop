@@ -488,7 +488,8 @@ delay_test_cases = [(
 def test_delay_forward(n_delay_x, n_delay_u, n_u, X, Xd_exp):
     lf = lifting_functions.Delay(n_delay_x=n_delay_x, n_delay_u=n_delay_u)
     # Check forward transform
-    Xd_fit = lf.fit_transform(X, n_u=n_u)
+    lf.fit(X, n_inputs=n_u, episode_feature=False)
+    Xd_fit = lf.transform(X)
     np.testing.assert_allclose(Xd_exp, Xd_fit)
 
 
@@ -496,7 +497,8 @@ def test_delay_forward(n_delay_x, n_delay_u, n_u, X, Xd_exp):
                          delay_test_cases)
 def test_delay_inverse(n_delay_x, n_delay_u, n_u, X, Xd_exp):
     lf = lifting_functions.Delay(n_delay_x=n_delay_x, n_delay_u=n_delay_u)
-    Xd_fit = lf.fit_transform(X, n_u=n_u)
+    lf.fit(X, n_inputs=n_u, episode_feature=False)
+    Xd_fit = lf.transform(X)
     # Check inverse transform
     Xd_inv = lf.inverse_transform(Xd_fit)
     # If the number of delays for x and u are different, only the last samples
