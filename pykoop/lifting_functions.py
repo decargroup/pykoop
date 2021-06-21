@@ -32,6 +32,7 @@ class LiftingFn(sklearn.base.BaseEstimator,
         Minimum number of samples needed to use the transformer.
     """
 
+    # TODO How to handle this properly?
     def fit(self,
             X: np.ndarray,
             y: np.ndarray = None,
@@ -144,6 +145,7 @@ class LiftingFn(sklearn.base.BaseEstimator,
         self.n_states_in_ = X.shape[1] - n_inputs
         return self._fit(X)
 
+    @abc.abstractmethod
     def transform(self, X: np.ndarray) -> np.ndarray:
         """Transform data.
 
@@ -159,6 +161,7 @@ class LiftingFn(sklearn.base.BaseEstimator,
         """
         raise NotImplementedError()
 
+    @abc.abstractmethod
     def inverse_transform(self, X: np.ndarray) -> np.ndarray:
         """Invert transformed data.
 
@@ -399,12 +402,13 @@ class EpisodeDependentLiftingFn(LiftingFn):
         # Extract episode feature
         if self.episode_feature_:
             X_ep = X[:, 0]
+            X = X[:, 1:]
         else:
             X_ep = np.zeros((X.shape[0],))
         # Split X into list of episodes
         episodes = []
         for i in np.unique(X_ep):
-            episodes.append((i, X[X_ep == i, 1:]))
+            episodes.append((i, X[X_ep == i, :]))
         # Transform episodes
         transformed_episodes = []
         for (i, X_i) in episodes:
