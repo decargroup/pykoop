@@ -5,8 +5,8 @@ from pykoop import lifting_functions
 
 
 def test_preprocess_noeps():
-    ang = np.array([0, 1, 0], dtype=bool)
-    pp = lifting_functions.AnglePreprocessor(angles=ang)
+    ang = np.array([1])
+    pp = lifting_functions.AnglePreprocessor(angle_features=ang)
     X = np.array([
         [0, 1, 2, 3],  # noqa: E201
         [0, np.pi, 0, -np.pi / 2],  # noqa: E201
@@ -26,8 +26,8 @@ def test_preprocess_noeps():
 
 
 def test_preprocess_eps():
-    ang = np.array([0, 1, 0], dtype=bool)
-    pp = lifting_functions.AnglePreprocessor(angles=ang)
+    ang = np.array([1])
+    pp = lifting_functions.AnglePreprocessor(angle_features=ang)
     X = np.array([
         # Episodes
         [0, 0, 1, 1],
@@ -53,8 +53,8 @@ def test_preprocess_eps():
 
 
 def test_preprocess_angle_wrap():
-    ang = np.array([0, 1, 0], dtype=bool)
-    pp = lifting_functions.AnglePreprocessor(angles=ang)
+    ang = np.array([1])
+    pp = lifting_functions.AnglePreprocessor(angle_features=ang)
     X = np.array([
         [0, 1, 2, 3],  # noqa: E201
         [2 * np.pi, np.pi, 0, -np.pi / 2],
@@ -81,35 +81,35 @@ def test_preprocess_angle_wrap():
 def test_preprocess_fit_features():
     X = np.zeros((2, 5))
     # Mix of linear and angles
-    ang = np.array([0, 0, 1, 1, 0], dtype=bool)
-    pp = lifting_functions.AnglePreprocessor(angles=ang)
+    ang = np.array([2, 3])
+    pp = lifting_functions.AnglePreprocessor(angle_features=ang)
     pp.fit(X, episode_feature=False)
     lin = np.array([1, 1, 0, 0, 0, 0, 1], dtype=bool)
     cos = np.array([0, 0, 1, 0, 1, 0, 0], dtype=bool)
     sin = np.array([0, 0, 0, 1, 0, 1, 0], dtype=bool)
-    np.testing.assert_allclose(lin, pp.lin_)
-    np.testing.assert_allclose(cos, pp.cos_)
-    np.testing.assert_allclose(sin, pp.sin_)
+    np.testing.assert_allclose(lin, pp.lin_out_)
+    np.testing.assert_allclose(cos, pp.cos_out_)
+    np.testing.assert_allclose(sin, pp.sin_out_)
     # All linear
-    ang = np.array([0, 0, 0, 0, 0], dtype=bool)
-    pp = lifting_functions.AnglePreprocessor(angles=ang)
+    ang = np.array([])
+    pp = lifting_functions.AnglePreprocessor(angle_features=ang)
     pp.fit(X, episode_feature=False)
     lin = np.array([1, 1, 1, 1, 1], dtype=bool)
     cos = np.array([0, 0, 0, 0, 0], dtype=bool)
     sin = np.array([0, 0, 0, 0, 0], dtype=bool)
-    np.testing.assert_allclose(lin, pp.lin_)
-    np.testing.assert_allclose(cos, pp.cos_)
-    np.testing.assert_allclose(sin, pp.sin_)
+    np.testing.assert_allclose(lin, pp.lin_out_)
+    np.testing.assert_allclose(cos, pp.cos_out_)
+    np.testing.assert_allclose(sin, pp.sin_out_)
     # All angles
-    ang = np.array([1, 1, 1, 1, 1], dtype=bool)
-    pp = lifting_functions.AnglePreprocessor(angles=ang)
+    ang = np.array([0, 1, 2, 3, 4])
+    pp = lifting_functions.AnglePreprocessor(angle_features=ang)
     pp.fit(X, episode_feature=False)
     lin = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=bool)
     cos = np.array([1, 0, 1, 0, 1, 0, 1, 0, 1, 0], dtype=bool)
     sin = np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1], dtype=bool)
-    np.testing.assert_allclose(lin, pp.lin_)
-    np.testing.assert_allclose(cos, pp.cos_)
-    np.testing.assert_allclose(sin, pp.sin_)
+    np.testing.assert_allclose(lin, pp.lin_out_)
+    np.testing.assert_allclose(cos, pp.cos_out_)
+    np.testing.assert_allclose(sin, pp.sin_out_)
 
 
 poly_test_cases = [
