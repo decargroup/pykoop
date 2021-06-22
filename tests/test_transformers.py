@@ -516,20 +516,22 @@ delay_test_cases_noeps = [
 ]
 
 
-@pytest.mark.parametrize('n_delay_x, n_delay_u, n_u, X, Xd_exp',
+@pytest.mark.parametrize('n_delays_x, n_delays_u, n_u, X, Xd_exp',
                          delay_test_cases_noeps)
-def test_delay_forward_noeps(n_delay_x, n_delay_u, n_u, X, Xd_exp):
-    lf = lifting_functions.Delay(n_delay_x=n_delay_x, n_delay_u=n_delay_u)
+def test_delay_forward_noeps(n_delays_x, n_delays_u, n_u, X, Xd_exp):
+    lf = lifting_functions.DelayLiftingFn(n_delays_x=n_delays_x,
+                                          n_delays_u=n_delays_u)
     # Check forward transform
     lf.fit(X, n_inputs=n_u, episode_feature=False)
     Xd_fit = lf.transform(X)
     np.testing.assert_allclose(Xd_exp, Xd_fit)
 
 
-@pytest.mark.parametrize('n_delay_x, n_delay_u, n_u, X, Xd_exp',
+@pytest.mark.parametrize('n_delays_x, n_delays_u, n_u, X, Xd_exp',
                          delay_test_cases_noeps)
-def test_delay_inverse_noeps(n_delay_x, n_delay_u, n_u, X, Xd_exp):
-    lf = lifting_functions.Delay(n_delay_x=n_delay_x, n_delay_u=n_delay_u)
+def test_delay_inverse_noeps(n_delays_x, n_delays_u, n_u, X, Xd_exp):
+    lf = lifting_functions.DelayLiftingFn(n_delays_x=n_delays_x,
+                                          n_delays_u=n_delays_u)
     lf.fit(X, n_inputs=n_u, episode_feature=False)
     Xd_fit = lf.transform(X)
     # Check inverse transform
@@ -611,20 +613,22 @@ delay_test_cases_eps = [
 ]
 
 
-@pytest.mark.parametrize('n_delay_x, n_delay_u, n_u, X, Xd_exp',
+@pytest.mark.parametrize('n_delays_x, n_delays_u, n_u, X, Xd_exp',
                          delay_test_cases_eps)
-def test_delay_forward_eps(n_delay_x, n_delay_u, n_u, X, Xd_exp):
-    lf = lifting_functions.Delay(n_delay_x=n_delay_x, n_delay_u=n_delay_u)
+def test_delay_forward_eps(n_delays_x, n_delays_u, n_u, X, Xd_exp):
+    lf = lifting_functions.DelayLiftingFn(n_delays_x=n_delays_x,
+                                         n_delays_u=n_delays_u)
     # Check forward transform
     lf.fit(X, n_inputs=n_u, episode_feature=True)
     Xd_fit = lf.transform(X)
     np.testing.assert_allclose(Xd_exp, Xd_fit)
 
 
-@pytest.mark.parametrize('n_delay_x, n_delay_u, n_u, X, Xd_exp',
+@pytest.mark.parametrize('n_delays_x, n_delays_u, n_u, X, Xd_exp',
                          delay_test_cases_eps)
-def test_delay_inverse_eps(n_delay_x, n_delay_u, n_u, X, Xd_exp):
-    lf = lifting_functions.Delay(n_delay_x=n_delay_x, n_delay_u=n_delay_u)
+def test_delay_inverse_eps(n_delays_x, n_delays_u, n_u, X, Xd_exp):
+    lf = lifting_functions.DelayLiftingFn(n_delays_x=n_delays_x,
+                                          n_delays_u=n_delays_u)
     lf.fit(X, n_inputs=n_u, episode_feature=True)
     Xd_fit = lf.transform(X)
     # Check inverse transform

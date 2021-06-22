@@ -11,9 +11,9 @@ import pykoop.lifting_functions
     # pykoop.lmi.LmiEdmdNuclearNormReg(alpha=1, ratio=1),
     # pykoop.lmi.LmiEdmdSpectralRadiusConstr(tol=100),  # Loosen tol
     # pykoop.lmi.LmiEdmdHinfReg(alpha=1, ratio=1, tol=100),  # Loosen tol
-    # pykoop.lifting_functions.Delay(),
-    pykoop.lifting_functions.PolynomialLiftingFn(),
     pykoop.lifting_functions.AnglePreprocessor(),
+    pykoop.lifting_functions.PolynomialLiftingFn(),
+    pykoop.lifting_functions.DelayLiftingFn(),
 ])
 def test_sklearn_compatible_estimator(estimator, check):
     check(estimator)

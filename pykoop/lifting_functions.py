@@ -13,93 +13,32 @@ class LiftingFn(sklearn.base.BaseEstimator,
                 metaclass=abc.ABCMeta):
     """Base class for Koopman lifting functions.
 
-    The format of the data matrices expected by this class must obey the
-    parameters set in :func:`fit`.
-
     Attributes
     ----------
     n_features_in_ : int
-        Number of features before transformation, including episode feature.
+        Number of features before transformation, including episode feature if
+        present.
     n_states_in_ : int
         Number of states before transformation.
     n_inputs_in_ : int
         Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature if
+        present.
     n_states_out_ : int
-        Number of states after transformation. Must be set by subclass.
+        Number of states after transformation.
     n_inputs_out_ : int
-        Number of inputs after transformation. Must be set by subclass.
+        Number of inputs after transformation.
     min_samples_ : int
         Minimum number of samples needed to use the transformer.
     """
 
-    # TODO How to handle this properly?
     def fit(self,
             X: np.ndarray,
             y: np.ndarray = None,
             n_inputs: int = 0,
             episode_feature: bool = True) -> 'LiftingFn':
         """Fit the lifting function.
-
-        The data matrices provided to :func:`fit` (as well as :func:`transform`
-        and :func:`inverse_transform`) must obey the following format:
-
-        1. If ``episode_feature`` is true, the first feature must indicate
-           which episode each timestep belongs to.
-        2. The last ``n_inputs`` features must be exogenous inputs.
-        3. The remaining features are considered to be states.
-
-        Input example where ``episode_feature=True`` and ``n_inputs=1``:
-
-        ======= ======= ======= =======
-        Episode State 0 State 1 Input 0
-        ======= ======= ======= =======
-        0.0       0.1    -0.1    0.2
-        0.0       0.2    -0.2    0.3
-        0.0       0.3    -0.3    0.4
-        1.0      -0.1     0.1    0.3
-        1.0      -0.2     0.2    0.4
-        1.0      -0.3     0.3    0.5
-        2.0       0.3    -0.1    0.3
-        2.0       0.2    -0.2    0.4
-        ======= ======= ======= =======
-
-        In the above example, there are three distinct episodes with different
-        numbers of timesteps. The last feature is an input, so the remaining
-        two features must be states.
-
-        If ``n_inputs=0``, the same matrix is interpreted as:
-
-        ======= ======= ======= =======
-        Episode State 0 State 1 State 2
-        ======= ======= ======= =======
-        0.0       0.1    -0.1    0.2
-        0.0       0.2    -0.2    0.3
-        0.0       0.3    -0.3    0.4
-        1.0      -0.1     0.1    0.3
-        1.0      -0.2     0.2    0.4
-        1.0      -0.3     0.3    0.5
-        2.0       0.3    -0.1    0.3
-        2.0       0.2    -0.2    0.4
-        ======= ======= ======= =======
-
-        If ``episode_feature=False`` and the first feature is omitted, the
-        matrix is interpreted as:
-
-        ======= ======= =======
-        State 0 State 1 State 2
-        ======= ======= =======
-         0.1    -0.1    0.2
-         0.2    -0.2    0.3
-         0.3    -0.3    0.4
-        -0.1     0.1    0.3
-        -0.2     0.2    0.4
-        -0.3     0.3    0.5
-         0.3    -0.1    0.3
-         0.2    -0.2    0.4
-        ======= ======= =======
-
-        In the above case, each timestep is assumed to belong to the same
-        episode.
 
         Parameters
         ----------
@@ -143,6 +82,10 @@ class LiftingFn(sklearn.base.BaseEstimator,
         # Set states and inputs in
         self.n_inputs_in_ = n_inputs
         self.n_states_in_ = X.shape[1] - n_inputs
+        # Set default value for minimum samples needed. For an
+        # episode-independent transformer, the minimum number of samples is
+        # always 1.
+        self.min_samples_ = 1
         return self._fit(X)
 
     @abc.abstractmethod
@@ -261,26 +204,35 @@ class EpisodeIndependentLiftingFn(LiftingFn):
     parameters set in :func:`fit`
     """
 
-    def fit(self,
-            X: np.ndarray,
-            y: np.ndarray = None,
-            n_inputs: int = 0,
-            episode_feature: bool = True) -> 'EpisodeIndependentLiftingFn':
-        # For an episode-independent transformer, the minimum number of samples
-        # is always 1.
-        self.min_samples_ = 1
-        return super().fit(X, y, n_inputs, episode_feature)
-
     def transform(self, X: np.ndarray) -> np.ndarray:
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self)
+        # Validate data
+        X = sklearn.utils.validation.check_array(X, **self._check_params)
+        # Check input shape
+        if X.shape[1] != self.n_features_in_:
+            raise ValueError(f'{self.__class__.__name__} `fit()` called '
+                             f'with {self.n_features_in_} features, but '
+                             f'`transform()` called with {X.shape[1]} '
+                             'features.')
         return self._apply_transform_or_inverse(X, 'transform')
 
     def inverse_transform(self, X: np.ndarray) -> np.ndarray:
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self)
+        # Validate data
+        X = sklearn.utils.validation.check_array(X, **self._check_params)
+        # Check input shape
+        if X.shape[1] != self.n_features_out_:
+            raise ValueError(f'{self.__class__.__name__} `fit()` output '
+                             f'{self.n_features_out_} features, but '
+                             '`inverse_transform()` called with '
+                             f'{X.shape[1]} features.')
         return self._apply_transform_or_inverse(X, 'inverse_transform')
 
     def _apply_transform_or_inverse(self, X: np.ndarray,
                                     transform: str) -> np.ndarray:
-        """Strip episode feature, apply transform or inverse transform, then
-        put it back.
+        """Strip episode feature, apply transform or inverse, then put it back.
 
         Parameters
         ----------
@@ -295,27 +247,6 @@ class EpisodeIndependentLiftingFn(LiftingFn):
         np.ndarray
             Transformed or inverse transformed data matrix.
         """
-        # Ensure fit has been done
-        sklearn.utils.validation.check_is_fitted(self)
-        # Validate data
-        X = sklearn.utils.validation.check_array(X, **self._check_params)
-        # Check input
-        value_error = ("Parameter `transform` must be one of ['transform', "
-                       "'inverse_transform'].")
-        if transform == 'transform':
-            if X.shape[1] != self.n_features_in_:
-                raise ValueError(f'{self.__class__.__name__} `fit()` called '
-                                 f'with {self.n_features_in_} features, but '
-                                 f'`transform()` called with {X.shape[1]} '
-                                 'features.')
-        elif transform == 'inverse_transform':
-            if X.shape[1] != self.n_features_out_:
-                raise ValueError(f'{self.__class__.__name__} `fit()` output '
-                                 f'{self.n_features_out_} features, but '
-                                 '`inverse_transform()` called with '
-                                 f'{X.shape[1]} features.')
-        else:
-            raise ValueError(value_error)
         # Extract episode feature
         if self.episode_feature_:
             X_ep = X[:, [0]]
@@ -326,7 +257,8 @@ class EpisodeIndependentLiftingFn(LiftingFn):
         elif transform == 'inverse_transform':
             Xt = self._inverse_transform(X)
         else:
-            raise ValueError(value_error)
+            raise ValueError("Parameter `transform` must be one of "
+                             "['transform', 'inverse_transform']")
         # Put feature back if needed
         if self.episode_feature_:
             Xt = np.hstack((X_ep, Xt))
@@ -355,9 +287,29 @@ class EpisodeDependentLiftingFn(LiftingFn):
     """
 
     def transform(self, X: np.ndarray) -> np.ndarray:
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self)
+        # Validate data
+        X = sklearn.utils.validation.check_array(X, **self._check_params)
+        # Check input shape
+        if X.shape[1] != self.n_features_in_:
+            raise ValueError(f'{self.__class__.__name__} `fit()` called '
+                             f'with {self.n_features_in_} features, but '
+                             f'`transform()` called with {X.shape[1]} '
+                             'features.')
         return self._apply_transform_or_inverse(X, 'transform')
 
     def inverse_transform(self, X: np.ndarray) -> np.ndarray:
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self)
+        # Validate data
+        X = sklearn.utils.validation.check_array(X, **self._check_params)
+        # Check input shape
+        if X.shape[1] != self.n_features_out_:
+            raise ValueError(f'{self.__class__.__name__} `fit()` output '
+                             f'{self.n_features_out_} features, but '
+                             '`inverse_transform()` called with '
+                             f'{X.shape[1]} features.')
         return self._apply_transform_or_inverse(X, 'inverse_transform')
 
     def _apply_transform_or_inverse(self, X: np.ndarray,
@@ -378,38 +330,18 @@ class EpisodeDependentLiftingFn(LiftingFn):
         np.ndarray
             Transformed or inverse transformed data matrix.
         """
-        # Ensure fit has been done
-        sklearn.utils.validation.check_is_fitted(self)
-        # Validate data
-        X = sklearn.utils.validation.check_array(X, **self._check_params)
-        # Check input
-        value_error = ("Parameter `transform` must be one of ['transform', "
-                       "'inverse_transform'].")
-        if transform == 'transform':
-            if X.shape[1] != self.n_features_in_:
-                raise ValueError(f'{self.__class__.__name__} `fit()` called '
-                                 f'with {self.n_features_in_} features, but '
-                                 f'`transform()` called with {X.shape[1]} '
-                                 'features.')
-        elif transform == 'inverse_transform':
-            if X.shape[1] != self.n_features_out_:
-                raise ValueError(f'{self.__class__.__name__} `fit()` output '
-                                 f'{self.n_features_out_} features, but '
-                                 '`inverse_transform()` called with '
-                                 f'{X.shape[1]} features.')
-        else:
-            raise ValueError(value_error)
         # Extract episode feature
         if self.episode_feature_:
             X_ep = X[:, 0]
             X = X[:, 1:]
         else:
-            X_ep = np.zeros((X.shape[0],))
-        # Split X into list of episodes
+            X_ep = np.zeros((X.shape[0], ))
+        # Split X into list of episodes. Each episode is a tuple containing
+        # its index and its associated data matrix.
         episodes = []
         for i in np.unique(X_ep):
             episodes.append((i, X[X_ep == i, :]))
-        # Transform episodes
+        # Transform episodes one-by-one
         transformed_episodes = []
         for (i, X_i) in episodes:
             # Apply transform or inverse to individual episodes
@@ -418,8 +350,10 @@ class EpisodeDependentLiftingFn(LiftingFn):
             elif transform == 'inverse_transform':
                 transformed_episode = self._inverse_transform(X_i)
             else:
-                raise ValueError(value_error)
-            # Add new episode feature back if needed.
+                raise ValueError("Parameter `transform` must be one of "
+                                 "['transform', 'inverse_transform']")
+            # Add new episode feature back if needed. This is necessary because
+            # some transformations may modify the episode length.
             if self.episode_feature_:
                 transformed_episodes.append(
                     np.hstack((
@@ -428,6 +362,7 @@ class EpisodeDependentLiftingFn(LiftingFn):
                     )))
             else:
                 transformed_episodes.append(transformed_episode)
+        # Concatenate the transformed episodes
         Xt = np.vstack(transformed_episodes)
         return Xt
 
@@ -574,35 +509,30 @@ class PolynomialLiftingFn(EpisodeIndependentLiftingFn):
             raise ValueError('`order` must be greater than or equal to 1.')
 
 
-class Delay(EpisodeDependentLiftingFn):
+class DelayLiftingFn(EpisodeDependentLiftingFn):
     """
     Sadly, transform() and inverse_transform() are not exact inverses unless
-    n_delay_x and n_delay_u are the same. Only the last samples will be the
+    n_delays_x and n_delays_u are the same. Only the last samples will be the
     same, since some will need to be dropped.
     """
 
-    # TODO Rename to n_delays_x and n_delays_u for consistency
-    # TODO Add missing type annotations
-    # TODO See if _fit etc should still return self? Or even keep same
-    # TODO interface as fit/transform? Drop y?
-
-    def __init__(self, n_delay_x=0, n_delay_u=0):
-        self.n_delay_x = n_delay_x
-        self.n_delay_u = n_delay_u
+    def __init__(self, n_delays_x=0, n_delays_u=0):
+        self.n_delays_x = n_delays_x
+        self.n_delays_u = n_delays_u
 
     def _fit(self, X, y=None):
-        self.n_states_out_ = self.n_states_in_ * (self.n_delay_x + 1)
-        self.n_inputs_out_ = self.n_inputs_in_ * (self.n_delay_u + 1)
+        self.n_states_out_ = self.n_states_in_ * (self.n_delays_x + 1)
+        self.n_inputs_out_ = self.n_inputs_in_ * (self.n_delays_u + 1)
         self.n_features_out_ = (self.n_states_out_ + self.n_inputs_out_ +
                                 (1 if self.episode_feature_ else 0))
-        self.n_samples_needed_ = max(self.n_delay_x, self.n_delay_u) + 1
+        self.n_samples_needed_ = max(self.n_delays_x, self.n_delays_u) + 1
         return self
 
     def _transform(self, X):
         X_x = X[:, :self.n_states_in_]
         X_u = X[:, self.n_states_in_:]
-        Xd_x = self._delay(X_x, self.n_delay_x)
-        Xd_u = self._delay(X_u, self.n_delay_u)
+        Xd_x = self._delay(X_x, self.n_delays_x)
+        Xd_u = self._delay(X_u, self.n_delays_u)
         n_samples = min(Xd_x.shape[0], Xd_u.shape[0])
         Xd = np.hstack((Xd_x[-n_samples:, :], Xd_u[-n_samples:, :]))
         return Xd
@@ -610,18 +540,18 @@ class Delay(EpisodeDependentLiftingFn):
     def _inverse_transform(self, X):
         X_x = X[:, :self.n_states_out_]
         X_u = X[:, self.n_states_out_:]
-        Xu_x = self._undelay(X_x, self.n_delay_x, self.n_states_in_)
-        Xu_u = self._undelay(X_u, self.n_delay_u, self.n_inputs_in_)
+        Xu_x = self._undelay(X_x, self.n_delays_x, self.n_states_in_)
+        Xu_u = self._undelay(X_u, self.n_delays_u, self.n_inputs_in_)
         n_samples = min(Xu_x.shape[0], Xu_u.shape[0])
         Xu = np.hstack((Xu_x[-n_samples:, :], Xu_u[-n_samples:, :]))
         return Xu
 
     def _validate_parameters(self):
-        if self.n_delay_x < 0:
-            raise ValueError('`n_delay_x` must be greater than or equal to '
+        if self.n_delays_x < 0:
+            raise ValueError('`n_delays_x` must be greater than or equal to '
                              'zero.')
-        if self.n_delay_u < 0:
-            raise ValueError('`n_delay_u` must be greater than or equal to '
+        if self.n_delays_u < 0:
+            raise ValueError('`n_delays_u` must be greater than or equal to '
                              'zero.')
 
     def _delay(self, X, n_delay):
@@ -633,13 +563,7 @@ class Delay(EpisodeDependentLiftingFn):
         return Xd
 
     def _undelay(self, X, n_delay, n_features):
-        if X.shape[1] == 0:
-            # TODO This seems like a hack. Maybe revisit.
-            largest_delay = max(self.n_delay_x, self.n_delay_u)
-            n_samples = X.shape[0] + largest_delay
-            Xu = np.array([[]] * n_samples)
-        else:
-            Xu_1 = [X[:-1, -n_features:]]
-            Xu_2 = np.split(X[[-1], :], n_delay + 1, axis=1)[::-1]
-            Xu = np.vstack(Xu_1 + Xu_2)
+        Xu_1 = [X[:-1, -n_features:]]
+        Xu_2 = np.split(X[[-1], :], n_delay + 1, axis=1)[::-1]
+        Xu = np.vstack(Xu_1 + Xu_2)
         return Xu
