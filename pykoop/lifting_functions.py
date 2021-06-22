@@ -37,7 +37,7 @@ class LiftingFn(sklearn.base.BaseEstimator,
             X: np.ndarray,
             y: np.ndarray = None,
             n_inputs: int = 0,
-            episode_feature: bool = True) -> 'LiftingFn':
+            episode_feature: bool = False) -> 'LiftingFn':
         """Fit the lifting function.
 
         Parameters
