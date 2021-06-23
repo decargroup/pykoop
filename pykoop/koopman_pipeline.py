@@ -2,6 +2,11 @@ import numpy as np
 import sklearn.base
 import sklearn.metrics
 
+# TODO scoring return a dict https://scikit-learn.org/stable/modules/model_evaluation.html#using-multiple-metric-evaluation
+# TODO single-step prediciton vs whole episode prediction. Maybe somewhere in between? N steps ahead?
+# TODO Splitter as a feature extractor?  https://scikit-learn.org/stable/modules/classes.html#module-sklearn.feature_extraction
+# TODO Add episode_feature to estimators?
+
 
 class KoopmanPipeline(sklearn.base.BaseEstimator):
 

@@ -1,7 +1,24 @@
 """Lifting functions and preprocessors for use with :class:``KoopmanPipeline``.
 
-Expected data format
-^^^^^^^^^^^^^^^^^^^^
+Koopman lifting functions have two particular requirements that distinguish
+them from other ``scikit-learn`` transformers:
+
+1. They keep the original state at the top of the lifted state.
+2. They keep all input-dependent lifted states at the bottom of the lifted
+   state.
+
+All Koopman lifting functions and preprocessors are ancestors of
+:class:`LiftingFn`. However, they differ slightly in their indended usage.
+When predicting using a Koopman pipeline, lifting functions are applied and
+inverted. Preprocessors are applied at the beginning of the pipeline but never
+inverted.
+
+For example, preprocessing angles by replacing them with ``cos`` and ``sin`` of
+their values is typically not inverted, since it's more convenient to work with
+``cos`` and ``sin`` when scoring and cross-validating.
+
+Notes
+-----
 
 The data matrices provided to :func:`fit` (as well as :func:`transform`
 and :func:`inverse_transform`) must obey the following format:
@@ -63,26 +80,6 @@ State 0 State 1 State 2
 
 In the above case, each timestep is assumed to belong to the same
 episode.
-
-Lifting functions and preprocessors
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Koopman lifting functions have two particular requirements that distinguish
-them from other ``scikit-learn`` transformers:
-
-1. They keep the original state at the top of the lifted state.
-2. They keep all input-dependent lifted states at the bottom of the lifted
-   state.
-
-All Koopman lifting functions and preprocessors are ancestors of
-:class:`LiftingFn`. However, they differ slightly in their indended usage.
-When predicting using a Koopman pipeline, lifting functions are applied and
-inverted. Preprocessors are applied at the beginning of the pipeline but never
-inverted.
-
-For example, preprocessing angles by replacing them with ``cos`` and ``sin`` of
-their values is typically not inverted, since it's more convenient to work with
-``cos`` and ``sin`` when scoring and cross-validating.
 """
 
 import abc
