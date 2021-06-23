@@ -15,6 +15,7 @@ Lifting functions
 
 .. automodule:: pykoop.lifting_functions
    :members:
+   :inherited-members:
 
 LMI estimators
 --------------

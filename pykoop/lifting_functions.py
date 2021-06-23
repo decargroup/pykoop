@@ -11,7 +11,7 @@ and :func:`inverse_transform`) must obey the following format:
 2. The last ``n_inputs`` features must be exogenous inputs.
 3. The remaining features are considered to be states.
 
-Input example where ``episode_feature=True`` and ``n_inputs=1``:
+Example data matrix where ``episode_feature=True`` and ``n_inputs=1``:
 
 ======= ======= ======= =======
 Episode State 0 State 1 Input 0
@@ -68,7 +68,7 @@ Lifting functions and preprocessors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Koopman lifting functions have two particular requirements that distinguish
-them from other scikit-learn transformers:
+them from other ``scikit-learn`` transformers:
 
 1. They keep the original state at the top of the lifted state.
 2. They keep all input-dependent lifted states at the bottom of the lifted
@@ -836,12 +836,11 @@ class DelayLiftingFn(EpisodeDependentLiftingFn):
 
     Warnings
     --------
-    Sadly, :func:`transform` and :func:`inverse_transform` are not exact
-    inverses unless ``n_delays_x`` and ``n_delays_u`` are the same. Only the
-    last samples will be the same, since the ``abs(n_delays_x - n_delays_u)``
+    :func:`transform` and :func:`inverse_transform` are not exact inverses
+    unless ``n_delays_x`` and ``n_delays_u`` are the same. Only the last
+    samples will be the same, since the ``abs(n_delays_x - n_delays_u)``
     earliest samples will need to be dropped to ensure the output array is
-    rectangular. The alternative would be padding with ``NaN``s and using a
-    masked array, which I'm not a huge fan of.
+    rectangular.
     """
 
     def __init__(self,
