@@ -64,6 +64,8 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         ValueError
             If constructor or fit parameters are incorrect.
         """
+        if self.regressor is None:
+            raise ValueError('`regressor` must be specified to use `fit()`.')
         # Clone regressor
         self.regressor_ = (
             self.regressor[0],
@@ -83,6 +85,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
             episode_feature=episode_feature,
         )
         # Fit regressor
+        # TODO IF EPISODE FEATURES ARENT IN FIT, THEY CANT BE IN PREDICT...
         self.regressor_[1].fit(Xt_unshifted, Xt_shifted)
         return self
 
@@ -114,7 +117,6 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         ValueError
             If constructor or fit parameters are incorrect.
         """
-        self._validate_parameters()
         if self.preprocessors is None:
             self.preprocessors = []
         if self.lifting_functions is None:
@@ -213,22 +215,35 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         np.ndarray
             Predicted data matrix.
         """
-        raise NotImplementedError()
+        # TODO HOW TO HANDLE EPISODE FEATURE?
+        # TODO ARE EPISODES CORRECTLY CONSIDERED???
+        # TODO THIS IS SINGLE STEP PREDICTION. HOW ABOUT MULTI?
+        # Lift data matrix
+        X_trans = self.transform(X)
+        # Predict in lifted space
+        X_pred = self.regressor_[1].predict(X_trans)
+        # Pad inputs wth zeros to do inverse
+        if self.n_inputs_out_ != 0:
+            X_pred_pad = np.hstack((
+                X_pred,
+                np.zeros((X_pred.shape[1], self.n_inputs_out_))
+            ))
+        else:
+            X_pred_pad = X_pred
+        # Invert lifting functions
+        X_pred_pad_inv = self.inverse_transform(X_pred_pad)
+        # Strip zero inputs
+        if self.n_inputs_in_ != 0:
+            X_pred_inv = X_pred_pad_inv[:, :self.n_states_in_]
+        else:
+            X_pred_inv = X_pred_pad_inv
+        return X_pred_inv
 
-    def _validate_parameters(self) -> None:
-        """Validate parameters passed in constructor.
 
-        Raises
-        ------
-        ValueError
-            If constructor parameters are incorrect.
-        """
-        pass  # No constructor parameters need validation.
-
-
-def shift_episodes(X: np.ndarray,
-                   n_inputs: int = 0,
-                   episode_feature: bool = False) -> tuple[np.ndarray]:
+def shift_episodes(
+        X: np.ndarray,
+        n_inputs: int = 0,
+        episode_feature: bool = False) -> tuple[np.ndarray, np.ndarray]:
     """Shift episodes and truncate shifted inputs.
 
     The Koopman matrix ``K`` approximately satisfies::
@@ -253,7 +268,7 @@ def shift_episodes(X: np.ndarray,
 
     Returns
     -------
-    tuple[np.ndarray]
+    tuple[np.ndarray, np.ndarray]
         Tuple whose first element is the unshifted array and whose second
         element is the shifted array with its inputs truncated. Both arrays
         have the same number of samples. Their episode features are stripped if
@@ -281,6 +296,6 @@ def shift_episodes(X: np.ndarray,
         else:
             X_shifted.append(ep[1:, :-n_inputs])
     # Recombine and return
-    X_unshifted = np.vstack(X_unshifted)
-    X_shifted = np.vstack(X_shifted)
-    return (X_unshifted, X_shifted)
+    X_unshifted_np = np.vstack(X_unshifted)
+    X_shifted_np = np.vstack(X_shifted)
+    return (X_unshifted_np, X_shifted_np)
