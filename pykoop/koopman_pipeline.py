@@ -12,14 +12,16 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         self,
         preprocessors: list[tuple[str, LiftingFn]] = None,
         lifting_functions: list[tuple[str, LiftingFn]] = None,
-        estimator: tuple[str, sklearn.base.RegressorMixin] = None,
+        regressor: tuple[str, sklearn.base.RegressorMixin] = None,
     ) -> None:
-        """Constructor for :class:`KoopmanPipeline`.
+        """Instantiate for :class:`KoopmanPipeline`.
 
         While both ``preprocessors`` and ``lifting_functions`` contain
         :class:`LiftingFn` objects, their purposes differ. Lifting functions
         are inverted in :func:`inverse_transform`, while preprocessors are
         applied once and not inverted.
+
+        As much error checking as possible is delegated to the sub-estimators.
 
         Parameters
         ----------
@@ -27,12 +29,12 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
             List of tuples containing preprocessor objects and their names.
         lifting_functions : list[tuple[str, LiftingFn]]
             List of tuples containing lifting function objects and their names.
-        estimator : tuple[str, sklearn.base.RegressorMixin]
+        regressor : tuple[str, sklearn.base.RegressorMixin]
             Tuple containing a regressor object and its name.
         """
         self.preprocessors = preprocessors
         self.lifting_functions = lifting_functions
-        self.estimator = estimator
+        self.regressor = regressor
 
     def fit(self,
             X: np.ndarray,
@@ -62,9 +64,27 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         ValueError
             If constructor or fit parameters are incorrect.
         """
-        self.fit_transformers(X,
-                              n_inputs=n_inputs,
-                              episode_feature=episode_feature)
+        # Clone regressor
+        self.regressor_ = (
+            self.regressor[0],
+            sklearn.base.clone(self.regressor[1]),
+        )
+        # Fit transformers and transform input
+        self.fit_transformers(
+            X,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        Xt = self.transform(X)
+        # Split into unshifted and shifted data matrices
+        Xt_unshifted, Xt_shifted = shift_episodes(
+            Xt,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        # Fit regressor
+        self.regressor_[1].fit(Xt_unshifted, Xt_shifted)
+        return self
 
     def fit_transformers(self,
                          X: np.ndarray,
@@ -204,3 +224,63 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
             If constructor parameters are incorrect.
         """
         pass  # No constructor parameters need validation.
+
+
+def shift_episodes(X: np.ndarray,
+                   n_inputs: int = 0,
+                   episode_feature: bool = False) -> tuple[np.ndarray]:
+    """Shift episodes and truncate shifted inputs.
+
+    The Koopman matrix ``K`` approximately satisfies::
+
+        Theta_+ = Psi @ K.T
+
+    where ``Psi`` contains the unshifted states and inputs, and ``Theta_+``
+    contains the shifted states.
+
+    The regressors used in :class:`KoopmanPipeline` expect ``Psi`` as their
+    ``X`` and ``Theta_+`` as their ``y``. This function breaks its input (also
+    named ``X``) into ``Psi`` and ``Theta_+`` for use with these regressors.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Data matrix.
+    n_inputs : int
+        Number of input features at the end of ``X``.
+    episode_feature : bool
+        True if first feature indicates which episode a timestep is from.
+
+    Returns
+    -------
+    tuple[np.ndarray]
+        Tuple whose first element is the unshifted array and whose second
+        element is the shifted array with its inputs truncated. Both arrays
+        have the same number of samples. Their episode features are stripped if
+        present.
+    """
+    # Extract episode feature
+    if episode_feature:
+        X_ep = X[:, 0]
+        X = X[:, 1:]
+    else:
+        X_ep = np.zeros((X.shape[0], ))
+    # Split X into list of episodes. Each episode is a tuple containing
+    # its index and its associated data matrix.
+    episodes = []
+    for i in np.unique(X_ep):
+        episodes.append((i, X[X_ep == i, :]))
+    # Shift each episode
+    X_unshifted = []
+    X_shifted = []
+    for _, ep in episodes:
+        X_unshifted.append(ep[:-1, :])
+        # Strip input if present
+        if n_inputs == 0:
+            X_shifted.append(ep[1:, :])
+        else:
+            X_shifted.append(ep[1:, :-n_inputs])
+    # Recombine and return
+    X_unshifted = np.vstack(X_unshifted)
+    X_shifted = np.vstack(X_shifted)
+    return (X_unshifted, X_shifted)

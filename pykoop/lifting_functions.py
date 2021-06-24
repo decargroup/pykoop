@@ -607,7 +607,7 @@ class AnglePreprocessor(EpisodeIndependentLiftingFn):
     def __init__(self,
                  angle_features: np.ndarray = None,
                  unwrap_inverse: bool = False) -> None:
-        """Constructor for :class:`AnglePreprocessor`.
+        """Instantiate :class:`AnglePreprocessor`.
 
         Parameters
         ----------
@@ -721,7 +721,7 @@ class PolynomialLiftingFn(EpisodeIndependentLiftingFn):
     """
 
     def __init__(self, order: int = 1, interaction_only: bool = False) -> None:
-        """Constructor for :class:`PolynomialLiftingFn`.
+        """Instantiate :class:`PolynomialLiftingFn`.
 
         Parameters
         ----------
@@ -843,7 +843,7 @@ class DelayLiftingFn(EpisodeDependentLiftingFn):
     def __init__(self,
                  n_delays_state: int = 0,
                  n_delays_input: int = 0) -> None:
-        """Constructor for :class:`DelayLiftingFn`.
+        """Instantiate :class:`DelayLiftingFn`.
 
         Parameters
         ----------
