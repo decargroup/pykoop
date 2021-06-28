@@ -1,32 +1,21 @@
+import numpy as np
 import sklearn.base
 import sklearn.utils.validation
 from scipy import linalg
 
+from . import koopman_pipeline
 
-class Edmd(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
 
-    def fit(self, X, y, **kwargs):
-        X, y = sklearn.utils.validation.check_X_y(X, y,
-                                                  multi_output=True,
-                                                  y_numeric=True)
-        Psi = X.T
-        Theta_p = y.T
+class Edmd(koopman_pipeline.KoopmanRegressor):
+
+    def _fit_regressor(self, X_unshifted: np.ndarray,
+                       X_shifted: np.ndarray) -> None:
+        Psi = X_unshifted.T
+        Theta_p = X_shifted.T
         q = Psi.shape[1]
         G = (Theta_p @ Psi.T) / q
         H = (Psi @ Psi.T) / q
         self.coef_ = linalg.lstsq(H.T, G.T)[0]
-        self.n_features_in_ = Psi.shape[0]
-        return self
 
-    def predict(self, X):
-        X = sklearn.utils.validation.check_array(X)
-        sklearn.utils.validation.check_is_fitted(self)
-        Psi = X.T
-        Theta_p = self.coef_.T @ Psi
-        return Theta_p.T
-
-    def _more_tags(self):
-        return {
-            'multioutput': True,
-            'multioutput_only': True,
-        }
+    def _validate_parameters(self) -> None:
+        pass

@@ -226,10 +226,12 @@ def test_kp_fit():
                 [-1, -2, -3, -4, -5],
             ]).T,
             np.array([
+                [0, 0, 1],
                 [1, 2, 4],
                 [-1, -2, -4],
             ]).T,
             np.array([
+                [0, 0, 1],
                 [2, 3, 5],
                 [-2, -3, -5],
             ]).T,
@@ -244,10 +246,12 @@ def test_kp_fit():
                 [-1, -2, -3, -4, -5],
             ]).T,
             np.array([
+                [0, 1, 1],
                 [1, 3, 4],
                 [-1, -3, -4],
             ]).T,
             np.array([
+                [0, 1, 1],
                 [2, 4, 5],
             ]).T,
             1,
@@ -261,3 +265,122 @@ def test_shift_episodes(X, X_unsh_exp, X_sh_exp, n_inputs, episode_feature):
                                                    episode_feature)
     np.testing.assert_allclose(X_unsh, X_unsh_exp)
     np.testing.assert_allclose(X_sh, X_sh_exp)
+
+
+split_combine_episode_scenarios: \
+    list[tuple[np.ndarray, list[tuple[int, np.ndarray]], bool]] = [
+    (
+        # Multiple episodes
+        np.array([
+            [0, 0, 0, 1, 1, 1],
+            [1, 2, 3, 4, 5, 6],
+            [6, 5, 4, 3, 2, 1],
+        ]).T,
+        [
+            (
+                0,
+                np.array([
+                    [1, 2, 3],
+                    [6, 5, 4],
+                ]).T,
+            ),
+            (
+                1,
+                np.array([
+                    [4, 5, 6],
+                    [3, 2, 1],
+                ]).T,
+            ),
+        ],
+        True,
+    ),
+    (
+        # One episode
+        np.array([
+            [0, 0, 0, 0, 0, 0],
+            [1, 2, 3, 4, 5, 6],
+            [6, 5, 4, 3, 2, 1],
+        ]).T,
+        [
+            (
+                0,
+                np.array([
+                    [1, 2, 3, 4, 5, 6],
+                    [6, 5, 4, 3, 2, 1],
+                ]).T,
+            ),
+        ],
+        True,
+    ),
+    (
+        # No episode feature
+        np.array([
+            [1, 2, 3, 4, 5, 6],
+            [6, 5, 4, 3, 2, 1],
+        ]).T,
+        [
+            (
+                0,
+                np.array([
+                    [1, 2, 3, 4, 5, 6],
+                    [6, 5, 4, 3, 2, 1],
+                ]).T,
+            ),
+        ],
+        False,
+    ),
+    (
+        # Out-of-order episodes
+        np.array([
+            [2, 2, 2, 0, 0, 1],
+            [1, 2, 3, 4, 5, 6],
+            [6, 5, 4, 3, 2, 1],
+        ]).T,
+        [
+            (
+                2,
+                np.array([
+                    [1, 2, 3],
+                    [6, 5, 4],
+                ]).T,
+            ),
+            (
+                0,
+                np.array([
+                    [4, 5],
+                    [3, 2],
+                ]).T,
+            ),
+            (
+                1,
+                np.array([
+                    [6],
+                    [1],
+                ]).T,
+            ),
+        ],
+        True,
+    ),
+]
+
+
+@pytest.mark.parametrize('X, episodes, episode_feature',
+                         split_combine_episode_scenarios)
+def test_split_episodes(X, episodes, episode_feature):
+    # Split episodes
+    episodes_actual = koopman_pipeline.split_episodes(
+        X, episode_feature=episode_feature)
+    # Compare every episode
+    for actual, expected in zip(episodes_actual, episodes):
+        i_actual, X_actual = actual
+        i_expected, X_expected = expected
+        assert i_actual == i_expected
+        np.testing.assert_allclose(X_actual, X_expected)
+
+
+@pytest.mark.parametrize('X, episodes, episode_feature',
+                         split_combine_episode_scenarios)
+def test_combine_episodes(X, episodes, episode_feature):
+    X_actual = koopman_pipeline.combine_episodes(
+        episodes, episode_feature=episode_feature)
+    np.testing.assert_allclose(X_actual, X)

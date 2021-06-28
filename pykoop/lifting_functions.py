@@ -301,11 +301,11 @@ class EpisodeIndependentLiftingFn(LiftingFn):
         self.episode_feature_ = episode_feature
         # Set up array checks. If you have an episode feature, you need at
         # least one other feature!
-        self._check_params = {
+        self._check_array_params = {
             'ensure_min_features': 2 if episode_feature else 1,
         }
         # Validate data
-        X = sklearn.utils.validation.check_array(X, **self._check_params)
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Set numbre of input features (including episode feature)
         self.n_features_in_ = X.shape[1]
         # Extract episode feature
@@ -323,7 +323,7 @@ class EpisodeIndependentLiftingFn(LiftingFn):
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
         # Validate data
-        X = sklearn.utils.validation.check_array(X, **self._check_params)
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Check input shape
         if X.shape[1] != self.n_features_in_:
             raise ValueError(f'{self.__class__.__name__} `fit()` called '
@@ -336,7 +336,7 @@ class EpisodeIndependentLiftingFn(LiftingFn):
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
         # Validate data
-        X = sklearn.utils.validation.check_array(X, **self._check_params)
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Check input shape
         if X.shape[1] != self.n_features_out_:
             raise ValueError(f'{self.__class__.__name__} `fit()` output '
@@ -451,11 +451,11 @@ class EpisodeDependentLiftingFn(LiftingFn):
         self.episode_feature_ = episode_feature
         # Set up array checks. If you have an episode feature, you need at
         # least one other feature!
-        self._check_params = {
+        self._check_array_params = {
             'ensure_min_features': 2 if episode_feature else 1,
         }
         # Validate data
-        X = sklearn.utils.validation.check_array(X, **self._check_params)
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Set numbre of input features (including episode feature)
         self.n_features_in_ = X.shape[1]
         # Extract episode feature
@@ -477,7 +477,7 @@ class EpisodeDependentLiftingFn(LiftingFn):
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
         # Validate data
-        X = sklearn.utils.validation.check_array(X, **self._check_params)
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Check input shape
         if X.shape[1] != self.n_features_in_:
             raise ValueError(f'{self.__class__.__name__} `fit()` called '
@@ -490,7 +490,7 @@ class EpisodeDependentLiftingFn(LiftingFn):
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
         # Validate data
-        X = sklearn.utils.validation.check_array(X, **self._check_params)
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Check input shape
         if X.shape[1] != self.n_features_out_:
             raise ValueError(f'{self.__class__.__name__} `fit()` output '
