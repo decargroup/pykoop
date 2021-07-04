@@ -19,7 +19,6 @@ their values is typically not inverted, since it's more convenient to work with
 
 Notes
 -----
-
 The data matrices provided to :func:`fit` (as well as :func:`transform`
 and :func:`inverse_transform`) must obey the following format:
 
