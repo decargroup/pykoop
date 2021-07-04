@@ -463,7 +463,7 @@ class EpisodeDependentLiftingFn(LiftingFn):
             X = X[:, 1:]
         else:
             X_ep = np.zeros((X.shape[0], ))
-        # Extract first episod eonly
+        # Extract first episode only
         first_ep_idx = np.unique(X_ep)[0]
         X_first = X[X_ep == first_ep_idx, :]
         # Set states and inputs in
