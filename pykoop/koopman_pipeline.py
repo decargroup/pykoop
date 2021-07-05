@@ -1,3 +1,105 @@
+"""Koopman pipeline meta-estimator and related interfaces.
+
+Since the Koopman regression problem operates on timeseries data, it has
+additional requirements that preclude the use of ``scikit-learn`` pipelines:
+
+1. The original state must be kept at the beginning of the lifted state.
+2. The input-dependent lifted states must be kept at the end of the lifted
+   state.
+3. The number of input-independent and input-dependent lifting functions must
+   be tracked throughout the pipeline.
+4. Samples must not be reordered or subsampled (this would corrupt delay-based
+   lifting functions).
+5. Concatenated data from different training epidodes must not be mixed (even
+   though the states are adjacent in the array, they may not be sequential in
+   time).
+
+To meet these requirements, each lifting function, described by the
+:class:`KoopmanLiftingFn` interface, supports a feature that indicates which
+episode each sample belongs to. Furthermore, each lifting function stores the
+number of input-dependent and input-independent features at its input and
+output.
+
+The data matrices provided to :func:`fit` (as well as :func:`transform`
+and :func:`inverse_transform`) must obey the following format:
+
+1. If ``episode_feature`` is true, the first feature must indicate
+   which episode each timestep belongs to.
+2. The last ``n_inputs`` features must be exogenous inputs.
+3. The remaining features are considered to be states (input-independent).
+
+Consider an example data matrix where the :func:`fit` parameters are
+``episode_feature=True`` and ``n_inputs=1``:
+
+======= ======= ======= =======
+Episode State 0 State 1 Input 0
+======= ======= ======= =======
+0.0       0.1    -0.1    0.2
+0.0       0.2    -0.2    0.3
+0.0       0.3    -0.3    0.4
+1.0      -0.1     0.1    0.3
+1.0      -0.2     0.2    0.4
+1.0      -0.3     0.3    0.5
+2.0       0.3    -0.1    0.3
+2.0       0.2    -0.2    0.4
+======= ======= ======= =======
+
+In the above matrix, there are three distinct episodes with different
+numbers of timesteps. The last feature is an input, so the remaining
+two features must be states.
+
+If ``n_inputs=0``, the same matrix is interpreted as:
+
+======= ======= ======= =======
+Episode State 0 State 1 State 2
+======= ======= ======= =======
+0.0       0.1    -0.1    0.2
+0.0       0.2    -0.2    0.3
+0.0       0.3    -0.3    0.4
+1.0      -0.1     0.1    0.3
+1.0      -0.2     0.2    0.4
+1.0      -0.3     0.3    0.5
+2.0       0.3    -0.1    0.3
+2.0       0.2    -0.2    0.4
+======= ======= ======= =======
+
+If ``episode_feature=False`` and the first feature is omitted, the
+matrix is interpreted as:
+
+======= ======= =======
+State 0 State 1 State 2
+======= ======= =======
+ 0.1    -0.1    0.2
+ 0.2    -0.2    0.3
+ 0.3    -0.3    0.4
+-0.1     0.1    0.3
+-0.2     0.2    0.4
+-0.3     0.3    0.5
+ 0.3    -0.1    0.3
+ 0.2    -0.2    0.4
+======= ======= =======
+
+In the above case, each timestep is assumed to belong to the same
+episode.
+
+All Koopman lifting functions and preprocessors are ancestors of
+:class:`KoopmanLiftingFn`. However, they differ slightly in their indended
+usage.  When predicting using a Koopman pipeline, lifting functions are applied
+and inverted. Preprocessors are applied at the beginning of the pipeline but
+never inverted.
+
+For example, preprocessing angles by replacing them with ``cos`` and ``sin`` of
+their values is typically not inverted, since it's more convenient to work with
+``cos`` and ``sin`` when scoring and cross-validating.
+
+Koopman regressors, which implement the interface defined in
+:class:`KoopmanRegressor` are distinct from ``scikit-learn`` regressors in that
+they support the episode feature and state tracking attributes used by the
+lifting function objects. Koopman regressors also support being fit with a
+single data matrix, which they will split and time-shift according to the
+episode feature.
+"""
+
 import abc
 
 import numpy as np
@@ -5,7 +107,719 @@ import pandas
 import sklearn.base
 import sklearn.metrics
 
-from .lifting_functions import LiftingFn  # For type hints
+
+class KoopmanLiftingFn(sklearn.base.BaseEstimator,
+                       sklearn.base.TransformerMixin,
+                       metaclass=abc.ABCMeta):
+    """Base class for Koopman lifting functions.
+
+    All attributes with a trailing underscore must be set in the subclass'
+    :func:`fit`.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    """
+
+    @abc.abstractmethod
+    def fit(self,
+            X: np.ndarray,
+            y: np.ndarray = None,
+            n_inputs: int = 0,
+            episode_feature: bool = False) -> 'KoopmanLiftingFn':
+        """Fit the lifting function.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+        y : np.ndarray
+            Ignored.
+        n_inputs : int
+            Number of input features at the end of ``X``.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+
+        Returns
+        -------
+        KoopmanLiftingFn
+            Instance of itself.
+
+        Raises
+        -----
+        ValueError
+            If constructor or fit parameters are incorrect.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        """Transform data.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Transformed data matrix.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def inverse_transform(self, X: np.ndarray) -> np.ndarray:
+        """Invert transformed data.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Transformed data matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Inverted transformed data matrix.
+        """
+        raise NotImplementedError()
+
+
+class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
+    """Base class for Koopman lifting functions that are episode-independent.
+
+    Episode-independent lifting functions can be applied to a complete data
+    matrix while ignoring the episode feature.
+
+    For example, when rescaling a data matrix, it does not matter which episode
+    a sample comes from.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
+        Set by :func:`fit`.
+    n_states_in_ : int
+        Number of states before transformation.
+        Set by :func:`fit`.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+        Set by :func:`fit`.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
+        Set by :func:`fit`.
+    n_states_out_ : int
+        Number of states after transformation.
+        Set by :func:`fit`.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+        Set by :func:`fit`.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+        Set by :func:`fit`.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+        Set by :func:`fit`.
+    """
+
+    def fit(self,
+            X: np.ndarray,
+            y: np.ndarray = None,
+            n_inputs: int = 0,
+            episode_feature: bool = False) -> 'EpisodeIndependentLiftingFn':
+        # Validate constructor parameters
+        self._validate_parameters()
+        # Validate fit parameters
+        if n_inputs < 0:
+            raise ValueError('`n_inputs` must be greater than or equal to 0.')
+        # Save presence of episode feature
+        self.episode_feature_ = episode_feature
+        # Set up array checks. If you have an episode feature, you need at
+        # least one other feature!
+        self._check_array_params = {
+            'ensure_min_features': 2 if episode_feature else 1,
+        }
+        # Validate data
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
+        # Set numbre of input features (including episode feature)
+        self.n_features_in_ = X.shape[1]
+        # Extract episode feature
+        if self.episode_feature_:
+            X = X[:, 1:]
+        # Set states and inputs in
+        self.n_inputs_in_ = n_inputs
+        self.n_states_in_ = X.shape[1] - n_inputs
+        # Episode independent lifting functions only need one sample.
+        n_x, n_u = self._fit_one_ep(X)
+        self.n_states_out_ = n_x
+        self.n_inputs_out_ = n_u
+        self.n_features_out_ = (self.n_states_out_ + self.n_inputs_out_ +
+                                (1 if self.episode_feature_ else 0))
+        # Episode-independent lifting functions only ever need one sample.
+        self.min_samples_ = 1
+        return self
+
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self)
+        # Validate data
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
+        # Check input shape
+        if X.shape[1] != self.n_features_in_:
+            raise ValueError(f'{self.__class__.__name__} `fit()` called '
+                             f'with {self.n_features_in_} features, but '
+                             f'`transform()` called with {X.shape[1]} '
+                             'features.')
+        return self._apply_transform_or_inverse(X, 'transform')
+
+    def inverse_transform(self, X: np.ndarray) -> np.ndarray:
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self)
+        # Validate data
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
+        # Check input shape
+        if X.shape[1] != self.n_features_out_:
+            raise ValueError(f'{self.__class__.__name__} `fit()` output '
+                             f'{self.n_features_out_} features, but '
+                             '`inverse_transform()` called with '
+                             f'{X.shape[1]} features.')
+        return self._apply_transform_or_inverse(X, 'inverse_transform')
+
+    def _apply_transform_or_inverse(self, X: np.ndarray,
+                                    transform: str) -> np.ndarray:
+        """Strip episode feature, apply transform or inverse, then put it back.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+        transform : str
+            ``'transform'`` to apply transform or ``'inverse_transform'`` to
+            apply inverse transform.
+
+        Returns
+        -------
+        np.ndarray
+            Transformed or inverse transformed data matrix.
+
+        Raises
+        ------
+        ValueError
+            If ``transform`` is not  ``'transform'`` or
+            ``'inverse_transform'``.
+        """
+        # Extract episode feature
+        if self.episode_feature_:
+            X_ep = X[:, [0]]
+            X = X[:, 1:]
+        # Transform or inverse transform data
+        if transform == 'transform':
+            Xt = self._transform_one_ep(X)
+        elif transform == 'inverse_transform':
+            Xt = self._inverse_transform_one_ep(X)
+        else:
+            raise ValueError("Parameter `transform` must be one of "
+                             "['transform', 'inverse_transform']")
+        # Put feature back if needed
+        if self.episode_feature_:
+            Xt = np.hstack((X_ep, Xt))
+        return Xt
+
+    @abc.abstractmethod
+    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int]:
+        """Fit lifting function using a single episode.
+
+        Expects and returns data without an episode header. Data is assumed to
+        belong to a single episode.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+
+        Returns
+        -------
+        tuple[int, int]
+            Tuple containing the number of state features and input features in
+            the transformed data.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        """Transform data using a single episode.
+
+        Expects and returns data without an episode header. Data is assumed to
+        belong to a single episode.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Transformed data matrix.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def _inverse_transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        """Invert transformed data using a single episode.
+
+        Expects and returns data without an episode header. Data is assumed to
+        belong to a single episode.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Transformed data matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Inverted transformed data matrix.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def _validate_parameters(self) -> None:
+        """Validate parameters passed in constructor.
+
+        Raises
+        ------
+        ValueError
+            If constructor parameters are incorrect.
+        """
+        raise NotImplementedError()
+
+
+class EpisodeDependentLiftingFn(KoopmanLiftingFn):
+    """Base class for Koopman lifting functions that are episode-dependent.
+
+    Episode-dependent lifting functions cannot be applied to a complete data
+    matrix. The data matrix must be split into episodes, and the lifting
+    function must be applied to each one. The resulting lifted episodes are
+    then concatenated.
+
+    For example, when applying delay coordinates to a data matrix, samples from
+    different episodes must not be intermingled. While a sample from episode 0
+    and a sample from episode 1 are adjacent in the data matrix, they did not
+    take place one timestep apart! Episode-dependent lifting functions take
+    this requirement into account.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
+        Set by :func:`fit`.
+    n_states_in_ : int
+        Number of states before transformation.
+        Set by :func:`fit`.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+        Set by :func:`fit`.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
+        Set by :func:`fit`.
+    n_states_out_ : int
+        Number of states after transformation.
+        Set by :func:`fit`.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+        Set by :func:`fit`.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+        Set by :func:`fit`.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+        Set by :func:`fit`.
+
+    Notes
+    -----
+    When :func:`fit` is called with multiple episodes, it only considers the
+    first episode. It is assumed that the first episode contains all the
+    information needed to properly fit the transformer. Typically, :func:`fit`
+    just needs to know the dimensions of the data, so this is a reasonable
+    assumption. When :func:`transform` and :func:`inverse_transform` are
+    called, they apply the fit transformer to each episode individually.
+    """
+
+    def fit(self,
+            X: np.ndarray,
+            y: np.ndarray = None,
+            n_inputs: int = 0,
+            episode_feature: bool = False) -> 'EpisodeDependentLiftingFn':
+        # Validate constructor parameters
+        self._validate_parameters()
+        # Validate fit parameters
+        if n_inputs < 0:
+            raise ValueError('`n_inputs` must be greater than or equal to 0.')
+        # Save presence of episode feature
+        self.episode_feature_ = episode_feature
+        # Set up array checks. If you have an episode feature, you need at
+        # least one other feature!
+        self._check_array_params = {
+            'ensure_min_features': 2 if episode_feature else 1,
+        }
+        # Validate data
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
+        # Set numbre of input features (including episode feature)
+        self.n_features_in_ = X.shape[1]
+        # Extract episode feature
+        if self.episode_feature_:
+            X_ep = X[:, 0]
+            X = X[:, 1:]
+        else:
+            X_ep = np.zeros((X.shape[0], ))
+        # Extract first episode only
+        first_ep_idx = np.unique(X_ep)[0]
+        X_first = X[X_ep == first_ep_idx, :]
+        # Set states and inputs in
+        self.n_inputs_in_ = n_inputs
+        self.n_states_in_ = X.shape[1] - n_inputs
+        n_x, n_u, n_k = self._fit_one_ep(X_first)
+        self.n_states_out_ = n_x
+        self.n_inputs_out_ = n_u
+        self.n_features_out_ = (self.n_states_out_ + self.n_inputs_out_ +
+                                (1 if self.episode_feature_ else 0))
+        self.min_samples_ = n_k
+        return self
+
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self)
+        # Validate data
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
+        # Check input shape
+        if X.shape[1] != self.n_features_in_:
+            raise ValueError(f'{self.__class__.__name__} `fit()` called '
+                             f'with {self.n_features_in_} features, but '
+                             f'`transform()` called with {X.shape[1]} '
+                             'features.')
+        return self._apply_transform_or_inverse(X, 'transform')
+
+    def inverse_transform(self, X: np.ndarray) -> np.ndarray:
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self)
+        # Validate data
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
+        # Check input shape
+        if X.shape[1] != self.n_features_out_:
+            raise ValueError(f'{self.__class__.__name__} `fit()` output '
+                             f'{self.n_features_out_} features, but '
+                             '`inverse_transform()` called with '
+                             f'{X.shape[1]} features.')
+        return self._apply_transform_or_inverse(X, 'inverse_transform')
+
+    def _apply_transform_or_inverse(self, X: np.ndarray,
+                                    transform: str) -> np.ndarray:
+        """Strip episode feature, apply transform or inverse, then put it back.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+        transform : str
+            ``'transform'`` to apply transform or ``'inverse_transform'`` to
+            apply inverse transform.
+
+        Returns
+        -------
+        np.ndarray
+            Transformed or inverse transformed data matrix.
+
+        Raises
+        ------
+        ValueError
+            If ``transform`` is not  ``'transform'`` or
+            ``'inverse_transform'``.
+        """
+        # Extract episode feature
+        if self.episode_feature_:
+            X_ep = X[:, 0]
+            X = X[:, 1:]
+        else:
+            X_ep = np.zeros((X.shape[0], ))
+        # Split X into list of episodes. Each episode is a tuple containing
+        # its index and its associated data matrix.
+        episodes = []
+        for i in np.unique(X_ep):
+            episodes.append((i, X[X_ep == i, :]))
+        # Transform episodes one-by-one
+        transformed_episodes = []
+        for (i, X_i) in episodes:
+            # Apply transform or inverse to individual episodes
+            if transform == 'transform':
+                transformed_episode = self._transform_one_ep(X_i)
+            elif transform == 'inverse_transform':
+                transformed_episode = self._inverse_transform_one_ep(X_i)
+            else:
+                raise ValueError("Parameter `transform` must be one of "
+                                 "['transform', 'inverse_transform']")
+            # Add new episode feature back if needed. This is necessary because
+            # some transformations may modify the episode length.
+            if self.episode_feature_:
+                transformed_episodes.append(
+                    np.hstack((
+                        i * np.ones((transformed_episode.shape[0], 1)),
+                        transformed_episode,
+                    )))
+            else:
+                transformed_episodes.append(transformed_episode)
+        # Concatenate the transformed episodes
+        Xt = np.vstack(transformed_episodes)
+        return Xt
+
+    @abc.abstractmethod
+    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int, int]:
+        """Fit lifting function using a single episode.
+
+        Expects and returns data without an episode header. Data is assumed to
+        belong to a single episode.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+
+        Returns
+        -------
+        tuple[int, int, int]
+            Tuple containing the number of state features in the transformed
+            data, the number of input features in the transformed data, and
+            the minimum number of samples required to use the transformer.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        """Transform data using a single episode.
+
+        Expects and returns data without an episode header. Data is assumed to
+        belong to a single episode.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Transformed data matrix.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def _inverse_transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        """Invert transformed data using a single episode.
+
+        Expects and returns data without an episode header. Data is assumed to
+        belong to a single episode.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Transformed data matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Inverted transformed data matrix.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def _validate_parameters(self) -> None:
+        """Validate parameters passed in constructor.
+
+        Raises
+        ------
+        ValueError
+            If constructor parameters are incorrect.
+        """
+        raise NotImplementedError()
+
+
+class KoopmanRegressor(sklearn.base.BaseEstimator,
+                       sklearn.base.RegressorMixin,
+                       metaclass=abc.ABCMeta):
+    """Base class for Koopman regressors.
+
+    All attributes with a trailing underscore are set by :func:`fit`.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+    """
+
+    # Array check parameters for :func:`fit` when ``X`` and ``y` are given
+    _check_X_y_params = {
+        'multi_output': True,
+        'y_numeric': True,
+    }
+
+    # Array check parameters for :func:`predict` and :func:`fit` when only
+    # ``X`` is given
+    _check_array_params = {
+        'dtype': 'numeric',
+    }
+
+    def fit(self,
+            X: np.ndarray,
+            y: np.ndarray = None,
+            n_inputs: int = 0,
+            episode_feature: bool = False) -> 'KoopmanRegressor':
+        """Fit the regressor.
+
+        If only ``X`` is specified, the regressor will compute its unshifted
+        and shifted versions. If ``X`` and ``y`` are specified, ``X`` is
+        treated as the unshifted data matrix, while ``y`` is treated as the
+        shifted data matrix.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Full data matrix if ``y=None``. Unshifted data matrix if ``y`` is
+            specified.
+        y : np.ndarray
+            Optional shifted data matrix. If ``None``, shifted data matrix is
+            computed using ``X``.
+        n_inputs : int
+            Number of input features at the end of ``X``.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+
+        Returns
+        -------
+        KoopmanRegressor
+            Instance of itself.
+
+        Raises
+        -----
+        ValueError
+            If constructor or fit parameters are incorrect.
+        """
+        # Split ``X`` if needed
+        if y is None:
+            X = sklearn.utils.validation.check_array(
+                X, **self._check_array_params)
+            X_unshifted, X_shifted = shift_episodes(
+                X, n_inputs=n_inputs, episode_feature=episode_feature)
+        else:
+            X, y = sklearn.utils.validation.check_X_y(X, y,
+                                                      **self._check_X_y_params)
+            assert y is not None  # Shut up mypy warning
+            X_unshifted = X
+            X_shifted = y
+        # Compute fit attributes
+        self.n_features_in_ = X.shape[1]
+        self.n_inputs_in_ = n_inputs
+        self.n_states_in_ = (X.shape[1] - n_inputs -
+                             (1 if episode_feature else 0))
+        self.episode_feature_ = episode_feature
+        # Strip episode feature if present
+        if episode_feature:
+            X_unshifted_noep = X_unshifted[:, 1:]
+            X_shifted_noep = X_shifted[:, 1:]
+        else:
+            X_unshifted_noep = X_unshifted
+            X_shifted_noep = X_shifted
+        # Call fit from subclass
+        self.coef_ = self._fit_regressor(X_unshifted_noep, X_shifted_noep)
+        return self
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Predict next states from data.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Predicted data matrix.
+        """
+        sklearn.utils.validation.check_is_fitted(self)
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
+        # Split episodes
+        episodes = split_episodes(X, episode_feature=self.episode_feature_)
+        # Predict for each episode
+        predictions = []
+        for (i, X_i) in episodes:
+            predictions.append((i, X_i @ self.coef_))
+        # Combine and return
+        X_pred = combine_episodes(predictions,
+                                  episode_feature=self.episode_feature_)
+        return X_pred
+
+    @abc.abstractmethod
+    def _fit_regressor(self, X_unshifted: np.ndarray,
+                       X_shifted: np.ndarray) -> np.ndarray:
+        """Fit the regressor using shifted and unshifted data matrices.
+
+        The input data matrices must not have episode features.
+
+        Parameters
+        ----------
+        X_unshifted : np.ndarray
+            Unshifted data matrix without episode feature.
+        X_shifted : np.ndarray
+            Shifted data matrix without episode feature.
+
+        Returns
+        -------
+        np.ndarray
+            Fit coefficient matrix.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def _validate_parameters(self) -> None:
+        """Validate parameters passed in constructor.
+
+        Raises
+        ------
+        ValueError
+            If constructor parameters are incorrect.
+        """
+        raise NotImplementedError()
+
+    # Extra estimator tags
+    # https://scikit-learn.org/stable/developers/develop.html#estimator-tags
+    def _more_tags(self):
+        return {
+            'multioutput': True,
+            'multioutput_only': True,
+        }
 
 
 class KoopmanPipeline(sklearn.base.BaseEstimator):
@@ -13,24 +827,24 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
 
     def __init__(
         self,
-        preprocessors: list[tuple[str, LiftingFn]] = None,
-        lifting_functions: list[tuple[str, LiftingFn]] = None,
-        regressor: tuple[str, sklearn.base.RegressorMixin] = None,
+        preprocessors: list[tuple[str, KoopmanLiftingFn]] = None,
+        lifting_functions: list[tuple[str, KoopmanLiftingFn]] = None,
+        regressor: tuple[str, KoopmanRegressor] = None,
     ) -> None:
         """Instantiate for :class:`KoopmanPipeline`.
 
         While both ``preprocessors`` and ``lifting_functions`` contain
-        :class:`LiftingFn` objects, their purposes differ. Lifting functions
-        are inverted in :func:`inverse_transform`, while preprocessors are
-        applied once and not inverted.
+        :class:`KoopmanLiftingFn` objects, their purposes differ. Lifting
+        functions are inverted in :func:`inverse_transform`, while
+        preprocessors are applied once and not inverted.
 
         As much error checking as possible is delegated to the sub-estimators.
 
         Parameters
         ----------
-        preprocessors : list[tuple[str, LiftingFn]]
+        preprocessors : list[tuple[str, KoopmanLiftingFn]]
             List of tuples containing preprocessor objects and their names.
-        lifting_functions : list[tuple[str, LiftingFn]]
+        lifting_functions : list[tuple[str, KoopmanLiftingFn]]
             List of tuples containing lifting function objects and their names.
         regressor : tuple[str, sklearn.base.RegressorMixin]
             Tuple containing a regressor object and its name.
@@ -236,160 +1050,6 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         else:
             X_pred_inv = X_pred_pad_inv
         return X_pred_inv
-
-
-class KoopmanRegressor(sklearn.base.BaseEstimator,
-                       sklearn.base.RegressorMixin,
-                       metaclass=abc.ABCMeta):
-    """Base class for Koopman regressors.
-
-    Attributes
-    ----------
-    n_features_in_ : int
-        Number of features input, including episode feature.
-    n_states_in_ : int
-        Number of states input.
-    n_inputs_in_ : int
-        Number of inputs input.
-    episode_feature_ : bool
-        Indicates if episode feature was present during :func:`fit`.
-    coef_ : np.ndarray
-        Fit coefficient matrix
-    """
-
-    # Array check parameters for :func:`fit` when ``X`` and ``y` are given
-    _check_X_y_params = {
-        'multi_output': True,
-        'y_numeric': True,
-    }
-
-    # Array check parameters for :func:`predict` and :func:`fit` when only
-    # ``X`` is given
-    _check_array_params = {}
-
-    def fit(self,
-            X: np.ndarray,
-            y: np.ndarray = None,
-            n_inputs: int = 0,
-            episode_feature: bool = False) -> 'KoopmanRegressor':
-        """Fit the regressor.
-
-        If only ``X`` is specified, the regressor will compute its unshifted
-        and shifted versions. If ``X`` and ``y`` are specified, ``X`` is
-        treated as the unshifted data matrix, while ``y`` is treated as the
-        shifted data matrix.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Full data matrix if ``y=None``. Unshifted data matrix if ``y`` is
-            specified.
-        y : np.ndarray
-            Optional shifted data matrix. If ``None``, shifted data matrix is
-            computed using ``X``.
-        n_inputs : int
-            Number of input features at the end of ``X``.
-        episode_feature : bool
-            True if first feature indicates which episode a timestep is from.
-
-        Returns
-        -------
-        KoopmanRegressor
-            Instance of itself.
-
-        Raises
-        -----
-        ValueError
-            If constructor or fit parameters are incorrect.
-        """
-        # Split ``X`` if needed
-        if y is None:
-            X = sklearn.utils.validation.check_array(
-                X, **self._check_array_params)
-            X_unshifted, X_shifted = shift_episodes(
-                X, n_inputs=n_inputs, episode_feature=episode_feature)
-        else:
-            X, y = sklearn.utils.validation.check_X_y(X, y,
-                                                      **self._check_X_y_params)
-            X_unshifted = X
-            X_shifted = y
-        # Compute fit attributes
-        self.n_features_in_ = X.shape[1]
-        self.n_inputs_in_ = n_inputs
-        self.n_states_in_ = (X.shape[1] - n_inputs -
-                             (1 if episode_feature else 0))
-        self.episode_feature_ = episode_feature
-        # Strip episode feature if present
-        if episode_feature:
-            X_unshifted_noep = X_unshifted[:, 1:]
-            X_shifted_noep = X_shifted[:, 1:]
-        else:
-            X_unshifted_noep = X_unshifted
-            X_shifted_noep = X_shifted
-        # Call fit from subclass
-        self._fit_regressor(X_unshifted_noep, X_shifted_noep)
-        return self
-
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        """Predict next states from data.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Data matrix.
-
-        Returns
-        -------
-        np.ndarray
-            Predicted data matrix.
-        """
-        sklearn.utils.validation.check_is_fitted(self)
-        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
-        # Split episodes
-        episodes = split_episodes(X, episode_feature=self.episode_feature_)
-        # Predict for each episode
-        predictions = []
-        for (i, X_i) in episodes:
-            predictions.append((i, X_i @ self.coef_))
-        # Combine and return
-        X_pred = combine_episodes(predictions,
-                                  episode_feature=self.episode_feature_)
-        return X_pred
-
-    @abc.abstractmethod
-    def _fit_regressor(self, X_unshifted: np.ndarray,
-                       X_shifted: np.ndarray) -> None:
-        """Fit the regressor using shifted and unshifted data matrices.
-
-        The input data matrices must not have episode features.
-
-        Parameters
-        ----------
-        X_unshifted : np.ndarray
-            Unshifted data matrix without episode feature.
-        X_shifted : np.ndarray
-            Shifted data matrix without episode feature.
-        """
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def _validate_parameters(self) -> None:
-        """Validate parameters passed in constructor.
-
-        Raises
-        ------
-        ValueError
-            If constructor parameters are incorrect.
-        """
-        raise NotImplementedError()
-
-    # Extra estimator tags
-    # https://scikit-learn.org/stable/developers/develop.html#estimator-tags
-    def _more_tags(self):
-        return {
-            'multioutput': True,
-            'multioutput_only': True,
-        }
 
 
 def shift_episodes(
