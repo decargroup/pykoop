@@ -384,3 +384,112 @@ def test_combine_episodes(X, episodes, episode_feature):
     X_actual = koopman_pipeline._combine_episodes(
         episodes, episode_feature=episode_feature)
     np.testing.assert_allclose(X_actual, X)
+
+
+@pytest.mark.parametrize('kp', [
+    koopman_pipeline.KoopmanPipeline(
+        preprocessors=None,
+        lifting_functions=[
+            (
+                'delay',
+                lifting_functions.DelayLiftingFn(n_delays_state=1,
+                                                 n_delays_input=1),
+            ),
+        ],
+        regressor=('edmd', dmd.Edmd()),
+    ),
+    koopman_pipeline.KoopmanPipeline(
+        preprocessors=None,
+        lifting_functions=[
+            (
+                'delay1',
+                lifting_functions.DelayLiftingFn(n_delays_state=2,
+                                                 n_delays_input=2),
+            ),
+            (
+                'delay2',
+                lifting_functions.DelayLiftingFn(n_delays_state=2,
+                                                 n_delays_input=2),
+            ),
+        ],
+        regressor=('edmd', dmd.Edmd()),
+    ),
+    koopman_pipeline.KoopmanPipeline(
+        preprocessors=None,
+        lifting_functions=[
+            (
+                'delay1',
+                lifting_functions.DelayLiftingFn(n_delays_state=2,
+                                                 n_delays_input=1),
+            ),
+            (
+                'poly',
+                lifting_functions.PolynomialLiftingFn(order=2),
+            ),
+            (
+                'delay2',
+                lifting_functions.DelayLiftingFn(n_delays_state=1,
+                                                 n_delays_input=2),
+            ),
+        ],
+        regressor=('edmd', dmd.Edmd()),
+    ),
+])
+def test_multistep_prediction(kp):
+    # Set up problem
+    t_range = (0, 5)
+    t_step = 0.1
+    msd = mass_spring_damper.MassSpringDamper(mass=0.5,
+                                              stiffness=0.7,
+                                              damping=0.6)
+
+    def u(t):
+        return 0.1 * np.sin(t)
+
+    def ivp(t, x):
+        return msd.f(t, x, u(t))
+
+    # Solve ODE for training data
+    x0 = msd.x0(np.array([0, 0]))
+    sol = integrate.solve_ivp(ivp,
+                              t_range,
+                              x0,
+                              t_eval=np.arange(*t_range, t_step),
+                              rtol=1e-8,
+                              atol=1e-8)
+
+    # Compute input at every training point
+    u_sim = np.reshape(u(sol.t), (1, -1))
+    # Format data
+    X = np.vstack((
+        np.zeros((1, sol.t.shape[0] - 1)),
+        sol.y[:, :-1],
+        u_sim[:, :-1],
+    ))
+    # Fit estimator
+    kp.fit(X.T, n_inputs=1, episode_feature=True)
+    n_samp = kp.min_samples_
+
+    # Predict using ``predict_multistep``
+    X_sim = np.empty(sol.y.shape)
+    X_sim[:, :n_samp] = sol.y[:, :n_samp]
+    X_sim = np.vstack((
+        np.zeros_like(u_sim),
+        X_sim,
+        u_sim,
+    ))
+    X_sim = kp.predict_multistep(X_sim.T).T[1:, :]
+
+    # Predict manually
+    X_sim_exp = np.empty(sol.y.shape)
+    X_sim_exp[:, :n_samp] = sol.y[:, :n_samp]
+    for k in range(n_samp, sol.t.shape[0]):
+        X = np.vstack((
+            np.zeros((1, n_samp)),
+            X_sim_exp[:, (k - n_samp):k],
+            u_sim[:, (k - n_samp):k],
+        ))
+        Xp = kp.predict(X.T).T
+        X_sim_exp[:, [k]] = Xp[1:, [-1]]
+
+    np.testing.assert_allclose(X_sim, X_sim_exp)
