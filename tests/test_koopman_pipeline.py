@@ -1,8 +1,9 @@
 import numpy as np
 import pytest
 from dynamics import mass_spring_damper
-from pykoop import dmd, koopman_pipeline, lifting_functions
 from scipy import integrate, linalg
+
+from pykoop import dmd, koopman_pipeline, lifting_functions
 
 
 def test_kp_transform_no_lf():
@@ -176,7 +177,7 @@ def test_kp_fit():
     kp.fit(X, n_inputs=1, episode_feature=True)
     # Compute discrete-time A and B matrices
     Ad = linalg.expm(msd._A * t_step)
-    integrand = lambda s: linalg.expm(msd._A * (t_step - s)).ravel()
+    def integrand(s): return linalg.expm(msd._A * (t_step - s)).ravel()
     Bd = integrate.quad_vec(integrand, 0, t_step)[0].reshape((2, 2)) @ msd._B
     U_exp = np.hstack((Ad, Bd)).T
     np.testing.assert_allclose(kp.regressor_[1].coef_, U_exp, atol=0.1)
@@ -261,14 +262,13 @@ def test_kp_fit():
 )
 def test_shift_episodes(X, X_unsh_exp, X_sh_exp, n_inputs, episode_feature):
     """Test episode shifting."""
-    X_unsh, X_sh = koopman_pipeline.shift_episodes(X, n_inputs,
-                                                   episode_feature)
+    X_unsh, X_sh = koopman_pipeline._shift_episodes(X, n_inputs,
+                                                    episode_feature)
     np.testing.assert_allclose(X_unsh, X_unsh_exp)
     np.testing.assert_allclose(X_sh, X_sh_exp)
 
 
-split_combine_episode_scenarios: \
-    list[tuple[np.ndarray, list[tuple[int, np.ndarray]], bool]] = [
+split_combine_episode_scenarios = [
     (
         # Multiple episodes
         np.array([
@@ -368,7 +368,7 @@ split_combine_episode_scenarios: \
                          split_combine_episode_scenarios)
 def test_split_episodes(X, episodes, episode_feature):
     # Split episodes
-    episodes_actual = koopman_pipeline.split_episodes(
+    episodes_actual = koopman_pipeline._split_episodes(
         X, episode_feature=episode_feature)
     # Compare every episode
     for actual, expected in zip(episodes_actual, episodes):
@@ -381,6 +381,6 @@ def test_split_episodes(X, episodes, episode_feature):
 @pytest.mark.parametrize('X, episodes, episode_feature',
                          split_combine_episode_scenarios)
 def test_combine_episodes(X, episodes, episode_feature):
-    X_actual = koopman_pipeline.combine_episodes(
+    X_actual = koopman_pipeline._combine_episodes(
         episodes, episode_feature=episode_feature)
     np.testing.assert_allclose(X_actual, X)

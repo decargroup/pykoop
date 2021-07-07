@@ -101,6 +101,7 @@ episode feature.
 """
 
 import abc
+from typing import Callable, Optional
 
 import numpy as np
 import pandas
@@ -196,6 +197,22 @@ class KoopmanLiftingFn(sklearn.base.BaseEstimator,
         -------
         np.ndarray
             Inverted transformed data matrix.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def n_samples_in(self, n_samples_out: int = 1) -> int:
+        """Calculate number of input samples required for given output length.
+
+        Parameters
+        ----------
+        n_samples_out : int
+            Number of samples needed at the output.
+
+        Returns
+        -------
+        int
+            Number of samples needed at the input.
         """
         raise NotImplementedError()
 
@@ -299,6 +316,10 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
                              '`inverse_transform()` called with '
                              f'{X.shape[1]} features.')
         return self._apply_transform_or_inverse(X, 'inverse_transform')
+
+    def n_samples_in(self, n_samples_out: int = 1) -> int:
+        # Episode-independent lifting functions have an input for every output.
+        return n_samples_out
 
     def _apply_transform_or_inverse(self, X: np.ndarray,
                                     transform: str) -> np.ndarray:
@@ -480,20 +501,15 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
         }
         # Validate data
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
-        # Set numbre of input features (including episode feature)
+        # Set number of input features (including episode feature)
         self.n_features_in_ = X.shape[1]
-        # Extract episode feature
-        if self.episode_feature_:
-            X_ep = X[:, 0]
-            X = X[:, 1:]
-        else:
-            X_ep = np.zeros((X.shape[0], ))
-        # Extract first episode only
-        first_ep_idx = np.unique(X_ep)[0]
-        X_first = X[X_ep == first_ep_idx, :]
+        # Split episodes
+        episodes = _split_episodes(X, episode_feature=self.episode_feature_)
+        first_episode = episodes[0]
+        X_first = first_episode[1]
         # Set states and inputs in
         self.n_inputs_in_ = n_inputs
-        self.n_states_in_ = X.shape[1] - n_inputs
+        self.n_states_in_ = X_first.shape[1] - n_inputs
         n_x, n_u, n_k = self._fit_one_ep(X_first)
         self.n_states_out_ = n_x
         self.n_inputs_out_ = n_u
@@ -528,6 +544,10 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
                              f'{X.shape[1]} features.')
         return self._apply_transform_or_inverse(X, 'inverse_transform')
 
+    @abc.abstractmethod
+    def n_samples_in(self, n_samples_out: int = 1) -> int:
+        raise NotImplementedError()
+
     def _apply_transform_or_inverse(self, X: np.ndarray,
                                     transform: str) -> np.ndarray:
         """Strip episode feature, apply transform or inverse, then put it back.
@@ -551,18 +571,9 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
             If ``transform`` is not  ``'transform'`` or
             ``'inverse_transform'``.
         """
-        # Extract episode feature
-        if self.episode_feature_:
-            X_ep = X[:, 0]
-            X = X[:, 1:]
-        else:
-            X_ep = np.zeros((X.shape[0], ))
-        # Split X into list of episodes. Each episode is a tuple containing
-        # its index and its associated data matrix.
-        episodes = []
-        for i in np.unique(X_ep):
-            episodes.append((i, X[X_ep == i, :]))
-        # Transform episodes one-by-one
+        # Split episodes
+        episodes = _split_episodes(X, episode_feature=self.episode_feature_)
+        # Transform each episode
         transformed_episodes = []
         for (i, X_i) in episodes:
             # Apply transform or inverse to individual episodes
@@ -575,16 +586,10 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
                                  "['transform', 'inverse_transform']")
             # Add new episode feature back if needed. This is necessary because
             # some transformations may modify the episode length.
-            if self.episode_feature_:
-                transformed_episodes.append(
-                    np.hstack((
-                        i * np.ones((transformed_episode.shape[0], 1)),
-                        transformed_episode,
-                    )))
-            else:
-                transformed_episodes.append(transformed_episode)
+            transformed_episodes.append((i, transformed_episode))
         # Concatenate the transformed episodes
-        Xt = np.vstack(transformed_episodes)
+        Xt = _combine_episodes(transformed_episodes,
+                               episode_feature=self.episode_feature_)
         return Xt
 
     @abc.abstractmethod
@@ -726,26 +731,30 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         ValueError
             If constructor or fit parameters are incorrect.
         """
-        # Split ``X`` if needed
+        # Check ``X`` differently depending on whether ``y`` is given
         if y is None:
             X = sklearn.utils.validation.check_array(
                 X, **self._check_array_params)
-            X_unshifted, X_shifted = shift_episodes(
-                X, n_inputs=n_inputs, episode_feature=episode_feature)
         else:
             X, y = sklearn.utils.validation.check_X_y(X, y,
                                                       **self._check_X_y_params)
-            assert y is not None  # Shut up mypy warning
-            X_unshifted = X
-            X_shifted = y
         # Compute fit attributes
         self.n_features_in_ = X.shape[1]
         self.n_inputs_in_ = n_inputs
         self.n_states_in_ = (X.shape[1] - n_inputs -
                              (1 if episode_feature else 0))
         self.episode_feature_ = episode_feature
+        # Split ``X`` if needed
+        if y is None:
+            X_unshifted, X_shifted = _shift_episodes(
+                X,
+                n_inputs=self.n_inputs_in_,
+                episode_feature=self.episode_feature_)
+        else:
+            X_unshifted = X
+            X_shifted = y
         # Strip episode feature if present
-        if episode_feature:
+        if self.episode_feature_:
             X_unshifted_noep = X_unshifted[:, 1:]
             X_shifted_noep = X_shifted[:, 1:]
         else:
@@ -756,7 +765,7 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        """Predict next states from data.
+        """Perform a single-step prediction for each state in each episode.
 
         Parameters
         ----------
@@ -771,14 +780,14 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         sklearn.utils.validation.check_is_fitted(self)
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Split episodes
-        episodes = split_episodes(X, episode_feature=self.episode_feature_)
+        episodes = _split_episodes(X, episode_feature=self.episode_feature_)
         # Predict for each episode
         predictions = []
         for (i, X_i) in episodes:
             predictions.append((i, X_i @ self.coef_))
         # Combine and return
-        X_pred = combine_episodes(predictions,
-                                  episode_feature=self.episode_feature_)
+        X_pred = _combine_episodes(predictions,
+                                   episode_feature=self.episode_feature_)
         return X_pred
 
     @abc.abstractmethod
@@ -823,7 +832,13 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
 
 
 class KoopmanPipeline(sklearn.base.BaseEstimator):
-    """Meta-estimator for chaining lifting functions with an estimator."""
+    """Meta-estimator for chaining lifting functions with an estimator.
+
+    Attributes
+    ----------
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+    """
 
     def __init__(
         self,
@@ -898,8 +913,8 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         # Fit the regressor
         self.regressor_[1].fit(
             Xt,
-            n_inputs=n_inputs,
-            episode_feature=episode_feature,
+            n_inputs=self.n_inputs_out_,
+            episode_feature=self.episode_feature_,
         )
         return self
 
@@ -963,17 +978,28 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
                                      episode_feature=episode_feature)
             n_inputs_out = lf.n_inputs_out_
         # Set output dimensions
-        try:
+        tfs = (self.preprocessors_ + self.lifting_functions_)
+        if len(tfs) > 0:
             # Find the last transformer and use it to get output dimensions
-            last_tf = (self.preprocessors_ + self.lifting_functions_)[-1][1]
+            last_tf = tfs[-1][1]
             self.n_features_out_ = last_tf.n_features_out_
             self.n_states_out_ = last_tf.n_states_out_
             self.n_inputs_out_ = last_tf.n_inputs_out_
-        except IndexError:
+            # Compute minimum number of samples needed by transformer.
+            # Each transformer knows how many input samples it needs to produce
+            # a given number of output samples.  Knowing we just want one
+            # sample at the output, we work backwards to figure out how many
+            # samples we need at the beginning of the pipeline.
+            n_samples_out = 1
+            for tf in tfs[::-1]:
+                n_samples_out = tf[1].n_samples_in(n_samples_out)
+            self.min_samples_ = n_samples_out
+        else:
             # Fall back on input dimensions
             self.n_features_out_ = self.n_features_in_
             self.n_states_out_ = self.n_states_in_
             self.n_inputs_out_ = self.n_inputs_in_
+            self.min_samples_ = 1
         return self
 
     def transform(self, X: np.ndarray) -> np.ndarray:
@@ -1017,7 +1043,10 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         return X_out
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        """Predict next states from data.
+        """Perform a single-step prediction for each state in each episode.
+
+        Lifts the state, preforms a single-step prediction in the lifted space,
+        then retracts to the original state space.
 
         Parameters
         ----------
@@ -1029,17 +1058,16 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         np.ndarray
             Predicted data matrix.
         """
-        # TODO HOW TO HANDLE EPISODE FEATURE?
-        # TODO ARE EPISODES CORRECTLY CONSIDERED???
-        # TODO THIS IS SINGLE STEP PREDICTION. HOW ABOUT MULTI?
         # Lift data matrix
         X_trans = self.transform(X)
         # Predict in lifted space
         X_pred = self.regressor_[1].predict(X_trans)
         # Pad inputs wth zeros to do inverse
         if self.n_inputs_out_ != 0:
-            X_pred_pad = np.hstack(
-                (X_pred, np.zeros((X_pred.shape[1], self.n_inputs_out_))))
+            X_pred_pad = np.hstack((
+                X_pred,
+                np.zeros((X_pred.shape[0], self.n_inputs_out_)),
+            ))
         else:
             X_pred_pad = X_pred
         # Invert lifting functions
@@ -1051,8 +1079,105 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
             X_pred_inv = X_pred_pad_inv
         return X_pred_inv
 
+    def predict_multistep(self, X: np.ndarray) -> np.ndarray:
+        """Perform a multi-step prediction for the first state of each episode.
 
-def shift_episodes(
+        This function takes the first ``min_samples_`` states of the input,
+        along with all of its inputs, and predicts the next ``X.shape[0]``
+        states of the system. This action is performed on a per-episode basis.
+        The state features of ``X`` (other than the first ``min_samples_``
+        features) are not used at all.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Predicted data matrix.
+
+        Raises
+        ------
+        ValueError
+            If an episode is shorter than ``min_samples_``.
+        """
+        # Split episodes
+        episodes = _split_episodes(X, episode_feature=self.episode_feature_)
+        # Loop over episodes
+        predictions = []
+        for (i, X_i) in episodes:
+            # Check length of episode.
+            if X_i.shape[0] < self.min_samples_:
+                raise ValueError(f'Episode {i} has {X_i.shape[0]} samples but '
+                                 f'`min_samples_`={self.min_samples_} samples '
+                                 'are required.')
+            # Extract initial state and input
+            x0 = X_i[:self.min_samples_, :self.n_states_in_]
+            u = X_i[:, self.n_states_in_:]
+            # Create array to hold predicted states
+            X_pred_i = np.zeros((X_i.shape[0], self.n_states_in_))
+            # Set the initial condition
+            X_pred_i[:self.min_samples_, :] = x0
+            # Predict all time steps
+            for k in range(self.min_samples_, X_i.shape[0]):
+                # Stack episode feature, previous predictions, and input
+                X_ik = _combine_episodes(
+                    [(i,
+                      np.hstack((
+                          X_pred_i[(k - self.min_samples_):k, :],
+                          X_i[(k - self.min_samples_):k, self.n_states_in_:],
+                      )))],
+                    episode_feature=self.episode_feature_)
+                # Predict next step
+                X_pred_ik = self.predict(X_ik)[[-1], :]
+                # Extract data matrix from prediction
+                X_pred_i[[k], :] = _split_episodes(
+                    X_pred_ik, episode_feature=self.episode_feature_)[0][1]
+            predictions.append((i, X_pred_i))
+        # Combine episodes
+        X_p = _combine_episodes(predictions,
+                                episode_feature=self.episode_feature_)
+        return X_p
+
+
+def make_koopman_pipeline_scorer(
+    n_steps: int = 1,
+    project: bool = True,
+    discount_factor: float = 1.0,
+) -> Callable[[KoopmanPipeline, np.ndarray, Optional[np.ndarray]], float]:
+    """Make a Koopman pipeline scorer.
+
+    A ``scikit-learn`` scorer accepts the parameters ``(estimator, X, y)``
+    and returns a float representing the prediction quality of ``estimator``
+    on ``X`` with reference to ``y``. Higher numbers are better. Losses are
+    negated [1]_.
+
+    Parameters
+    ----------
+    n_steps : int
+        Number of steps ahead to predict.
+    project : bool
+        If true, retract and re-lift the state between steps.
+    discount_factor : bool
+        Discount factor used to weight the error timeseries. Should be 1 or
+        slightly less. The error at each timestep is weighted by
+        ``discount_factor**k``, where ``k`` is the timestep.
+
+    Returns
+    -------
+    Callable[[KoopmanPipeline, np.ndarray, Optional[np.ndarray]], float]
+        Scorer compatible with ``scikit-learn``.
+
+    References
+    ----------
+    .. [1] https://scikit-learn.org/stable/modules/model_evaluation.html
+    """
+    raise NotImplementedError()
+
+
+def _shift_episodes(
         X: np.ndarray,
         n_inputs: int = 0,
         episode_feature: bool = False) -> tuple[np.ndarray, np.ndarray]:
@@ -1087,7 +1212,7 @@ def shift_episodes(
         present.
     """
     # Split episodes
-    episodes = split_episodes(X, episode_feature=episode_feature)
+    episodes = _split_episodes(X, episode_feature=episode_feature)
     # Shift each episode
     unshifted_episodes = []
     shifted_episodes = []
@@ -1103,14 +1228,14 @@ def shift_episodes(
         unshifted_episodes.append((i, X_i_unshifted))
         shifted_episodes.append((i, X_i_shifted))
     # Recombine and return
-    X_unshifted = combine_episodes(unshifted_episodes,
-                                   episode_feature=episode_feature)
-    X_shifted = combine_episodes(shifted_episodes,
-                                 episode_feature=episode_feature)
+    X_unshifted = _combine_episodes(unshifted_episodes,
+                                    episode_feature=episode_feature)
+    X_shifted = _combine_episodes(shifted_episodes,
+                                  episode_feature=episode_feature)
     return (X_unshifted, X_shifted)
 
 
-def split_episodes(
+def _split_episodes(
         X: np.ndarray,
         episode_feature: bool = False) -> list[tuple[int, np.ndarray]]:
     """Split a data matrix into episodes.
@@ -1144,8 +1269,8 @@ def split_episodes(
     return episodes
 
 
-def combine_episodes(episodes: list[tuple[int, np.ndarray]],
-                     episode_feature: bool = False) -> np.ndarray:
+def _combine_episodes(episodes: list[tuple[int, np.ndarray]],
+                      episode_feature: bool = False) -> np.ndarray:
     """Combine episodes into a data matrix.
 
     Parameters

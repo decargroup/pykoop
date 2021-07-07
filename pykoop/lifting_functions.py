@@ -306,6 +306,9 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
         self.n_delays_state = n_delays_state
         self.n_delays_input = n_delays_input
 
+    def n_samples_in(self, n_samples_out: int = 1) -> int:
+        return n_samples_out + max(self.n_delays_state, self.n_delays_input)
+
     def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int, int]:
         # Compute number of states and inputs that will be output.
         n_states_out = self.n_states_in_ * (self.n_delays_state + 1)

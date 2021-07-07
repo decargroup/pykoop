@@ -1,5 +1,7 @@
 import numpy as np
+import pandas
 import pytest
+
 from pykoop import lifting_functions
 
 
@@ -635,7 +637,7 @@ def test_delay_inverse_eps(n_delays_state, n_delays_input, n_u, X, Xd_exp):
     # If the number of delays for x and u are different, only the last samples
     # will be the same in each episode. Must compare the last samples of each
     # episode to ensure correctness.
-    for i in np.unique(X[:, 0]):
+    for i in pandas.unique(X[:, 0]):
         X_i = X[X[:, 0] == i, :]
         Xd_inv_i = Xd_inv[Xd_inv[:, 0] == i, :]
         np.testing.assert_allclose(X_i[-Xd_inv_i.shape[0]:, :], Xd_inv_i)
