@@ -120,6 +120,9 @@ class KoopmanLiftingFn(sklearn.base.BaseEstimator,
 
     Attributes
     ----------
+    lift_input : bool
+        Determines whether the input will be lifted or passed through the
+        lifting function.
     n_features_in_ : int
         Number of features before transformation, including episode feature.
     n_states_in_ : int
@@ -137,6 +140,17 @@ class KoopmanLiftingFn(sklearn.base.BaseEstimator,
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
     """
+
+    def __init__(self, lift_input: bool = True) -> None:
+        """Instantiate :class:`KoopmanLiftingFn`.
+
+        Parameters
+        ----------
+        lift_input : bool
+            Determines whether the input will be lifted or passed through the
+            lifting function.
+        """
+        self.lift_input = lift_input
 
     @abc.abstractmethod
     def fit(self,
@@ -229,6 +243,9 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
 
     Attributes
     ----------
+    lift_input : bool
+        Determines whether the input will be lifted or passed through the
+        lifting function.
     n_features_in_ : int
         Number of features before transformation, including episode feature.
         Set by :func:`fit`.
@@ -448,6 +465,9 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
 
     Attributes
     ----------
+    lift_input : bool
+        Determines whether the input will be lifted or passed through the
+        lifting function.
     n_features_in_ : int
         Number of features before transformation, including episode feature.
         Set by :func:`fit`.
@@ -834,6 +854,8 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
 
 class KoopmanPipeline(sklearn.base.BaseEstimator):
     """Meta-estimator for chaining lifting functions with an estimator.
+
+    TODO Fill in attributes
 
     Attributes
     ----------
