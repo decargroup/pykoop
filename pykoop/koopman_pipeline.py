@@ -101,7 +101,8 @@ episode feature.
 """
 
 import abc
-from typing import Callable, Optional
+from typing import Optional
+from collections.abc import Callable
 
 import numpy as np
 import pandas
@@ -1079,6 +1080,27 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
             X_pred_inv = X_pred_pad_inv
         return X_pred_inv
 
+    def score(self, X: np.ndarray, y: np.ndarray = None) -> float:
+        """Calculate prediction score.
+
+        For more flexible scoring, see :func:`make_scorer`.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+        y : np.ndarray
+            Ignored.
+
+        Returns
+        -------
+        float
+            Mean squared error prediction score.
+        """
+        scorer = KoopmanPipeline.make_scorer()
+        score = scorer(self, X, None)
+        return score
+
     def predict_multistep(self, X: np.ndarray) -> np.ndarray:
         """Perform a multi-step prediction for the first state of each episode.
 
@@ -1141,40 +1163,118 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
                                 episode_feature=self.episode_feature_)
         return X_p
 
+    @staticmethod
+    def make_scorer(
+        n_steps: int = None,
+        discount_factor: float = 1,
+        regression_metric: str = 'neg_mean_squared_error',
+    ) -> Callable[['KoopmanPipeline', np.ndarray, Optional[np.ndarray]],
+                  float]:
+        """Make a Koopman pipeline scorer.
 
-def make_koopman_pipeline_scorer(
-    n_steps: int = 1,
-    project: bool = True,
-    discount_factor: float = 1.0,
-) -> Callable[[KoopmanPipeline, np.ndarray, Optional[np.ndarray]], float]:
-    """Make a Koopman pipeline scorer.
+        A ``scikit-learn`` scorer accepts the parameters ``(estimator, X, y)``
+        and returns a float representing the prediction quality of
+        ``estimator`` on ``X`` with reference to ``y``. Higher numbers are
+        better. Losses are negated [1]_.
 
-    A ``scikit-learn`` scorer accepts the parameters ``(estimator, X, y)``
-    and returns a float representing the prediction quality of ``estimator``
-    on ``X`` with reference to ``y``. Higher numbers are better. Losses are
-    negated [1]_.
+        Technically, the scorer will predict the entire episode, regardless of
+        how ``n_steps`` is set. It will then assign a zero weight to all errors
+        beyond ``n_steps``.
 
-    Parameters
-    ----------
-    n_steps : int
-        Number of steps ahead to predict.
-    project : bool
-        If true, retract and re-lift the state between steps.
-    discount_factor : bool
-        Discount factor used to weight the error timeseries. Should be 1 or
-        slightly less. The error at each timestep is weighted by
-        ``discount_factor**k``, where ``k`` is the timestep.
+        Parameters
+        ----------
+        n_steps : int
+            Number of steps ahead to predict. If ``None`` or longer than the
+            episode, will score the entire episode.
+        discount_factor : float
+            Discount factor used to weight the error timeseries. Should be
+            positive, with magnitude 1 or slightly less. The error at each
+            timestep is weighted by ``discount_factor**k``, where ``k`` is the
+            timestep.
+        regression_metric : str
+            Regression metric to use. One of ['explained_variance',
+            'neg_mean_absolute_error', 'neg_mean_squared_error',
+            'neg_mean_squared_log_error', 'neg_median_absolute_error', 'r2',
+            'neg_mean_absolute_percentage_error']. See [1]_.
 
-    Returns
-    -------
-    Callable[[KoopmanPipeline, np.ndarray, Optional[np.ndarray]], float]
-        Scorer compatible with ``scikit-learn``.
+        Returns
+        -------
+        Callable[[KoopmanPipeline, np.ndarray, Optional[np.ndarray]], float]
+            Scorer compatible with ``scikit-learn``.
 
-    References
-    ----------
-    .. [1] https://scikit-learn.org/stable/modules/model_evaluation.html
-    """
-    raise NotImplementedError()
+        Raises
+        ------
+        ValueError
+            If ``discount_factor`` is negative or greater than one.
+
+        References
+        ----------
+        .. [1] https://scikit-learn.org/stable/modules/model_evaluation.html
+        """
+        # Check discount factor
+        if (discount_factor < 0) or (discount_factor > 1):
+            raise ValueError('`discount_factor` must be positive and less '
+                             'than one.')
+
+        # Valid ``regression_metric`` values:
+        regression_metrics = {
+            'explained_variance':
+            sklearn.metrics.explained_variance_score,
+            'r2':
+            sklearn.metrics.r2_score,
+            'neg_mean_absolute_error':
+            sklearn.metrics.mean_absolute_error,
+            'neg_mean_squared_error':
+            sklearn.metrics.mean_squared_error,
+            'neg_mean_squared_log_error':
+            sklearn.metrics.mean_squared_log_error,
+            'neg_median_absolute_error':
+            sklearn.metrics.median_absolute_error,
+            'neg_mean_absolute_percentage_error':
+            sklearn.metrics.mean_absolute_percentage_error,
+        }
+        # Scores that do not need inversion
+        greater_is_better = ['explained_variance', 'r2']
+
+        def koopman_pipeline_scorer(estimator: KoopmanPipeline,
+                                    X: np.ndarray,
+                                    y: np.ndarray = None) -> float:
+            # Shift episodes
+            X_unshifted, X_shifted = _shift_episodes(
+                X,
+                n_inputs=estimator.n_inputs_in_,
+                episode_feature=estimator.episode_feature_)
+            # Predict
+            X_predicted = estimator.predict_multistep(X_unshifted)
+            # Strip episode feature and initial conditions
+            if estimator.episode_feature_:
+                X_shifted = X_shifted[estimator.min_samples_:, 1:]
+                X_predicted = X_predicted[estimator.min_samples_:, 1:]
+            else:
+                X_shifted = X_shifted[estimator.min_samples_:, :]
+                X_predicted = X_predicted[estimator.min_samples_:, :]
+            # Compute number of weights needed
+            n_samples = X_shifted.shape[0]
+            if (n_steps is None) or (n_steps > n_samples):
+                n_weights = n_samples
+            else:
+                n_weights = n_steps
+            # Compute weights. Weights after ``n_steps`` are 0.
+            weights = np.array([discount_factor**k for k in range(n_weights)]
+                               + [0] * (n_samples - n_weights))
+            # Calculate score
+            score = regression_metrics[regression_metric](
+                X_shifted,
+                X_predicted,
+                sample_weight=weights,
+                multioutput='uniform_average',
+            )
+            # Invert losses
+            if regression_metric not in greater_is_better:
+                score *= -1
+            return score
+
+        return koopman_pipeline_scorer
 
 
 def _shift_episodes(

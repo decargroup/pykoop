@@ -58,6 +58,28 @@ def main():
     )
     kp.fit(X.T, n_inputs=1, episode_feature=True)
 
+    ns = None
+    sc = 'neg_mean_squared_error'
+    s1 = koopman_pipeline.KoopmanPipeline.make_scorer(
+        discount_factor=1,
+        n_steps=ns,
+        regression_metric=sc,
+    )
+    s2 = koopman_pipeline.KoopmanPipeline.make_scorer(
+        discount_factor=0.99,
+        n_steps=ns,
+        regression_metric=sc,
+    )
+    s3 = koopman_pipeline.KoopmanPipeline.make_scorer(
+        discount_factor=0,
+        n_steps=ns,
+        regression_metric=sc,
+    )
+    print(s1(kp, X.T))
+    print(s2(kp, X.T))
+    print(s3(kp, X.T))
+    print(kp.score(X.T))
+
     n_samp = kp.min_samples_
 
     Xx = np.empty(sol.y.shape)
