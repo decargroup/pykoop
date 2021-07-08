@@ -60,20 +60,24 @@ def main():
 
     ns = None
     sc = 'neg_mean_squared_error'
+    ms = True
     s1 = koopman_pipeline.KoopmanPipeline.make_scorer(
         discount_factor=1,
         n_steps=ns,
         regression_metric=sc,
+        multistep=ms,
     )
     s2 = koopman_pipeline.KoopmanPipeline.make_scorer(
         discount_factor=0.99,
         n_steps=ns,
         regression_metric=sc,
+        multistep=ms,
     )
     s3 = koopman_pipeline.KoopmanPipeline.make_scorer(
         discount_factor=0,
         n_steps=ns,
         regression_metric=sc,
+        multistep=ms,
     )
     print(s1(kp, X.T))
     print(s2(kp, X.T))

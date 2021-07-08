@@ -101,8 +101,8 @@ episode feature.
 """
 
 import abc
-from typing import Optional
 from collections.abc import Callable
+from typing import Optional
 
 import numpy as np
 import pandas
@@ -1075,7 +1075,8 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         X_pred_pad_inv = self.inverse_transform(X_pred_pad)
         # Strip zero inputs
         if self.n_inputs_in_ != 0:
-            X_pred_inv = X_pred_pad_inv[:, :self.n_states_in_]
+            X_pred_inv = X_pred_pad_inv[:, :(self.n_features_in_
+                                             - self.n_inputs_in_)]
         else:
             X_pred_inv = X_pred_pad_inv
         return X_pred_inv
@@ -1168,6 +1169,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         n_steps: int = None,
         discount_factor: float = 1,
         regression_metric: str = 'neg_mean_squared_error',
+        multistep: bool = True
     ) -> Callable[['KoopmanPipeline', np.ndarray, Optional[np.ndarray]],
                   float]:
         """Make a Koopman pipeline scorer.
@@ -1196,6 +1198,12 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
             'neg_mean_absolute_error', 'neg_mean_squared_error',
             'neg_mean_squared_log_error', 'neg_median_absolute_error', 'r2',
             'neg_mean_absolute_percentage_error']. See [1]_.
+        multistep : bool
+            If true, predict using :func:`predict_multistep`. Otherwise,
+            predict using :func:`predict` (one-step-ahead prediction).
+            Multistep prediction is highly recommended unless debugging. If
+            one-step-ahead prediciton is used, `n_steps` and `discount_factor`
+            are ignored.
 
         Returns
         -------
@@ -1245,7 +1253,10 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
                 n_inputs=estimator.n_inputs_in_,
                 episode_feature=estimator.episode_feature_)
             # Predict
-            X_predicted = estimator.predict_multistep(X_unshifted)
+            if multistep:
+                X_predicted = estimator.predict_multistep(X_unshifted)
+            else:
+                X_predicted = estimator.predict(X_unshifted)
             # Strip episode feature and initial conditions
             if estimator.episode_feature_:
                 X_shifted = X_shifted[estimator.min_samples_:, 1:]
@@ -1253,15 +1264,21 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
             else:
                 X_shifted = X_shifted[estimator.min_samples_:, :]
                 X_predicted = X_predicted[estimator.min_samples_:, :]
-            # Compute number of weights needed
-            n_samples = X_shifted.shape[0]
-            if (n_steps is None) or (n_steps > n_samples):
-                n_weights = n_samples
+            # Compute weights
+            weights: Optional[np.ndarray]
+            if multistep:
+                # Compute number of weights needed
+                n_samples = X_shifted.shape[0]
+                if (n_steps is None) or (n_steps > n_samples):
+                    n_weights = n_samples
+                else:
+                    n_weights = n_steps
+                # Compute weights. Weights after ``n_steps`` are 0.
+                weights = np.array(
+                    [discount_factor**k for k in range(n_weights)]
+                    + [0] * (n_samples - n_weights))
             else:
-                n_weights = n_steps
-            # Compute weights. Weights after ``n_steps`` are 0.
-            weights = np.array([discount_factor**k for k in range(n_weights)]
-                               + [0] * (n_samples - n_weights))
+                weights = None
             # Calculate score
             score = regression_metrics[regression_metric](
                 X_shifted,
