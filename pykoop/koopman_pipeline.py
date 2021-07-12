@@ -120,9 +120,6 @@ class KoopmanLiftingFn(sklearn.base.BaseEstimator,
 
     Attributes
     ----------
-    lift_input : bool
-        Determines whether the input will be lifted or passed through the
-        lifting function.
     n_features_in_ : int
         Number of features before transformation, including episode feature.
     n_states_in_ : int
@@ -243,9 +240,6 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
 
     Attributes
     ----------
-    lift_input : bool
-        Determines whether the input will be lifted or passed through the
-        lifting function.
     n_features_in_ : int
         Number of features before transformation, including episode feature.
         Set by :func:`fit`.
@@ -465,9 +459,6 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
 
     Attributes
     ----------
-    lift_input : bool
-        Determines whether the input will be lifted or passed through the
-        lifting function.
     n_features_in_ : int
         Number of features before transformation, including episode feature.
         Set by :func:`fit`.

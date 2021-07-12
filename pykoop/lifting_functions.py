@@ -22,14 +22,6 @@ class AnglePreprocessor(koopman_pipeline.EpisodeIndependentLiftingFn):
 
     Attributes
     ----------
-    lift_input : bool
-        Determines whether the input will be lifted or passed through the
-        lifting function.
-    angle_features : np.ndarray
-        Indices of features that are angles.
-    unwrap_inverse : bool
-        Unwrap inverse by replacing absolute jumps greater than ``pi`` by
-        their ``2pi`` complement.
     angles_in_ : np.ndarray
         Boolean array that indicates which input features are angles.
     lin_out_ : np.ndarray
@@ -152,13 +144,6 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
 
     Attributes
     ----------
-    lift_input : bool
-        Determines whether the input will be lifted or passed through the
-        lifting function.
-    order : int
-        Order of monomials to generate
-    interaction_only : bool
-        If ``True``, skip powers of the same feature.
     transformer_ : sklearn.preprocessing.PolynomialFeatures
         Internal transformer generating the polynomial features.
     transform_order_ : np.ndarray
@@ -281,14 +266,6 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
 
     Attributes
     ----------
-    lift_input : bool
-        Determines whether the input will be lifted or passed through the
-        lifting function. Overrides ``n_delays_input``.
-    n_delays_state : int
-        Number of delays to apply to the state.
-    n_delays_input : int
-        Number of delays to apply to the input. Ignored if ``lift_input`` is
-        false. Always contains the value the constructor was called with.
     n_delays_input_ : int
         True number of delays to apply to the input. Zero if
         ``lift_input=False``, regardless of value of ``n_delays_input``. This
