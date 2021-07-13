@@ -23,6 +23,16 @@ import pykoop.lifting_functions
         ],
         regressor=pykoop.dmd.Edmd(),
     ),
+    pykoop.koopman_pipeline.SplitLiftingFn(
+        lifting_functions_state=None,
+        lifting_functions_input=None,
+    ),
+    pykoop.koopman_pipeline.SplitLiftingFn(
+        lifting_functions_state=[
+            pykoop.lifting_functions.PolynomialLiftingFn(),
+        ],
+        lifting_functions_input=None,
+    ),
 ])
 def test_sklearn_compatible_estimator(estimator, check):
     check(estimator)

@@ -670,7 +670,9 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
 class SplitLiftingFn(KoopmanLiftingFn):
     """Meta-estimator for lifting states and inputs separately.
 
-    Only works with episode-independent lifting functions!
+    Only works with episode-independent lifting functions! It's too complicated
+    to make this work with :class:``DelayLiftingFn``, especially when you can
+    just set ``n_delays_input=0``.
 
     Attributes
     ----------
@@ -801,7 +803,9 @@ class SplitLiftingFn(KoopmanLiftingFn):
         # Compute number of features and minimum samples needed
         self.n_features_out_ = (self.n_states_out_ + self.n_inputs_out_ +
                                 (1 if self.episode_feature_ else 0))
-        self.min_samples_ = self.n_samples_in(1)
+        # Since all lifting functions are episode-independent, we only ever
+        # need one sample.
+        self.min_samples_ = 1
         return self
 
     def transform(self, X: np.ndarray) -> np.ndarray:
@@ -899,18 +903,9 @@ class SplitLiftingFn(KoopmanLiftingFn):
 
     def n_samples_in(self, n_samples_out: int = 1) -> int:
         # noqa: D102
-        # Compute output dimensions for states
-        n_samples_out_state = n_samples_out
-        if len(self.lifting_functions_state_) > 0:
-            for tf in self.lifting_functions_state_[::-1]:
-                n_samples_out_state = tf.n_samples_in(n_samples_out_state)
-        # Compute output dimensions for inputs
-        n_samples_out_input = n_samples_out
-        if len(self.lifting_functions_input_) > 0:
-            for tf in self.lifting_functions_input_[::-1]:
-                n_samples_out_input = tf.n_samples_in(n_samples_out_input)
-        # Compute number of features and minimum samples needed
-        return max(n_samples_out_state, n_samples_out_input)
+        # Since this pipeline only works with episode-independent lifting
+        # functions, we know ``n_samples_in == n_samples_out``.
+        return n_samples_out
 
 
 class KoopmanRegressor(sklearn.base.BaseEstimator,
