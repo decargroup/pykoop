@@ -1,140 +1,119 @@
-import pytest
 import numpy as np
-from scipy import integrate, linalg
-from pykoop import dmd, lmi
+import pykoop
+import pykoop.lmi
+import pytest
 from dynamics import mass_spring_damper
+from scipy import integrate, linalg
 from sklearn import linear_model
 
 
-@pytest.fixture(params=[
-    (
-        dmd.Edmd(),
-        'msd-no-input',
-        1e-5,
-        1e-5,
-        'exact'
-    ),
-    (
-        lmi.LmiEdmdTikhonovReg(alpha=0, inv_method='eig'),
-        'msd-no-input',
-        1e-4,
-        1e-5,
-        'exact'
-    ),
-    (
-        lmi.LmiEdmdTikhonovReg(alpha=0, inv_method='inv',
-                               solver_params={'dualize': False}),
-        'msd-no-input',
-        1e-4,
-        1e-5,
-        'exact'
-    ),
-    (
-        lmi.LmiEdmdTikhonovReg(alpha=0, inv_method='ldl'),
-        'msd-no-input',
-        1e-4,
-        1e-5,
-        'exact'
-    ),
-    (
-        lmi.LmiEdmdTikhonovReg(alpha=0, inv_method='chol'),
-        'msd-no-input',
-        1e-4,
-        1e-5,
-        'exact'
-    ),
-    (
-        lmi.LmiEdmdTikhonovReg(alpha=0, inv_method='sqrt'),
-        'msd-no-input',
-        1e-4,
-        1e-5,
-        'exact'
-    ),
-    (
-        lmi.LmiEdmdTikhonovReg(alpha=1, inv_method='chol'),
-        'msd-no-input',
-        1e-4,
-        None,
-        'sklearn-ridge'
-    ),
-    (
-        lmi.LmiEdmdTwoNormReg(alpha=1, inv_method='chol',
-                              solver_params={'dualize': False}),
-        'msd-no-input',
-        1e-4,
-        None,
-        # Regression test! Not unit test!
-        # If regularizing using the norm squared, use:
-        # np.array([
-        #     [ 0.89995985, 0.07048035],  # noqa: E201
-        #     [-0.07904385, 0.89377084]
-        # ])
-        # If regularizing using the norm alone, use:
-        np.array([
-            [ 0.929949, 0.065987],  # noqa: E201
-            [-0.102050, 0.893498]
-        ])
-    ),
-    (
-        lmi.LmiEdmdNuclearNormReg(inv_method='chol', alpha=1, ratio=1,
-                                  solver_params={'dualize': False}),
-        'msd-no-input',
-        1e-4,
-        None,
-        # Regression test! Not unit test!
-        # If regularizing using the norm squared, use:
-        # np.array([
-        #     [ 0.70623152, -0.17749238],  # noqa: E201
-        #     [-0.32354638,  0.50687639]
-        # ])
-        # If regularizing using the norm alone, use:
-        np.array([
-            [ 0.875848, -0.017190],  # noqa: E201
-            [-0.210071,  0.727786]
-        ])
-    ),
-    pytest.param((
-        lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=1.1),
-        'msd-no-input',
-        1e-4,
-        1e-5,
-        # Since the constraint is larger than the actual eigenvalue magnitudes,
-        # it will have no effect and we can compare to the exact solution.
-        'exact'
-    ), marks=pytest.mark.slow),
-    pytest.param((
-        lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol', rho_bar=0.8,
-                                        solver_params={'dualize': False}),
-        'msd-no-input',
-        1e-4,
-        None,
-        # Regression test generated from this code. Result was manually
-        # checked (eigenvalue magnitudes are less than 0.8) but strictly
-        # speaking, it hasn't been checked against other code.
-        np.array([
-            [ 0.88994802, 0.04260765],  # noqa: E201
-            [-0.22883601, 0.70816555]
-        ])
-    ), marks=pytest.mark.slow),
-    pytest.param((
-        lmi.LmiEdmdHinfReg(inv_method='eig', max_iter=100, tol=1e-6, alpha=1,
-                           ratio=1, solver_params={'dualize': False}),
-        'msd-sin-input',
-        1e-4,
-        None,
-        # Regression test! Not unit test!
-        # If regularizing using the norm squared, use:
-        # np.array([
-        #     [ 0.54830794, -0.29545739, 0.48111973],  # noqa: E201
-        #     [-0.31602199,  0.17028950, 0.86402040]
-        # ])
-        # If regularizing using the norm alone, use:
-        np.array([
-            [ 0.759993, -0.423835,  0.466796],  # noqa: E201
-            [-0.417579,  0.232879,  0.837136]
-        ])
-    ), marks=pytest.mark.slow),
-], ids=lambda value: f'{value[0]}-{value[1]}')  # Formatting for test IDs
+@pytest.fixture(
+    params=[
+        (pykoop.Edmd(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
+        (pykoop.lmi.LmiEdmdTikhonovReg(alpha=0, inv_method='eig'),
+         'msd-no-input', 1e-4, 1e-5, 'exact'),
+        (pykoop.lmi.LmiEdmdTikhonovReg(alpha=0,
+                                       inv_method='inv',
+                                       solver_params={'dualize': False}),
+         'msd-no-input', 1e-4, 1e-5, 'exact'),
+        (pykoop.lmi.LmiEdmdTikhonovReg(alpha=0, inv_method='ldl'),
+         'msd-no-input', 1e-4, 1e-5, 'exact'),
+        (pykoop.lmi.LmiEdmdTikhonovReg(alpha=0, inv_method='chol'),
+         'msd-no-input', 1e-4, 1e-5, 'exact'),
+        (pykoop.lmi.LmiEdmdTikhonovReg(alpha=0, inv_method='sqrt'),
+         'msd-no-input', 1e-4, 1e-5, 'exact'),
+        (pykoop.lmi.LmiEdmdTikhonovReg(alpha=1, inv_method='chol'),
+         'msd-no-input', 1e-4, None, 'sklearn-ridge'),
+        (
+            pykoop.lmi.LmiEdmdTwoNormReg(alpha=1,
+                                         inv_method='chol',
+                                         solver_params={'dualize': False}),
+            'msd-no-input',
+            1e-4,
+            None,
+            # Regression test! Not unit test!
+            # If regularizing using the norm squared, use:
+            # np.array([
+            #     [ 0.89995985, 0.07048035],  # noqa: E201
+            #     [-0.07904385, 0.89377084]
+            # ])
+            # If regularizing using the norm alone, use:
+            np.array([
+                [0.929949, 0.065987],  # noqa: E201
+                [-0.102050, 0.893498]
+            ])),
+        (
+            pykoop.lmi.LmiEdmdNuclearNormReg(inv_method='chol',
+                                             alpha=1,
+                                             ratio=1,
+                                             solver_params={'dualize': False}),
+            'msd-no-input',
+            1e-4,
+            None,
+            # Regression test! Not unit test!
+            # If regularizing using the norm squared, use:
+            # np.array([
+            #     [ 0.70623152, -0.17749238],  # noqa: E201
+            #     [-0.32354638,  0.50687639]
+            # ])
+            # If regularizing using the norm alone, use:
+            np.array([
+                [0.875848, -0.017190],  # noqa: E201
+                [-0.210071, 0.727786]
+            ])),
+        pytest.param(
+            (
+                pykoop.lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol',
+                                                       rho_bar=1.1),
+                'msd-no-input',
+                1e-4,
+                1e-5,
+                # Since the constraint is larger than the actual eigenvalue magnitudes,
+                # it will have no effect and we can compare to the exact solution.
+                'exact'),
+            marks=pytest.mark.slow),
+        pytest.param(
+            (
+                pykoop.lmi.LmiEdmdSpectralRadiusConstr(
+                    inv_method='chol',
+                    rho_bar=0.8,
+                    solver_params={'dualize': False}),
+                'msd-no-input',
+                1e-4,
+                None,
+                # Regression test generated from this code. Result was manually
+                # checked (eigenvalue magnitudes are less than 0.8) but strictly
+                # speaking, it hasn't been checked against other code.
+                np.array([
+                    [0.88994802, 0.04260765],  # noqa: E201
+                    [-0.22883601, 0.70816555]
+                ])),
+            marks=pytest.mark.slow),
+        pytest.param(
+            (
+                pykoop.lmi.LmiEdmdHinfReg(inv_method='eig',
+                                          max_iter=100,
+                                          tol=1e-6,
+                                          alpha=1,
+                                          ratio=1,
+                                          solver_params={'dualize': False}),
+                'msd-sin-input',
+                1e-4,
+                None,
+                # Regression test! Not unit test!
+                # If regularizing using the norm squared, use:
+                # np.array([
+                #     [ 0.54830794, -0.29545739, 0.48111973],  # noqa: E201
+                #     [-0.31602199,  0.17028950, 0.86402040]
+                # ])
+                # If regularizing using the norm alone, use:
+                np.array([
+                    [0.759993, -0.423835, 0.466796],  # noqa: E201
+                    [-0.417579, 0.232879, 0.837136]
+                ])),
+            marks=pytest.mark.slow),
+    ],
+    ids=lambda value: f'{value[0]}-{value[1]}')  # Formatting for test IDs
 def scenario(request):
     regressor, system, fit_tol, predict_tol, soln = request.param
     # Simulate or load data
@@ -148,9 +127,12 @@ def scenario(request):
         msd = mass_spring_damper.MassSpringDamper(0.5, 0.7, 0.6)
         # Solve ODE for training data
         x0 = msd.x0(np.array([1, 0]))
-        sol = integrate.solve_ivp(lambda t, x: msd.f(t, x, 0), t_range, x0,
+        sol = integrate.solve_ivp(lambda t, x: msd.f(t, x, 0),
+                                  t_range,
+                                  x0,
                                   t_eval=np.arange(*t_range, t_step),
-                                  rtol=1e-8, atol=1e-8)
+                                  rtol=1e-8,
+                                  atol=1e-8)
         A = msd._A
         # Split the data
         y_train, y_valid = np.split(sol.y, 2, axis=1)
@@ -172,22 +154,19 @@ def scenario(request):
 
         # Solve ODE for training data
         x0 = msd.x0(np.array([0, 0]))
-        sol = integrate.solve_ivp(ivp, t_range, x0,
+        sol = integrate.solve_ivp(ivp,
+                                  t_range,
+                                  x0,
                                   t_eval=np.arange(*t_range, t_step),
-                                  rtol=1e-8, atol=1e-8)
+                                  rtol=1e-8,
+                                  atol=1e-8)
         A = msd._A
         # Split the data
         y_train, y_valid = np.split(sol.y, 2, axis=1)
         u_train, u_valid = np.split(np.reshape(u(sol.t), (1, -1)), 2, axis=1)
-        X_train = np.vstack((
-            y_train[:, :-1],
-            u_train[:, :-1]
-        ))
+        X_train = np.vstack((y_train[:, :-1], u_train[:, :-1]))
         Xp_train = y_train[:, 1:]
-        X_valid = np.vstack((
-            y_valid[:, :-1],
-            u_valid[:, :-1]
-        ))
+        X_valid = np.vstack((y_valid[:, :-1], u_valid[:, :-1]))
         Xp_valid = y_valid[:, 1:]
     # Approximate the Koopman operator
     if type(soln) == np.ndarray:
@@ -232,12 +211,10 @@ def test_fit(scenario):
     # Fit regressor
     scenario['regressor'].fit(scenario['X_train'].T, scenario['Xp_train'].T)
     # Test value of Koopman operator
-    np.testing.assert_allclose(
-        scenario['regressor'].coef_.T,
-        scenario['U_valid'],
-        atol=scenario['fit_tol'],
-        rtol=0
-    )
+    np.testing.assert_allclose(scenario['regressor'].coef_.T,
+                               scenario['U_valid'],
+                               atol=scenario['fit_tol'],
+                               rtol=0)
 
 
 def test_predict(scenario):
@@ -246,9 +223,8 @@ def test_predict(scenario):
     # Fit regressor
     scenario['regressor'].fit(scenario['X_train'].T, scenario['Xp_train'].T)
     # Test prediction
-    np.testing.assert_allclose(
-        scenario['regressor'].predict(scenario['X_valid'].T).T,
-        scenario['Xp_valid'],
-        atol=scenario['predict_tol'],
-        rtol=0
-    )
+    np.testing.assert_allclose(scenario['regressor'].predict(
+        scenario['X_valid'].T).T,
+                               scenario['Xp_valid'],
+                               atol=scenario['predict_tol'],
+                               rtol=0)

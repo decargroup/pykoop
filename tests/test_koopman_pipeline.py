@@ -1,9 +1,9 @@
 import numpy as np
+import pykoop
+import pykoop.lmi
 import pytest
 from dynamics import mass_spring_damper
 from scipy import integrate, linalg
-
-from pykoop import dmd, koopman_pipeline, lifting_functions
 
 
 def test_kp_transform_no_lf():
@@ -15,7 +15,7 @@ def test_kp_transform_no_lf():
         [2, 4, 6, 8, 10, 12],
     ]).T
     # Create basic pipeline
-    kp = koopman_pipeline.KoopmanPipeline(
+    kp = pykoop.KoopmanPipeline(
         preprocessors=None,
         lifting_functions=None,
         regressor=None,
@@ -52,10 +52,8 @@ def test_kp_transform_angle_pp():
         [2, 4, 6, 8, 10, 12],
     ]).T
     # Create basic pipeline
-    kp = koopman_pipeline.KoopmanPipeline(
-        preprocessors=[
-            lifting_functions.AnglePreprocessor(angle_features=np.array([1]))
-        ],
+    kp = pykoop.KoopmanPipeline(
+        preprocessors=[pykoop.AnglePreprocessor(angle_features=np.array([1]))],
         lifting_functions=None,
         regressor=None,
     )
@@ -99,13 +97,13 @@ def test_kp_transform_delay_lf():
     # angles).
     preprocessors = [
         None,
-        [lifting_functions.AnglePreprocessor(angle_features=None)],
+        [pykoop.AnglePreprocessor(angle_features=None)],
     ]
     for pp in preprocessors:
-        kp = koopman_pipeline.KoopmanPipeline(
+        kp = pykoop.KoopmanPipeline(
             preprocessors=pp,
             lifting_functions=[
-                lifting_functions.DelayLiftingFn(
+                pykoop.DelayLiftingFn(
                     n_delays_state=1,
                     n_delays_input=1,
                 )
@@ -155,17 +153,15 @@ def test_kp_fit():
         sol.y,
         u(sol.t),
     )).T
-    kp = koopman_pipeline.KoopmanPipeline(
-        preprocessors=[
-            lifting_functions.AnglePreprocessor(angle_features=None)
-        ],
+    kp = pykoop.KoopmanPipeline(
+        preprocessors=[pykoop.AnglePreprocessor(angle_features=None)],
         lifting_functions=[
-            lifting_functions.DelayLiftingFn(
+            pykoop.DelayLiftingFn(
                 n_delays_state=0,
                 n_delays_input=0,
             )
         ],
-        regressor=dmd.Edmd(),
+        regressor=pykoop.Edmd(),
     )
     kp.fit(X, n_inputs=1, episode_feature=True)
     # Compute discrete-time A and B matrices
@@ -258,8 +254,8 @@ def test_kp_fit():
 )
 def test_shift_episodes(X, X_unsh_exp, X_sh_exp, n_inputs, episode_feature):
     """Test episode shifting."""
-    X_unsh, X_sh = koopman_pipeline._shift_episodes(X, n_inputs,
-                                                    episode_feature)
+    X_unsh, X_sh = pykoop.koopman_pipeline._shift_episodes(
+        X, n_inputs, episode_feature)
     np.testing.assert_allclose(X_unsh, X_unsh_exp)
     np.testing.assert_allclose(X_sh, X_sh_exp)
 
@@ -364,7 +360,7 @@ split_combine_episode_scenarios = [
                          split_combine_episode_scenarios)
 def test_split_episodes(X, episodes, episode_feature):
     # Split episodes
-    episodes_actual = koopman_pipeline._split_episodes(
+    episodes_actual = pykoop.koopman_pipeline._split_episodes(
         X, episode_feature=episode_feature)
     # Compare every episode
     for actual, expected in zip(episodes_actual, episodes):
@@ -377,73 +373,65 @@ def test_split_episodes(X, episodes, episode_feature):
 @pytest.mark.parametrize('X, episodes, episode_feature',
                          split_combine_episode_scenarios)
 def test_combine_episodes(X, episodes, episode_feature):
-    X_actual = koopman_pipeline._combine_episodes(
+    X_actual = pykoop.koopman_pipeline._combine_episodes(
         episodes, episode_feature=episode_feature)
     np.testing.assert_allclose(X_actual, X)
 
 
 @pytest.mark.parametrize('kp', [
-    koopman_pipeline.KoopmanPipeline(
+    pykoop.KoopmanPipeline(
         preprocessors=None,
         lifting_functions=[
-            lifting_functions.DelayLiftingFn(n_delays_state=1,
-                                             n_delays_input=1)
+            pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1)
         ],
-        regressor=dmd.Edmd(),
+        regressor=pykoop.Edmd(),
     ),
-    koopman_pipeline.KoopmanPipeline(
+    pykoop.KoopmanPipeline(
         preprocessors=None,
         lifting_functions=[
-            lifting_functions.DelayLiftingFn(n_delays_state=2,
-                                             n_delays_input=2),
-            lifting_functions.DelayLiftingFn(n_delays_state=2,
-                                             n_delays_input=2),
+            pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2),
+            pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2),
         ],
-        regressor=dmd.Edmd(),
+        regressor=pykoop.Edmd(),
     ),
-    koopman_pipeline.KoopmanPipeline(
+    pykoop.KoopmanPipeline(
         preprocessors=None,
         lifting_functions=[
-            lifting_functions.DelayLiftingFn(n_delays_state=2,
-                                             n_delays_input=1),
-            lifting_functions.PolynomialLiftingFn(order=2),
-            lifting_functions.DelayLiftingFn(n_delays_state=1,
-                                             n_delays_input=2),
+            pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=1),
+            pykoop.PolynomialLiftingFn(order=2),
+            pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=2),
         ],
-        regressor=dmd.Edmd(),
+        regressor=pykoop.Edmd(),
     ),
-    koopman_pipeline.KoopmanPipeline(
+    pykoop.KoopmanPipeline(
         preprocessors=None,
         lifting_functions=[
-            koopman_pipeline.SplitPipeline(
+            pykoop.SplitPipeline(
                 lifting_functions_state=[
-                    lifting_functions.PolynomialLiftingFn(order=2),
+                    pykoop.PolynomialLiftingFn(order=2),
                 ],
                 lifting_functions_input=None,
             ),
-            lifting_functions.DelayLiftingFn(n_delays_state=2,
-                                             n_delays_input=2),
+            pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2),
         ],
-        regressor=dmd.Edmd(),
+        regressor=pykoop.Edmd(),
     ),
-    koopman_pipeline.KoopmanPipeline(
+    pykoop.KoopmanPipeline(
         preprocessors=None,
         lifting_functions=[
-            lifting_functions.DelayLiftingFn(n_delays_state=1,
-                                             n_delays_input=1),
-            koopman_pipeline.SplitPipeline(
+            pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1),
+            pykoop.SplitPipeline(
                 lifting_functions_state=[
-                    lifting_functions.PolynomialLiftingFn(order=2),
-                    lifting_functions.PolynomialLiftingFn(order=2),
+                    pykoop.PolynomialLiftingFn(order=2),
+                    pykoop.PolynomialLiftingFn(order=2),
                 ],
                 lifting_functions_input=[
-                    lifting_functions.PolynomialLiftingFn(order=2),
+                    pykoop.PolynomialLiftingFn(order=2),
                 ],
             ),
-            lifting_functions.DelayLiftingFn(n_delays_state=1,
-                                             n_delays_input=1),
+            pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1),
         ],
-        regressor=dmd.Edmd(),
+        regressor=pykoop.Edmd(),
     ),
 ])
 def test_multistep_prediction(kp):
@@ -509,7 +497,7 @@ def test_multistep_prediction(kp):
 test_split_lf_params = [
     # Basic, without episode feature
     (
-        koopman_pipeline.SplitPipeline(
+        pykoop.SplitPipeline(
             lifting_functions_state=None,
             lifting_functions_input=None,
         ),
@@ -539,7 +527,7 @@ test_split_lf_params = [
     ),
     # Basic, with episode feature
     (
-        koopman_pipeline.SplitPipeline(
+        pykoop.SplitPipeline(
             lifting_functions_state=None,
             lifting_functions_input=None,
         ),
@@ -571,10 +559,8 @@ test_split_lf_params = [
     ),
     # Lifting only state
     (
-        koopman_pipeline.SplitPipeline(
-            lifting_functions_state=[
-                lifting_functions.PolynomialLiftingFn(order=2)
-            ],
+        pykoop.SplitPipeline(
+            lifting_functions_state=[pykoop.PolynomialLiftingFn(order=2)],
             lifting_functions_input=None,
         ),
         np.array([
@@ -608,11 +594,9 @@ test_split_lf_params = [
     ),
     # Lifting only input
     (
-        koopman_pipeline.SplitPipeline(
+        pykoop.SplitPipeline(
             lifting_functions_state=None,
-            lifting_functions_input=[
-                lifting_functions.PolynomialLiftingFn(order=2)
-            ],
+            lifting_functions_input=[pykoop.PolynomialLiftingFn(order=2)],
         ),
         np.array([
             [0, 1, 2, 3, 4, 5],
@@ -645,14 +629,11 @@ test_split_lf_params = [
     ),
     # Lifting both
     (
-        koopman_pipeline.SplitPipeline(
+        pykoop.SplitPipeline(
             lifting_functions_state=[
-                lifting_functions.PolynomialLiftingFn(order=2,
-                                                      interaction_only=True)
+                pykoop.PolynomialLiftingFn(order=2, interaction_only=True)
             ],
-            lifting_functions_input=[
-                lifting_functions.PolynomialLiftingFn(order=2)
-            ],
+            lifting_functions_input=[pykoop.PolynomialLiftingFn(order=2)],
         ),
         np.array([
             [0, 1, 2, 3, 4, 5],

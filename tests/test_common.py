@@ -1,30 +1,27 @@
-import sklearn.utils.estimator_checks
-import pykoop.dmd
+import pykoop
 import pykoop.lmi
-import pykoop.lifting_functions
+import sklearn.utils.estimator_checks
 from sklearn import preprocessing
 
 
 @sklearn.utils.estimator_checks.parametrize_with_checks([
-    pykoop.dmd.Edmd(),
+    pykoop.Edmd(),
     pykoop.lmi.LmiEdmdTikhonovReg(alpha=0),
     pykoop.lmi.LmiEdmdTwoNormReg(alpha=1, ratio=1),
     pykoop.lmi.LmiEdmdNuclearNormReg(alpha=1, ratio=1),
     pykoop.lmi.LmiEdmdSpectralRadiusConstr(tol=100),  # Loosen tol
     pykoop.lmi.LmiEdmdHinfReg(alpha=1, ratio=1, tol=100),  # Loosen tol
-    pykoop.lifting_functions.AnglePreprocessor(),
-    pykoop.lifting_functions.PolynomialLiftingFn(),
-    pykoop.lifting_functions.DelayLiftingFn(),
-    pykoop.lifting_functions.SkLearnLiftingFn(preprocessing.MaxAbsScaler()),
-    pykoop.lifting_functions.BilinearInputLiftingFn(),
-    pykoop.koopman_pipeline.KoopmanPipeline(
-        regressor=pykoop.dmd.Edmd()
-    ),
-    pykoop.koopman_pipeline.KoopmanPipeline(
+    pykoop.AnglePreprocessor(),
+    pykoop.PolynomialLiftingFn(),
+    pykoop.DelayLiftingFn(),
+    pykoop.SkLearnLiftingFn(preprocessing.MaxAbsScaler()),
+    pykoop.BilinearInputLiftingFn(),
+    pykoop.KoopmanPipeline(regressor=pykoop.Edmd()),
+    pykoop.KoopmanPipeline(
         lifting_functions=[
-            pykoop.lifting_functions.PolynomialLiftingFn(),
+            pykoop.PolynomialLiftingFn(),
         ],
-        regressor=pykoop.dmd.Edmd(),
+        regressor=pykoop.Edmd(),
     ),
     pykoop.koopman_pipeline.SplitPipeline(
         lifting_functions_state=None,
@@ -32,7 +29,7 @@ from sklearn import preprocessing
     ),
     pykoop.koopman_pipeline.SplitPipeline(
         lifting_functions_state=[
-            pykoop.lifting_functions.PolynomialLiftingFn(),
+            pykoop.PolynomialLiftingFn(),
         ],
         lifting_functions_input=None,
     ),

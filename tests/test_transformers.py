@@ -1,14 +1,13 @@
 import numpy as np
 import pandas
+import pykoop
 import pytest
 from sklearn import preprocessing
-
-from pykoop import lifting_functions
 
 
 def test_preprocess_noeps():
     ang = np.array([1])
-    pp = lifting_functions.AnglePreprocessor(angle_features=ang)
+    pp = pykoop.AnglePreprocessor(angle_features=ang)
     X = np.array([
         [0, 1, 2, 3],  # noqa: E201
         [0, np.pi, 0, -np.pi / 2],  # noqa: E201
@@ -29,7 +28,7 @@ def test_preprocess_noeps():
 
 def test_preprocess_eps():
     ang = np.array([1])
-    pp = lifting_functions.AnglePreprocessor(angle_features=ang)
+    pp = pykoop.AnglePreprocessor(angle_features=ang)
     X = np.array([
         # Episodes
         [0, 0, 1, 1],
@@ -56,7 +55,7 @@ def test_preprocess_eps():
 
 def test_preprocess_angle_wrap():
     ang = np.array([1])
-    pp = lifting_functions.AnglePreprocessor(angle_features=ang)
+    pp = pykoop.AnglePreprocessor(angle_features=ang)
     X = np.array([
         [0, 1, 2, 3],  # noqa: E201
         [2 * np.pi, np.pi, 0, -np.pi / 2],
@@ -84,7 +83,7 @@ def test_preprocess_fit_features():
     X = np.zeros((2, 5))
     # Mix of linear and angles
     ang = np.array([2, 3])
-    pp = lifting_functions.AnglePreprocessor(angle_features=ang)
+    pp = pykoop.AnglePreprocessor(angle_features=ang)
     pp.fit(X, episode_feature=False)
     lin = np.array([1, 1, 0, 0, 0, 0, 1], dtype=bool)
     cos = np.array([0, 0, 1, 0, 1, 0, 0], dtype=bool)
@@ -94,7 +93,7 @@ def test_preprocess_fit_features():
     np.testing.assert_allclose(sin, pp.sin_out_)
     # All linear
     ang = np.array([])
-    pp = lifting_functions.AnglePreprocessor(angle_features=ang)
+    pp = pykoop.AnglePreprocessor(angle_features=ang)
     pp.fit(X, episode_feature=False)
     lin = np.array([1, 1, 1, 1, 1], dtype=bool)
     cos = np.array([0, 0, 0, 0, 0], dtype=bool)
@@ -104,7 +103,7 @@ def test_preprocess_fit_features():
     np.testing.assert_allclose(sin, pp.sin_out_)
     # All angles
     ang = np.array([0, 1, 2, 3, 4])
-    pp = lifting_functions.AnglePreprocessor(angle_features=ang)
+    pp = pykoop.AnglePreprocessor(angle_features=ang)
     pp.fit(X, episode_feature=False)
     lin = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=bool)
     cos = np.array([1, 0, 1, 0, 1, 0, 1, 0, 1, 0], dtype=bool)
@@ -127,7 +126,7 @@ poly_test_cases = [
             [0, -1, -2, -3, -4, -5],
             [0, 2, 4, 5, 6, 10],
         ]).T,
-        lifting_functions.PolynomialLiftingFn(order=1),
+        pykoop.PolynomialLiftingFn(order=1),
         0,
     ),
     # Order 2, no inputs
@@ -143,7 +142,7 @@ poly_test_cases = [
             [0, 2, 8, 15, 24, 50],
             [0, 4, 16, 25, 36, 100],
         ]).T,
-        lifting_functions.PolynomialLiftingFn(order=2),
+        pykoop.PolynomialLiftingFn(order=2),
         0,
     ),
     # Order 1, 1 input
@@ -158,7 +157,7 @@ poly_test_cases = [
             [0, -1, -2, -3, -4, -5],
             [0, 2, 4, 5, 6, 10],
         ]).T,
-        lifting_functions.PolynomialLiftingFn(order=1),
+        pykoop.PolynomialLiftingFn(order=1),
         1,
     ),
     # Order 2, 1 input
@@ -174,7 +173,7 @@ poly_test_cases = [
             [0, 2, 8, 15, 24, 50],
             [0, 4, 16, 25, 36, 100],
         ]).T,
-        lifting_functions.PolynomialLiftingFn(order=2),
+        pykoop.PolynomialLiftingFn(order=2),
         1,
     ),
     # Order 2, 0 input
@@ -195,7 +194,7 @@ poly_test_cases = [
             [0, 6, 20, 42, 72, 110],
             [1, 9, 25, 49, 81, 121],
         ]).T,
-        lifting_functions.PolynomialLiftingFn(order=2),
+        pykoop.PolynomialLiftingFn(order=2),
         0,
     ),
     # Order 2, 1 input
@@ -218,7 +217,7 @@ poly_test_cases = [
             [0, 6, 20, 42, 72, 110],
             [1, 9, 25, 49, 81, 121],
         ]).T,
-        lifting_functions.PolynomialLiftingFn(order=2),
+        pykoop.PolynomialLiftingFn(order=2),
         1,
     ),
     # Order 2, 2 input
@@ -241,7 +240,7 @@ poly_test_cases = [
             [0, 6, 20, 42, 72, 110],
             [1, 9, 25, 49, 81, 121],
         ]).T,
-        lifting_functions.PolynomialLiftingFn(order=2),
+        pykoop.PolynomialLiftingFn(order=2),
         2,
     ),
 ]
@@ -521,8 +520,8 @@ delay_test_cases_noeps = [
 @pytest.mark.parametrize('n_delays_state, n_delays_input, n_u, X, Xd_exp',
                          delay_test_cases_noeps)
 def test_delay_forward_noeps(n_delays_state, n_delays_input, n_u, X, Xd_exp):
-    lf = lifting_functions.DelayLiftingFn(n_delays_state=n_delays_state,
-                                          n_delays_input=n_delays_input)
+    lf = pykoop.DelayLiftingFn(n_delays_state=n_delays_state,
+                               n_delays_input=n_delays_input)
     # Check forward transform
     lf.fit(X, n_inputs=n_u, episode_feature=False)
     Xd_fit = lf.transform(X)
@@ -532,8 +531,8 @@ def test_delay_forward_noeps(n_delays_state, n_delays_input, n_u, X, Xd_exp):
 @pytest.mark.parametrize('n_delays_state, n_delays_input, n_u, X, Xd_exp',
                          delay_test_cases_noeps)
 def test_delay_inverse_noeps(n_delays_state, n_delays_input, n_u, X, Xd_exp):
-    lf = lifting_functions.DelayLiftingFn(n_delays_state=n_delays_state,
-                                          n_delays_input=n_delays_input)
+    lf = pykoop.DelayLiftingFn(n_delays_state=n_delays_state,
+                               n_delays_input=n_delays_input)
     lf.fit(X, n_inputs=n_u, episode_feature=False)
     Xd_fit = lf.transform(X)
     # Check inverse transform
@@ -618,8 +617,8 @@ delay_test_cases_eps = [
 @pytest.mark.parametrize('n_delays_state, n_delays_input, n_u, X, Xd_exp',
                          delay_test_cases_eps)
 def test_delay_forward_eps(n_delays_state, n_delays_input, n_u, X, Xd_exp):
-    lf = lifting_functions.DelayLiftingFn(n_delays_state=n_delays_state,
-                                          n_delays_input=n_delays_input)
+    lf = pykoop.DelayLiftingFn(n_delays_state=n_delays_state,
+                               n_delays_input=n_delays_input)
     # Check forward transform
     lf.fit(X, n_inputs=n_u, episode_feature=True)
     Xd_fit = lf.transform(X)
@@ -629,8 +628,8 @@ def test_delay_forward_eps(n_delays_state, n_delays_input, n_u, X, Xd_exp):
 @pytest.mark.parametrize('n_delays_state, n_delays_input, n_u, X, Xd_exp',
                          delay_test_cases_eps)
 def test_delay_inverse_eps(n_delays_state, n_delays_input, n_u, X, Xd_exp):
-    lf = lifting_functions.DelayLiftingFn(n_delays_state=n_delays_state,
-                                          n_delays_input=n_delays_input)
+    lf = pykoop.DelayLiftingFn(n_delays_state=n_delays_state,
+                               n_delays_input=n_delays_input)
     lf.fit(X, n_inputs=n_u, episode_feature=True)
     Xd_fit = lf.transform(X)
     # Check inverse transform
@@ -646,7 +645,7 @@ def test_delay_inverse_eps(n_delays_state, n_delays_input, n_u, X, Xd_exp):
 
 episode_indep_test_cases = [
     (
-        lifting_functions.SkLearnLiftingFn(preprocessing.MaxAbsScaler()),
+        pykoop.SkLearnLiftingFn(preprocessing.MaxAbsScaler()),
         np.array([
             [1., -1., 2.],
             [2., 0., 0.],
@@ -661,7 +660,7 @@ episode_indep_test_cases = [
         False,
     ),
     (
-        lifting_functions.SkLearnLiftingFn(preprocessing.StandardScaler()),
+        pykoop.SkLearnLiftingFn(preprocessing.StandardScaler()),
         np.array([
             [0, 0, 0],
             [0, 0, 0],
@@ -678,7 +677,7 @@ episode_indep_test_cases = [
         True,
     ),
     (
-        lifting_functions.SkLearnLiftingFn(
+        pykoop.SkLearnLiftingFn(
             preprocessing.FunctionTransformer(
                 func=np.log1p,
                 inverse_func=lambda x: np.exp(x) - 1,
@@ -695,7 +694,7 @@ episode_indep_test_cases = [
         False,
     ),
     (
-        lifting_functions.BilinearInputLiftingFn(),
+        pykoop.BilinearInputLiftingFn(),
         np.array([
             [0, 1, 2, 3, 4, 5],
             [1, 2, 3, 4, 5, 6],
@@ -708,7 +707,7 @@ episode_indep_test_cases = [
         False,
     ),
     (
-        lifting_functions.BilinearInputLiftingFn(),
+        pykoop.BilinearInputLiftingFn(),
         np.array([
             # States
             [0, 1, 2, 3, 4, 5],
@@ -733,7 +732,7 @@ episode_indep_test_cases = [
         False,
     ),
     (
-        lifting_functions.BilinearInputLiftingFn(),
+        pykoop.BilinearInputLiftingFn(),
         np.array([
             # States
             [0, 1, 2, 3, 4, 5],
@@ -760,7 +759,7 @@ episode_indep_test_cases = [
         False,
     ),
     (
-        lifting_functions.BilinearInputLiftingFn(),
+        pykoop.BilinearInputLiftingFn(),
         np.array([
             # States
             [0, 1, 2, 3, 4, 5],
