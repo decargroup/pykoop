@@ -2,6 +2,7 @@ import sklearn.utils.estimator_checks
 import pykoop.dmd
 import pykoop.lmi
 import pykoop.lifting_functions
+from sklearn import preprocessing
 
 
 @sklearn.utils.estimator_checks.parametrize_with_checks([
@@ -14,6 +15,7 @@ import pykoop.lifting_functions
     pykoop.lifting_functions.AnglePreprocessor(),
     pykoop.lifting_functions.PolynomialLiftingFn(),
     pykoop.lifting_functions.DelayLiftingFn(),
+    pykoop.lifting_functions.SkLearnLiftingFn(preprocessing.MaxAbsScaler()),
     pykoop.koopman_pipeline.KoopmanPipeline(
         regressor=pykoop.dmd.Edmd()
     ),

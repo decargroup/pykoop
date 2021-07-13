@@ -1,6 +1,8 @@
 import numpy as np
 import pandas
 import pytest
+from sklearn import preprocessing
+
 from pykoop import lifting_functions
 
 
@@ -640,3 +642,74 @@ def test_delay_inverse_eps(n_delays_state, n_delays_input, n_u, X, Xd_exp):
         X_i = X[X[:, 0] == i, :]
         Xd_inv_i = Xd_inv[Xd_inv[:, 0] == i, :]
         np.testing.assert_allclose(X_i[-Xd_inv_i.shape[0]:, :], Xd_inv_i)
+
+
+sklearn_lf_test_cases = [
+    (
+        lifting_functions.SkLearnLiftingFn(preprocessing.MaxAbsScaler()),
+        np.array([
+            [1., -1., 2.],
+            [2., 0., 0.],
+            [0., 1., -1.],
+        ]),
+        np.array([
+            [0.5, -1., 1.],
+            [1., 0., 0.],
+            [0., 1., -0.5],
+        ]),
+        0,
+        False,
+    ),
+    (
+        lifting_functions.SkLearnLiftingFn(preprocessing.StandardScaler()),
+        np.array([
+            [0, 0, 0],
+            [0, 0, 0],
+            [0, 1, 1],
+            [0, 1, 1],
+        ]),
+        np.array([
+            [0, -1, -1],
+            [0, -1, -1],
+            [0, 1, 1],
+            [0, 1, 1],
+        ]),
+        0,
+        True,
+    ),
+    (
+        lifting_functions.SkLearnLiftingFn(
+            preprocessing.FunctionTransformer(
+                func=np.log1p,
+                inverse_func=lambda x: np.exp(x) - 1,
+            )),
+        np.array([
+            [0, 1],
+            [2, 3],
+        ]),
+        np.array([
+            [0., 0.69314718],
+            [1.09861229, 1.38629436],
+        ]),
+        0,
+        False,
+    ),
+]
+
+
+@pytest.mark.parametrize('lf, X, Xt_exp, n_inputs, episode_feature',
+                         sklearn_lf_test_cases)
+def test_sklearn_lifting_fn_transform(lf, X, Xt_exp, n_inputs,
+                                      episode_feature):
+    lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+    Xt = lf.transform(X)
+    np.testing.assert_allclose(Xt, Xt_exp)
+
+
+@pytest.mark.parametrize('lf, X, Xt_exp, n_inputs, episode_feature',
+                         sklearn_lf_test_cases)
+def test_sklearn_lifting_fn_inverse(lf, X, Xt_exp, n_inputs, episode_feature):
+    lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+    Xt = lf.transform(X)
+    Xi = lf.inverse_transform(Xt)
+    np.testing.assert_allclose(Xi, X)

@@ -134,6 +134,75 @@ class AnglePreprocessor(koopman_pipeline.EpisodeIndependentLiftingFn):
         pass  # No constructor parameters need validation.
 
 
+class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
+    """Lifting function that wraps a ``scikit-learn`` transformer.
+
+    Examples of appropriate transformers are
+
+    - ``sklearn.preprocessing.StandardScaler``,
+    - ``sklearn.preprocessing.MinMaxScaler``, or
+    - ``sklearn.preprocessing.MaxAbsScaler``.
+
+    See [1]_ for more appropriate transformers (though not all have been
+    tested).
+
+    Attributes
+    ----------
+    transformer_ : sklearn.base.BaseEstimator
+        Fit transformer.
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+
+    References
+    ----------
+    .. [1] https://scikit-learn.org/stable/modules/classes.html#module-sklearn.preprocessing  # noqa: E501
+    """
+
+    def __init__(
+        self,
+        transformer: sklearn.base.BaseEstimator = None,
+    ) -> None:
+        """Instantiate :class:`SkLearnLiftingFn`.
+
+        Parameters
+        ----------
+        transformer : sklearn.base.BaseEstimator
+            Transformer to wrap.
+        """
+        self.transformer = transformer
+
+    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int]:
+        self.transformer_ = sklearn.base.clone(self.transformer)
+        self.transformer_.fit(X)
+        return (self.n_states_in_, self.n_inputs_in_)
+
+    def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        Xt = self.transformer_.transform(X)
+        return Xt
+
+    def _inverse_transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        Xt = self.transformer_.inverse_transform(X)
+        return Xt
+
+    def _validate_parameters(self) -> None:
+        # Let transformer do its own validation
+        pass
+
+
 class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     """Lifting function to generate all monomials of the input features.
 
@@ -164,9 +233,7 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         Indicates if episode feature was present during :func:`fit`.
     """
 
-    def __init__(self,
-                 order: int = 1,
-                 interaction_only: bool = False) -> None:
+    def __init__(self, order: int = 1, interaction_only: bool = False) -> None:
         """Instantiate :class:`PolynomialLiftingFn`.
 
         Parameters
@@ -300,6 +367,7 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
         self.n_delays_input = n_delays_input
 
     def n_samples_in(self, n_samples_out: int = 1) -> int:
+        # noqa: D102
         return n_samples_out + max(self.n_delays_state, self.n_delays_input)
 
     def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int, int]:
