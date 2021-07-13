@@ -412,6 +412,38 @@ def test_combine_episodes(X, episodes, episode_feature):
         ],
         regressor=dmd.Edmd(),
     ),
+    koopman_pipeline.KoopmanPipeline(
+        preprocessors=None,
+        lifting_functions=[
+            koopman_pipeline.SplitLiftingFn(
+                lifting_functions_state=[
+                    lifting_functions.PolynomialLiftingFn(order=2),
+                ],
+                lifting_functions_input=None,
+            ),
+            lifting_functions.DelayLiftingFn(n_delays_state=2,
+                                             n_delays_input=2),
+        ],
+        regressor=dmd.Edmd(),
+    ),
+    koopman_pipeline.KoopmanPipeline(
+        preprocessors=None,
+        lifting_functions=[
+            lifting_functions.DelayLiftingFn(n_delays_state=1,
+                                             n_delays_input=1),
+            koopman_pipeline.SplitLiftingFn(
+                lifting_functions_state=[
+                    lifting_functions.PolynomialLiftingFn(order=2),
+                ],
+                lifting_functions_input=[
+                    lifting_functions.PolynomialLiftingFn(order=2),
+                ],
+            ),
+            lifting_functions.DelayLiftingFn(n_delays_state=1,
+                                             n_delays_input=1),
+        ],
+        regressor=dmd.Edmd(),
+    ),
 ])
 def test_multistep_prediction(kp):
     # Set up problem
