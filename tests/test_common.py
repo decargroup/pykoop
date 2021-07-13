@@ -23,11 +23,11 @@ import pykoop.lifting_functions
         ],
         regressor=pykoop.dmd.Edmd(),
     ),
-    pykoop.koopman_pipeline.SplitLiftingFn(
+    pykoop.koopman_pipeline.SplitPipeline(
         lifting_functions_state=None,
         lifting_functions_input=None,
     ),
-    pykoop.koopman_pipeline.SplitLiftingFn(
+    pykoop.koopman_pipeline.SplitPipeline(
         lifting_functions_state=[
             pykoop.lifting_functions.PolynomialLiftingFn(),
         ],

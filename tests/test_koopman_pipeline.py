@@ -415,7 +415,7 @@ def test_combine_episodes(X, episodes, episode_feature):
     koopman_pipeline.KoopmanPipeline(
         preprocessors=None,
         lifting_functions=[
-            koopman_pipeline.SplitLiftingFn(
+            koopman_pipeline.SplitPipeline(
                 lifting_functions_state=[
                     lifting_functions.PolynomialLiftingFn(order=2),
                 ],
@@ -431,8 +431,9 @@ def test_combine_episodes(X, episodes, episode_feature):
         lifting_functions=[
             lifting_functions.DelayLiftingFn(n_delays_state=1,
                                              n_delays_input=1),
-            koopman_pipeline.SplitLiftingFn(
+            koopman_pipeline.SplitPipeline(
                 lifting_functions_state=[
+                    lifting_functions.PolynomialLiftingFn(order=2),
                     lifting_functions.PolynomialLiftingFn(order=2),
                 ],
                 lifting_functions_input=[
@@ -508,7 +509,7 @@ def test_multistep_prediction(kp):
 test_split_lf_params = [
     # Basic, without episode feature
     (
-        koopman_pipeline.SplitLiftingFn(
+        koopman_pipeline.SplitPipeline(
             lifting_functions_state=None,
             lifting_functions_input=None,
         ),
@@ -538,7 +539,7 @@ test_split_lf_params = [
     ),
     # Basic, with episode feature
     (
-        koopman_pipeline.SplitLiftingFn(
+        koopman_pipeline.SplitPipeline(
             lifting_functions_state=None,
             lifting_functions_input=None,
         ),
@@ -570,7 +571,7 @@ test_split_lf_params = [
     ),
     # Lifting only state
     (
-        koopman_pipeline.SplitLiftingFn(
+        koopman_pipeline.SplitPipeline(
             lifting_functions_state=[
                 lifting_functions.PolynomialLiftingFn(order=2)
             ],
@@ -607,7 +608,7 @@ test_split_lf_params = [
     ),
     # Lifting only input
     (
-        koopman_pipeline.SplitLiftingFn(
+        koopman_pipeline.SplitPipeline(
             lifting_functions_state=None,
             lifting_functions_input=[
                 lifting_functions.PolynomialLiftingFn(order=2)
@@ -644,7 +645,7 @@ test_split_lf_params = [
     ),
     # Lifting both
     (
-        koopman_pipeline.SplitLiftingFn(
+        koopman_pipeline.SplitPipeline(
             lifting_functions_state=[
                 lifting_functions.PolynomialLiftingFn(order=2,
                                                       interaction_only=True)

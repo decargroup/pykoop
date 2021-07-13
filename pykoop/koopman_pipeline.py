@@ -1,4 +1,4 @@
-"""Koopman pipeline meta-estimator and related interfaces.
+"""Koopman pipeline meta-estimators and related interfaces.
 
 Since the Koopman regression problem operates on timeseries data, it has
 additional requirements that preclude the use of ``scikit-learn`` pipelines:
@@ -667,7 +667,7 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
         raise NotImplementedError()
 
 
-class SplitLiftingFn(KoopmanLiftingFn):
+class SplitPipeline(KoopmanLiftingFn):
     """Meta-estimator for lifting states and inputs separately.
 
     Only works with episode-independent lifting functions! It's too complicated
@@ -709,7 +709,7 @@ class SplitLiftingFn(KoopmanLiftingFn):
         lifting_functions_state: list[EpisodeIndependentLiftingFn] = None,
         lifting_functions_input: list[EpisodeIndependentLiftingFn] = None
     ) -> None:
-        """Instantiate :class:`SplitLiftingFn`.
+        """Instantiate :class:`SplitPipeline`.
 
         Parameters
         ----------
@@ -725,7 +725,7 @@ class SplitLiftingFn(KoopmanLiftingFn):
             X: np.ndarray,
             y: np.ndarray = None,
             n_inputs: int = 0,
-            episode_feature: bool = False) -> 'SplitLiftingFn':
+            episode_feature: bool = False) -> 'SplitPipeline':
         # noqa: D102
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Save state of episode feature
