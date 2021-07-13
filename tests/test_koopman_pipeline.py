@@ -471,3 +471,216 @@ def test_multistep_prediction(kp):
         X_sim_exp[:, [k]] = Xp[1:, [-1]]
 
     np.testing.assert_allclose(X_sim, X_sim_exp)
+
+
+test_split_lf_params = [
+    # Basic, without episode feature
+    (
+        koopman_pipeline.SplitLiftingFn(
+            lifting_functions_state=None,
+            lifting_functions_input=None,
+        ),
+        np.array([
+            [0, 1, 2, 3, 4, 5],
+            [5, 4, 3, 2, 1, 0],
+            [4, 5, 6, 7, 8, 9],
+            [0, 8, 7, 6, 5, 4],
+        ]).T,
+        np.array([
+            [0, 1, 2, 3, 4, 5],
+            [5, 4, 3, 2, 1, 0],
+            [4, 5, 6, 7, 8, 9],
+            [0, 8, 7, 6, 5, 4],
+        ]).T,
+        2,
+        False,
+        {
+            'n_features_in_': 4,
+            'n_states_in_': 2,
+            'n_inputs_in_': 2,
+            'n_features_out_': 4,
+            'n_states_out_': 2,
+            'n_inputs_out_': 2,
+            'min_samples_': 1,
+        },
+    ),
+    # Basic, with episode feature
+    (
+        koopman_pipeline.SplitLiftingFn(
+            lifting_functions_state=None,
+            lifting_functions_input=None,
+        ),
+        np.array([
+            [0, 0, 0, 0, 1, 1],
+            [0, 1, 2, 3, 4, 5],
+            [5, 4, 3, 2, 1, 0],
+            [4, 5, 6, 7, 8, 9],
+            [0, 8, 7, 6, 5, 4],
+        ]).T,
+        np.array([
+            [0, 0, 0, 0, 1, 1],
+            [0, 1, 2, 3, 4, 5],
+            [5, 4, 3, 2, 1, 0],
+            [4, 5, 6, 7, 8, 9],
+            [0, 8, 7, 6, 5, 4],
+        ]).T,
+        2,
+        True,
+        {
+            'n_features_in_': 5,
+            'n_states_in_': 2,
+            'n_inputs_in_': 2,
+            'n_features_out_': 5,
+            'n_states_out_': 2,
+            'n_inputs_out_': 2,
+            'min_samples_': 1,
+        },
+    ),
+    # Lifting only state
+    (
+        koopman_pipeline.SplitLiftingFn(
+            lifting_functions_state=[
+                lifting_functions.PolynomialLiftingFn(order=2)
+            ],
+            lifting_functions_input=None,
+        ),
+        np.array([
+            [0, 1, 2, 3, 4, 5],
+            [5, 4, 3, 2, 1, 0],
+            [4, 5, 6, 7, 8, 9],
+            [0, 8, 7, 6, 5, 4],
+        ]).T,
+        np.array([
+            # State
+            [0, 1, 2, 3, 4, 5],
+            [5, 4, 3, 2, 1, 0],
+            [0, 1, 4, 9, 16, 25],
+            [0, 4, 6, 6, 4, 0],
+            [25, 16, 9, 4, 1, 0],
+            # Input
+            [4, 5, 6, 7, 8, 9],
+            [0, 8, 7, 6, 5, 4],
+        ]).T,
+        2,
+        False,
+        {
+            'n_features_in_': 4,
+            'n_states_in_': 2,
+            'n_inputs_in_': 2,
+            'n_features_out_': 7,
+            'n_states_out_': 5,
+            'n_inputs_out_': 2,
+            'min_samples_': 1,
+        },
+    ),
+    # Lifting only input
+    (
+        koopman_pipeline.SplitLiftingFn(
+            lifting_functions_state=None,
+            lifting_functions_input=[
+                lifting_functions.PolynomialLiftingFn(order=2)
+            ],
+        ),
+        np.array([
+            [0, 1, 2, 3, 4, 5],
+            [5, 4, 3, 2, 1, 0],
+            [4, 5, 6, 7, 8, 9],
+            [0, 8, 7, 6, 5, 4],
+        ]).T,
+        np.array([
+            # State
+            [0, 1, 2, 3, 4, 5],
+            [5, 4, 3, 2, 1, 0],
+            # Input
+            [4, 5, 6, 7, 8, 9],
+            [0, 8, 7, 6, 5, 4],
+            [16, 25, 36, 49, 64, 81],
+            [0, 40, 42, 42, 40, 36],
+            [0, 64, 49, 36, 25, 16],
+        ]).T,
+        2,
+        False,
+        {
+            'n_features_in_': 4,
+            'n_states_in_': 2,
+            'n_inputs_in_': 2,
+            'n_features_out_': 7,
+            'n_states_out_': 2,
+            'n_inputs_out_': 5,
+            'min_samples_': 1,
+        },
+    ),
+    # Lifting both
+    (
+        koopman_pipeline.SplitLiftingFn(
+            lifting_functions_state=[
+                lifting_functions.PolynomialLiftingFn(order=2,
+                                                      interaction_only=True)
+            ],
+            lifting_functions_input=[
+                lifting_functions.PolynomialLiftingFn(order=2)
+            ],
+        ),
+        np.array([
+            [0, 1, 2, 3, 4, 5],
+            [5, 4, 3, 2, 1, 0],
+            [4, 5, 6, 7, 8, 9],
+            [0, 8, 7, 6, 5, 4],
+        ]).T,
+        np.array([
+            # State
+            [0, 1, 2, 3, 4, 5],
+            [5, 4, 3, 2, 1, 0],
+            [0, 4, 6, 6, 4, 0],
+            # Input
+            [4, 5, 6, 7, 8, 9],
+            [0, 8, 7, 6, 5, 4],
+            [16, 25, 36, 49, 64, 81],
+            [0, 40, 42, 42, 40, 36],
+            [0, 64, 49, 36, 25, 16],
+        ]).T,
+        2,
+        False,
+        {
+            'n_features_in_': 4,
+            'n_states_in_': 2,
+            'n_inputs_in_': 2,
+            'n_features_out_': 8,
+            'n_states_out_': 3,
+            'n_inputs_out_': 5,
+            'min_samples_': 1,
+        },
+    ),
+]
+
+
+@pytest.mark.parametrize('lf, X, Xt_exp, n_inputs, episode_feature, attr_exp',
+                         test_split_lf_params)
+def test_split_lifting_fn_attrs(lf, X, Xt_exp, n_inputs, episode_feature,
+                                attr_exp):
+    # Fit estimator
+    lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+    # Check attributes
+    attr = {key: getattr(lf, key) for key in attr_exp.keys()}
+    assert attr == attr_exp
+
+
+@pytest.mark.parametrize('lf, X, Xt_exp, n_inputs, episode_feature, attr_exp',
+                         test_split_lf_params)
+def test_split_lifting_fn_transform(lf, X, Xt_exp, n_inputs, episode_feature,
+                                    attr_exp):
+    # Fit estimator
+    lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+    Xt = lf.transform(X)
+    np.testing.assert_allclose(Xt, Xt_exp)
+
+
+@pytest.mark.parametrize('lf, X, Xt_exp, n_inputs, episode_feature, attr_exp',
+                         test_split_lf_params)
+def test_split_lifting_fn_inverse_transform(lf, X, Xt_exp, n_inputs,
+                                            episode_feature, attr_exp):
+    # Fit estimator
+    lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+    Xt = lf.transform(X)
+    Xi = lf.inverse_transform(Xt)
+    np.testing.assert_allclose(Xi, X)

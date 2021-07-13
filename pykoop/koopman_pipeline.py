@@ -667,6 +667,252 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
         raise NotImplementedError()
 
 
+class SplitLiftingFn(KoopmanLiftingFn):
+    """Meta-estimator for lifting states and inputs separately.
+
+    Only works with episode-independent lifting functions!
+
+    Attributes
+    ----------
+    lifting_functions_state_: list[EpisodeIndependentLiftingFn]
+        Fit state lifting functions.
+    lifting_functions_input_: list[EpisodeIndependentLiftingFn]
+        Fit input lifting functions.
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    """
+
+    # Array check parameters for :func:`predict` and :func:`fit` when only
+    # ``X`` is given
+    _check_array_params = {
+        'dtype': 'numeric',
+    }
+
+    def __init__(
+        self,
+        lifting_functions_state: list[EpisodeIndependentLiftingFn] = None,
+        lifting_functions_input: list[EpisodeIndependentLiftingFn] = None
+    ) -> None:
+        """Instantiate :class:`SplitLiftingFn`.
+
+        Parameters
+        ----------
+        lifting_functions_state : list[EpisodeIndependentLiftingFn]
+            Lifting functions to apply to the state features.
+        lifting_functions_input : list[EpisodeIndependentLiftingFn]
+            Lifting functions to apply to the input features.
+        """
+        self.lifting_functions_state = lifting_functions_state
+        self.lifting_functions_input = lifting_functions_input
+
+    def fit(self,
+            X: np.ndarray,
+            y: np.ndarray = None,
+            n_inputs: int = 0,
+            episode_feature: bool = False) -> 'SplitLiftingFn':
+        # noqa: D102
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
+        # Save state of episode feature
+        self.episode_feature_ = episode_feature
+        # Set number of features
+        self.n_features_in_ = X.shape[1]
+        self.n_states_in_ = (X.shape[1] - n_inputs -
+                             (1 if episode_feature else 0))
+        self.n_inputs_in_ = n_inputs
+        # Clone state lifting functions
+        self.lifting_functions_state_ = []
+        if self.lifting_functions_state is not None:
+            for lf in self.lifting_functions_state:
+                self.lifting_functions_state_.append(sklearn.base.clone(lf))
+        # Clone input lifting functions
+        self.lifting_functions_input_ = []
+        if self.lifting_functions_input is not None:
+            for lf in self.lifting_functions_input:
+                self.lifting_functions_input_.append(sklearn.base.clone(lf))
+        # Separate episode feature
+        if self.episode_feature_:
+            X_ep = X[:, [0]]
+            X = X[:, 1:]
+        # Split state and input
+        X_state = X[:, :self.n_states_in_]
+        X_input = X[:, self.n_states_in_:]
+        # Put back episode feature if needed
+        if self.episode_feature_:
+            X_state = np.hstack((
+                X_ep,
+                X_state,
+            ))
+            X_input = np.hstack((
+                X_ep,
+                X_input,
+            ))
+        # Fit and transform states
+        X_out_state = X_state
+        for lf in self.lifting_functions_state_:
+            X_out_state = lf.fit_transform(
+                X_out_state,
+                n_inputs=0,
+                episode_feature=self.episode_feature_,
+            )
+        # Fit and transform inputs
+        X_out_input = X_input
+        for lf in self.lifting_functions_input_:
+            X_out_input = lf.fit_transform(
+                X_out_input,
+                n_inputs=0,
+                episode_feature=self.episode_feature_,
+            )
+        # Compute output dimensions for states
+        if len(self.lifting_functions_state_) > 0:
+            # Compute number of output states
+            last_tf = self.lifting_functions_state_[-1]
+            if last_tf.n_inputs_out_ != 0:
+                raise RuntimeError(f'Lifting function {last_tf} was called '
+                                   'with `n_inputs=0` but `n_inputs_out_` is '
+                                   'not 0. Is it implemented correctly?')
+            self.n_states_out_ = last_tf.n_states_out_
+        else:
+            self.n_states_out_ = self.n_states_in_
+        # Compute output dimensions for inputs
+        if len(self.lifting_functions_input_) > 0:
+            # Compute number of output states
+            last_tf = self.lifting_functions_input_[-1]
+            if last_tf.n_inputs_out_ != 0:
+                raise RuntimeError(f'Lifting function {last_tf} was called '
+                                   'with `n_inputs=0` but `n_inputs_out_` is '
+                                   'not 0. Is it implemented correctly?')
+            self.n_inputs_out_ = last_tf.n_states_out_
+        else:
+            self.n_inputs_out_ = self.n_inputs_in_
+        # Compute number of features and minimum samples needed
+        self.n_features_out_ = (self.n_states_out_ + self.n_inputs_out_ +
+                                (1 if self.episode_feature_ else 0))
+        self.min_samples_ = self.n_samples_in(1)
+        return self
+
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        # noqa: D102
+        sklearn.utils.validation.check_is_fitted(self)
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
+        # Check input shape
+        if X.shape[1] != self.n_features_in_:
+            raise ValueError(f'{self.__class__.__name__} `fit()` called '
+                             f'with {self.n_features_in_} features, but '
+                             f'`transform()` called with {X.shape[1]} '
+                             'features.')
+        # Separate episode feature
+        if self.episode_feature_:
+            X_ep = X[:, [0]]
+            X = X[:, 1:]
+        # Split state and input
+        X_state = X[:, :self.n_states_in_]
+        X_input = X[:, self.n_states_in_:]
+        # Put back episode feature if needed
+        if self.episode_feature_:
+            X_state = np.hstack((
+                X_ep,
+                X_state,
+            ))
+            X_input = np.hstack((
+                X_ep,
+                X_input,
+            ))
+        # Fit and transform states
+        X_out_state = X_state
+        for lf in self.lifting_functions_state_:
+            X_out_state = lf.transform(X_out_state)
+        # Fit and transform inputs
+        X_out_input = X_input
+        for lf in self.lifting_functions_input_:
+            X_out_input = lf.transform(X_out_input)
+        if self.episode_feature_:
+            Xt = np.hstack((
+                X_out_state,
+                X_out_input[:, 1:],
+            ))
+        else:
+            Xt = np.hstack((
+                X_out_state,
+                X_out_input,
+            ))
+        return Xt
+
+    def inverse_transform(self, X: np.ndarray) -> np.ndarray:
+        # noqa: D102
+        sklearn.utils.validation.check_is_fitted(self)
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
+        # Check input shape
+        if X.shape[1] != self.n_features_out_:
+            raise ValueError(f'{self.__class__.__name__} `fit()` output '
+                             f'{self.n_features_out_} features, but '
+                             '`inverse_transform()` called with '
+                             f'{X.shape[1]} features.')
+        if self.episode_feature_:
+            X_ep = X[:, [0]]
+            X = X[:, 1:]
+        # Split state and input
+        X_state = X[:, :self.n_states_out_]
+        X_input = X[:, self.n_states_out_:]
+        # Put back episode feature if needed
+        if self.episode_feature_:
+            X_state = np.hstack((
+                X_ep,
+                X_state,
+            ))
+            X_input = np.hstack((
+                X_ep,
+                X_input,
+            ))
+        # Fit and inverse transform states
+        X_out_state = X_state
+        for lf in self.lifting_functions_state_[::-1]:
+            X_out_state = lf.inverse_transform(X_out_state)
+        # Fit and transform inputs
+        X_out_input = X_input
+        for lf in self.lifting_functions_input_[::-1]:
+            X_out_input = lf.inverse_transform(X_out_input)
+        if self.episode_feature_:
+            Xt = np.hstack((
+                X_out_state,
+                X_out_input[:, 1:],
+            ))
+        else:
+            Xt = np.hstack((
+                X_out_state,
+                X_out_input,
+            ))
+        return Xt
+
+    def n_samples_in(self, n_samples_out: int = 1) -> int:
+        # noqa: D102
+        # Compute output dimensions for states
+        n_samples_out_state = n_samples_out
+        if len(self.lifting_functions_state_) > 0:
+            for tf in self.lifting_functions_state_[::-1]:
+                n_samples_out_state = tf.n_samples_in(n_samples_out_state)
+        # Compute output dimensions for inputs
+        n_samples_out_input = n_samples_out
+        if len(self.lifting_functions_input_) > 0:
+            for tf in self.lifting_functions_input_[::-1]:
+                n_samples_out_input = tf.n_samples_in(n_samples_out_input)
+        # Compute number of features and minimum samples needed
+        return max(n_samples_out_state, n_samples_out_input)
+
+
 class KoopmanRegressor(sklearn.base.BaseEstimator,
                        sklearn.base.RegressorMixin,
                        metaclass=abc.ABCMeta):
@@ -839,12 +1085,34 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
                       sklearn.base.TransformerMixin):
     """Meta-estimator for chaining lifting functions with an estimator.
 
-    TODO Fill in attributes
-
     Attributes
     ----------
+    preprocessors_ : list[KoopmanLiftingFn]
+        Fit preprocessors.
+    liting_functions_ : list[KoopmanLiftingFn]
+        Fit lifting functions.
+    regressor_ : KoopmanRegressor
+        Fit regressor.
+    transformers_fit_ : bool
+        True if preprocessors and lifting functions have been fit.
+    regressor_fit_ : bool
+        True if regressor has been fit.
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
     min_samples_ : int
         Minimum number of samples needed to use the transformer.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
     """
 
     # Array check parameters for :func:`predict` and :func:`fit` when only
