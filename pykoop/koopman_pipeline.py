@@ -138,18 +138,6 @@ class KoopmanLiftingFn(sklearn.base.BaseEstimator,
         Indicates if episode feature was present during :func:`fit`.
     """
 
-    def __init__(self, lift_input: bool = True) -> None:
-        """Instantiate :class:`KoopmanLiftingFn`.
-
-        Parameters
-        ----------
-        lift_input : bool
-            Determines whether the input will be lifted or passed through the
-            lifting function.
-        """
-        self.lift_input = lift_input
-        super().__init__()
-
     @abc.abstractmethod
     def fit(self,
             X: np.ndarray,
@@ -265,11 +253,6 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
         Set by :func:`fit`.
-
-    Notes
-    -----
-    The ``lift_input`` parameter is handled automatically by this abstract base
-    class. Subclasses do not need to worry about it.
     """
 
     def fit(self,
@@ -496,9 +479,6 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
 
     Notes
     -----
-    The ``lift_input`` parameter is **not** handled by this abstract base
-    class. Subclasses must handle it on their own.
-
     When :func:`fit` is called with multiple episodes, it only considers the
     first episode. It is assumed that the first episode contains all the
     information needed to properly fit the transformer. Typically, :func:`fit`
@@ -855,7 +835,8 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         }
 
 
-class KoopmanPipeline(sklearn.base.BaseEstimator):
+class KoopmanPipeline(sklearn.base.BaseEstimator,
+                      sklearn.base.TransformerMixin):
     """Meta-estimator for chaining lifting functions with an estimator.
 
     TODO Fill in attributes
@@ -866,11 +847,17 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         Minimum number of samples needed to use the transformer.
     """
 
+    # Array check parameters for :func:`predict` and :func:`fit` when only
+    # ``X`` is given
+    _check_array_params = {
+        'dtype': 'numeric',
+    }
+
     def __init__(
         self,
-        preprocessors: list[tuple[str, KoopmanLiftingFn]] = None,
-        lifting_functions: list[tuple[str, KoopmanLiftingFn]] = None,
-        regressor: tuple[str, KoopmanRegressor] = None,
+        preprocessors: list[KoopmanLiftingFn] = None,
+        lifting_functions: list[KoopmanLiftingFn] = None,
+        regressor: KoopmanRegressor = None,
     ) -> None:
         """Instantiate for :class:`KoopmanPipeline`.
 
@@ -879,16 +866,14 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         functions are inverted in :func:`inverse_transform`, while
         preprocessors are applied once and not inverted.
 
-        As much error checking as possible is delegated to the sub-estimators.
-
         Parameters
         ----------
-        preprocessors : list[tuple[str, KoopmanLiftingFn]]
-            List of tuples containing preprocessor objects and their names.
-        lifting_functions : list[tuple[str, KoopmanLiftingFn]]
-            List of tuples containing lifting function objects and their names.
-        regressor : tuple[str, sklearn.base.RegressorMixin]
-            Tuple containing a regressor object and its name.
+        preprocessors : list[KoopmanLiftingFn]
+            List of preprocessor objects.
+        lifting_functions : list[KoopmanLiftingFn]
+            List of lifting function objects.
+        regressor : KoopmanRegressor
+            Koopman regressor.
         """
         self.preprocessors = preprocessors
         self.lifting_functions = lifting_functions
@@ -922,13 +907,14 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         ValueError
             If constructor or fit parameters are incorrect.
         """
+        X = sklearn.utils.validation.check_array(X,
+                                                 ensure_min_samples=2,
+                                                 **self._check_array_params)
         if self.regressor is None:
-            raise ValueError('`regressor` must be specified to use `fit()`.')
+            raise ValueError(
+                '`regressor` must be specified in order to use `fit()`.')
         # Clone regressor
-        self.regressor_ = (
-            self.regressor[0],
-            sklearn.base.clone(self.regressor[1]),
-        )
+        self.regressor_ = sklearn.base.clone(self.regressor)
         # Fit transformers and transform input
         self.fit_transformers(
             X,
@@ -937,11 +923,12 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         )
         Xt = self.transform(X)
         # Fit the regressor
-        self.regressor_[1].fit(
+        self.regressor_.fit(
             Xt,
             n_inputs=self.n_inputs_out_,
             episode_feature=self.episode_feature_,
         )
+        self.regressor_fit_ = True
         return self
 
     def fit_transformers(self,
@@ -972,10 +959,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         ValueError
             If constructor or fit parameters are incorrect.
         """
-        if self.preprocessors is None:
-            self.preprocessors = []
-        if self.lifting_functions is None:
-            self.lifting_functions = []
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Save state of episode feature
         self.episode_feature_ = episode_feature
         # Set number of features
@@ -985,20 +969,22 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         self.n_inputs_in_ = n_inputs
         # Clone preprocessors and lifting functions
         self.preprocessors_ = []
-        for name, pp in self.preprocessors:
-            self.preprocessors_.append((name, sklearn.base.clone(pp)))
+        if self.preprocessors is not None:
+            for pp in self.preprocessors:
+                self.preprocessors_.append(sklearn.base.clone(pp))
         self.lifting_functions_ = []
-        for name, lf in self.lifting_functions:
-            self.lifting_functions_.append((name, sklearn.base.clone(lf)))
+        if self.lifting_functions is not None:
+            for lf in self.lifting_functions:
+                self.lifting_functions_.append(sklearn.base.clone(lf))
         # Fit and transform preprocessors and lifting functions
         X_out = X
         n_inputs_out = n_inputs
-        for name, pp in self.preprocessors_:
+        for pp in self.preprocessors_:
             X_out = pp.fit_transform(X_out,
                                      n_inputs=n_inputs_out,
                                      episode_feature=episode_feature)
             n_inputs_out = pp.n_inputs_out_
-        for name, lf in self.lifting_functions_:
+        for lf in self.lifting_functions_:
             X_out = lf.fit_transform(X_out,
                                      n_inputs=n_inputs_out,
                                      episode_feature=episode_feature)
@@ -1007,7 +993,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         tfs = (self.preprocessors_ + self.lifting_functions_)
         if len(tfs) > 0:
             # Find the last transformer and use it to get output dimensions
-            last_tf = tfs[-1][1]
+            last_tf = tfs[-1]
             self.n_features_out_ = last_tf.n_features_out_
             self.n_states_out_ = last_tf.n_states_out_
             self.n_inputs_out_ = last_tf.n_inputs_out_
@@ -1018,7 +1004,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
             # samples we need at the beginning of the pipeline.
             n_samples_out = 1
             for tf in tfs[::-1]:
-                n_samples_out = tf[1].n_samples_in(n_samples_out)
+                n_samples_out = tf.n_samples_in(n_samples_out)
             self.min_samples_ = n_samples_out
         else:
             # Fall back on input dimensions
@@ -1026,6 +1012,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
             self.n_states_out_ = self.n_states_in_
             self.n_inputs_out_ = self.n_inputs_in_
             self.min_samples_ = 1
+        self.transformers_fit_ = True
         return self
 
     def transform(self, X: np.ndarray) -> np.ndarray:
@@ -1041,11 +1028,19 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         np.ndarray
             Transformed data matrix.
         """
+        sklearn.utils.validation.check_is_fitted(self, 'transformers_fit_')
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
+        # Check input shape
+        if X.shape[1] != self.n_features_in_:
+            raise ValueError(f'{self.__class__.__name__} `fit()` called '
+                             f'with {self.n_features_in_} features, but '
+                             f'`transform()` called with {X.shape[1]} '
+                             'features.')
         # Apply preprocessing transforms, then lifting functions
         X_out = X
-        for name, pp in self.preprocessors_:
+        for pp in self.preprocessors_:
             X_out = pp.transform(X_out)
-        for name, lf in self.lifting_functions_:
+        for lf in self.lifting_functions_:
             X_out = lf.transform(X_out)
         return X_out
 
@@ -1062,9 +1057,17 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         np.ndarray
             Inverted transformed data matrix.
         """
+        sklearn.utils.validation.check_is_fitted(self, 'transformers_fit_')
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
+        # Check input shape
+        if X.shape[1] != self.n_features_out_:
+            raise ValueError(f'{self.__class__.__name__} `fit()` output '
+                             f'{self.n_features_out_} features, but '
+                             '`inverse_transform()` called with '
+                             f'{X.shape[1]} features.')
         # Apply inverse lifting functions in reverse order
         X_out = X
-        for name, lf in self.lifting_functions_[::-1]:
+        for lf in self.lifting_functions_[::-1]:
             X_out = lf.inverse_transform(X_out)
         return X_out
 
@@ -1084,10 +1087,12 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         np.ndarray
             Predicted data matrix.
         """
+        sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Lift data matrix
         X_trans = self.transform(X)
         # Predict in lifted space
-        X_pred = self.regressor_[1].predict(X_trans)
+        X_pred = self.regressor_.predict(X_trans)
         # Pad inputs wth zeros to do inverse
         if self.n_inputs_out_ != 0:
             X_pred_pad = np.hstack((
@@ -1123,6 +1128,8 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         float
             Mean squared error prediction score.
         """
+        sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         scorer = KoopmanPipeline.make_scorer()
         score = scorer(self, X, None)
         return score
@@ -1151,6 +1158,8 @@ class KoopmanPipeline(sklearn.base.BaseEstimator):
         ValueError
             If an episode is shorter than ``min_samples_``.
         """
+        sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Split episodes
         episodes = _split_episodes(X, episode_feature=self.episode_feature_)
         # Loop over episodes

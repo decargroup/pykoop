@@ -14,6 +14,15 @@ import pykoop.lifting_functions
     pykoop.lifting_functions.AnglePreprocessor(),
     pykoop.lifting_functions.PolynomialLiftingFn(),
     pykoop.lifting_functions.DelayLiftingFn(),
+    pykoop.koopman_pipeline.KoopmanPipeline(
+        regressor=pykoop.dmd.Edmd()
+    ),
+    pykoop.koopman_pipeline.KoopmanPipeline(
+        lifting_functions=[
+            pykoop.lifting_functions.PolynomialLiftingFn(),
+        ],
+        regressor=pykoop.dmd.Edmd(),
+    ),
 ])
 def test_sklearn_compatible_estimator(estimator, check):
     check(estimator)

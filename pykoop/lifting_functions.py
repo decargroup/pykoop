@@ -55,16 +55,12 @@ class AnglePreprocessor(koopman_pipeline.EpisodeIndependentLiftingFn):
     """
 
     def __init__(self,
-                 lift_input: bool = True,
                  angle_features: np.ndarray = None,
                  unwrap_inverse: bool = False) -> None:
         """Instantiate :class:`AnglePreprocessor`.
 
         Parameters
         ----------
-        lift_input : bool
-            Determines whether the input will be lifted or passed through the
-            lifting function.
         angle_features : np.ndarray
             Indices of features that are angles.
         unwrap_inverse : bool
@@ -73,7 +69,6 @@ class AnglePreprocessor(koopman_pipeline.EpisodeIndependentLiftingFn):
         """
         self.angle_features = angle_features
         self.unwrap_inverse = unwrap_inverse
-        super().__init__(lift_input=lift_input)
 
     def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int]:
         # Compute boolean array with one entry per feature. A ``True`` value
@@ -170,16 +165,12 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     """
 
     def __init__(self,
-                 lift_input: bool = True,
                  order: int = 1,
                  interaction_only: bool = False) -> None:
         """Instantiate :class:`PolynomialLiftingFn`.
 
         Parameters
         ----------
-        lift_input : bool
-            Determines whether the input will be lifted or passed through the
-            lifting function.
         order : int
             Order of monomials to generate.
         interaction_only : bool
@@ -187,7 +178,6 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         """
         self.order = order
         self.interaction_only = interaction_only
-        super().__init__(lift_input=lift_input)
 
     def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int]:
         self.transformer_ = sklearn.preprocessing.PolynomialFeatures(
@@ -266,12 +256,6 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
 
     Attributes
     ----------
-    n_delays_input_ : int
-        True number of delays to apply to the input. Zero if
-        ``lift_input=False``, regardless of value of ``n_delays_input``. This
-        awkward quirk is present because ``scikit-learn`` estimators are not
-        allowed to do anything inside the constructor aside from storing
-        parameters. Sorry!
     n_features_in_ : int
         Number of features before transformation, including episode feature if
         present.
@@ -301,16 +285,12 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
     """
 
     def __init__(self,
-                 lift_input: bool = True,
                  n_delays_state: int = 0,
                  n_delays_input: int = 0) -> None:
         """Instantiate :class:`DelayLiftingFn`.
 
         Parameters
         ----------
-        lift_input : bool
-            Determines whether the input will be lifted or passed through the
-            lifting function. Overrides ``n_delays_input``.
         n_delays_state : int
             Number of delays to apply to the state.
         n_delays_input : int
@@ -318,19 +298,16 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
         """
         self.n_delays_state = n_delays_state
         self.n_delays_input = n_delays_input
-        super().__init__(lift_input=lift_input)
 
     def n_samples_in(self, n_samples_out: int = 1) -> int:
-        return n_samples_out + max(self.n_delays_state, self.n_delays_input_)
+        return n_samples_out + max(self.n_delays_state, self.n_delays_input)
 
     def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int, int]:
-        # If the input isn't being lifted, set the (true) input delays to zero.
-        self.n_delays_input_ = self.n_delays_input if self.lift_input else 0
         # Compute number of states and inputs that will be output.
         n_states_out = self.n_states_in_ * (self.n_delays_state + 1)
-        n_inputs_out = self.n_inputs_in_ * (self.n_delays_input_ + 1)
+        n_inputs_out = self.n_inputs_in_ * (self.n_delays_input + 1)
         # Compute the minimum number of samples needed to use this transformer.
-        min_samples = max(self.n_delays_state, self.n_delays_input_) + 1
+        min_samples = max(self.n_delays_state, self.n_delays_input) + 1
         return (n_states_out, n_inputs_out, min_samples)
 
     def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
@@ -339,7 +316,7 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
         X_u = X[:, self.n_states_in_:]
         # Delay states and inputs separately
         Xd_x = DelayLiftingFn._delay(X_x, self.n_delays_state)
-        Xd_u = DelayLiftingFn._delay(X_u, self.n_delays_input_)
+        Xd_u = DelayLiftingFn._delay(X_u, self.n_delays_input)
         # ``Xd_x`` and ``Xd_u`` have different numbers of samples at this
         # point. Truncate the larger one to the same shape.
         n_samples = min(Xd_x.shape[0], Xd_u.shape[0])
@@ -352,7 +329,7 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
         X_u = X[:, self.n_states_out_:]
         # Undelay states and inputs separately.
         Xu_x = DelayLiftingFn._undelay(X_x, self.n_delays_state)
-        Xu_u = DelayLiftingFn._undelay(X_u, self.n_delays_input_)
+        Xu_u = DelayLiftingFn._undelay(X_u, self.n_delays_input)
         # ``Xu_x`` and ``Xu_u`` have different numbers of samples at this
         # point. Truncate the larger one to the same shape.
         n_samples = min(Xu_x.shape[0], Xu_u.shape[0])

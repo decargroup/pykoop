@@ -53,10 +53,9 @@ def test_kp_transform_angle_pp():
     ]).T
     # Create basic pipeline
     kp = koopman_pipeline.KoopmanPipeline(
-        preprocessors=[(
-            'angle',
-            lifting_functions.AnglePreprocessor(angle_features=np.array([1])),
-        )],
+        preprocessors=[
+            lifting_functions.AnglePreprocessor(angle_features=np.array([1]))
+        ],
         lifting_functions=None,
         regressor=None,
     )
@@ -100,21 +99,17 @@ def test_kp_transform_delay_lf():
     # angles).
     preprocessors = [
         None,
-        [(
-            'angle',
-            lifting_functions.AnglePreprocessor(angle_features=None),
-        )],
+        [lifting_functions.AnglePreprocessor(angle_features=None)],
     ]
     for pp in preprocessors:
         kp = koopman_pipeline.KoopmanPipeline(
             preprocessors=pp,
-            lifting_functions=[(
-                'delay',
+            lifting_functions=[
                 lifting_functions.DelayLiftingFn(
                     n_delays_state=1,
                     n_delays_input=1,
-                ),
-            )],
+                )
+            ],
             regressor=None,
         )
         # Fit pipeline
@@ -161,26 +156,27 @@ def test_kp_fit():
         u(sol.t),
     )).T
     kp = koopman_pipeline.KoopmanPipeline(
-        preprocessors=[(
-            'passthrough-angles',
-            lifting_functions.AnglePreprocessor(angle_features=None),
-        )],
-        lifting_functions=[(
-            'passthrough-delay',
+        preprocessors=[
+            lifting_functions.AnglePreprocessor(angle_features=None)
+        ],
+        lifting_functions=[
             lifting_functions.DelayLiftingFn(
                 n_delays_state=0,
                 n_delays_input=0,
-            ),
-        )],
-        regressor=('edmd', dmd.Edmd()),
+            )
+        ],
+        regressor=dmd.Edmd(),
     )
     kp.fit(X, n_inputs=1, episode_feature=True)
     # Compute discrete-time A and B matrices
     Ad = linalg.expm(msd._A * t_step)
-    def integrand(s): return linalg.expm(msd._A * (t_step - s)).ravel()
+
+    def integrand(s):
+        return linalg.expm(msd._A * (t_step - s)).ravel()
+
     Bd = integrate.quad_vec(integrand, 0, t_step)[0].reshape((2, 2)) @ msd._B
     U_exp = np.hstack((Ad, Bd)).T
-    np.testing.assert_allclose(kp.regressor_[1].coef_, U_exp, atol=0.1)
+    np.testing.assert_allclose(kp.regressor_.coef_, U_exp, atol=0.1)
 
 
 @pytest.mark.parametrize(
@@ -390,49 +386,31 @@ def test_combine_episodes(X, episodes, episode_feature):
     koopman_pipeline.KoopmanPipeline(
         preprocessors=None,
         lifting_functions=[
-            (
-                'delay',
-                lifting_functions.DelayLiftingFn(n_delays_state=1,
-                                                 n_delays_input=1),
-            ),
+            lifting_functions.DelayLiftingFn(n_delays_state=1,
+                                             n_delays_input=1)
         ],
-        regressor=('edmd', dmd.Edmd()),
+        regressor=dmd.Edmd(),
     ),
     koopman_pipeline.KoopmanPipeline(
         preprocessors=None,
         lifting_functions=[
-            (
-                'delay1',
-                lifting_functions.DelayLiftingFn(n_delays_state=2,
-                                                 n_delays_input=2),
-            ),
-            (
-                'delay2',
-                lifting_functions.DelayLiftingFn(n_delays_state=2,
-                                                 n_delays_input=2),
-            ),
+            lifting_functions.DelayLiftingFn(n_delays_state=2,
+                                             n_delays_input=2),
+            lifting_functions.DelayLiftingFn(n_delays_state=2,
+                                             n_delays_input=2),
         ],
-        regressor=('edmd', dmd.Edmd()),
+        regressor=dmd.Edmd(),
     ),
     koopman_pipeline.KoopmanPipeline(
         preprocessors=None,
         lifting_functions=[
-            (
-                'delay1',
-                lifting_functions.DelayLiftingFn(n_delays_state=2,
-                                                 n_delays_input=1),
-            ),
-            (
-                'poly',
-                lifting_functions.PolynomialLiftingFn(order=2),
-            ),
-            (
-                'delay2',
-                lifting_functions.DelayLiftingFn(n_delays_state=1,
-                                                 n_delays_input=2),
-            ),
+            lifting_functions.DelayLiftingFn(n_delays_state=2,
+                                             n_delays_input=1),
+            lifting_functions.PolynomialLiftingFn(order=2),
+            lifting_functions.DelayLiftingFn(n_delays_state=1,
+                                             n_delays_input=2),
         ],
-        regressor=('edmd', dmd.Edmd()),
+        regressor=dmd.Edmd(),
     ),
 ])
 def test_multistep_prediction(kp):
