@@ -1474,7 +1474,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
         A ``scikit-learn`` scorer accepts the parameters ``(estimator, X, y)``
         and returns a float representing the prediction quality of
         ``estimator`` on ``X`` with reference to ``y``. Higher numbers are
-        better. Losses are negated [1]_.
+        better. Losses are negated [scorers]_.
 
         Technically, the scorer will predict the entire episode, regardless of
         how ``n_steps`` is set. It will then assign a zero weight to all errors
@@ -1494,7 +1494,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
             Regression metric to use. One of ['explained_variance',
             'neg_mean_absolute_error', 'neg_mean_squared_error',
             'neg_mean_squared_log_error', 'neg_median_absolute_error', 'r2',
-            'neg_mean_absolute_percentage_error']. See [1]_.
+            'neg_mean_absolute_percentage_error']. See [scorers]_.
         multistep : bool
             If true, predict using :func:`predict_multistep`. Otherwise,
             predict using :func:`predict` (one-step-ahead prediction).
@@ -1514,7 +1514,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
 
         References
         ----------
-        .. [1] https://scikit-learn.org/stable/modules/model_evaluation.html
+        .. [scorers] https://scikit-learn.org/stable/modules/model_evaluation.html  # noqa: E501
         """
         # Check discount factor
         if (discount_factor < 0) or (discount_factor > 1):

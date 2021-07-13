@@ -16,6 +16,7 @@ from sklearn import preprocessing
     pykoop.lifting_functions.PolynomialLiftingFn(),
     pykoop.lifting_functions.DelayLiftingFn(),
     pykoop.lifting_functions.SkLearnLiftingFn(preprocessing.MaxAbsScaler()),
+    pykoop.lifting_functions.BilinearInputLiftingFn(),
     pykoop.koopman_pipeline.KoopmanPipeline(
         regressor=pykoop.dmd.Edmd()
     ),

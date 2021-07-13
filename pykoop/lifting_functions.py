@@ -4,8 +4,6 @@ All of the lifting functions included in this module adhere to the interface
 defined in :class:`KoopmanLiftingFn`.
 """
 
-import abc
-
 import numpy as np
 import sklearn.base
 import sklearn.preprocessing
@@ -143,8 +141,8 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     - ``sklearn.preprocessing.MinMaxScaler``, or
     - ``sklearn.preprocessing.MaxAbsScaler``.
 
-    See [1]_ for more appropriate transformers (though not all have been
-    tested).
+    See [transformers]_ for more appropriate transformers (though not all have
+    been tested).
 
     Attributes
     ----------
@@ -169,7 +167,7 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
 
     References
     ----------
-    .. [1] https://scikit-learn.org/stable/modules/classes.html#module-sklearn.preprocessing  # noqa: E501
+    .. [transformers] https://scikit-learn.org/stable/modules/classes.html#module-sklearn.preprocessing  # noqa: E501
     """
 
     def __init__(
@@ -316,6 +314,81 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     def _validate_parameters(self) -> None:
         if self.order <= 0:
             raise ValueError('`order` must be greater than or equal to 1.')
+
+
+class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
+    """Lifting function to generate bilinear products of the state and input.
+
+    Given a state ``x`` and input::
+
+        u = np.array([
+            [u1],
+            [u2],
+            [u3],
+        ])
+
+    the biliner lifted state has the form::
+
+        psi = np.array([
+            [x],
+            [x * u1],
+            [x * u2],
+            [x * u3],
+            [u].
+        ])
+
+    where the products are element-wise.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    """
+
+    def __init__(self) -> None:
+        """Instantiate :class:`BilinearInputLiftingFn`."""
+        # Nothing to do but write the docstring.
+        pass
+
+    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int]:
+        n_states_out = self.n_states_in_
+        n_inputs_out = (self.n_states_in_ + 1) * self.n_inputs_in_
+        return (n_states_out, n_inputs_out)
+
+    def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        states = X[:, :self.n_states_in_]
+        inputs = X[:, self.n_states_in_:]
+        features = [states]
+        for k in range(self.n_inputs_in_):
+            features.append(states * inputs[:, [k]])
+        features.append(inputs)
+        Xt = np.hstack(features)
+        return Xt
+
+    def _inverse_transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        Xt = np.hstack((
+            X[:, :self.n_states_in_],
+            X[:, self.n_states_out_ + self.n_inputs_out_ - self.n_inputs_in_:],
+        ))
+        return Xt
+
+    def _validate_parameters(self) -> None:
+        # No parameters to validate
+        pass
 
 
 class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):

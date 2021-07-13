@@ -644,7 +644,7 @@ def test_delay_inverse_eps(n_delays_state, n_delays_input, n_u, X, Xd_exp):
         np.testing.assert_allclose(X_i[-Xd_inv_i.shape[0]:, :], Xd_inv_i)
 
 
-sklearn_lf_test_cases = [
+episode_indep_test_cases = [
     (
         lifting_functions.SkLearnLiftingFn(preprocessing.MaxAbsScaler()),
         np.array([
@@ -694,21 +694,112 @@ sklearn_lf_test_cases = [
         0,
         False,
     ),
+    (
+        lifting_functions.BilinearInputLiftingFn(),
+        np.array([
+            [0, 1, 2, 3, 4, 5],
+            [1, 2, 3, 4, 5, 6],
+        ]).T,
+        np.array([
+            [0, 1, 2, 3, 4, 5],
+            [1, 2, 3, 4, 5, 6],
+        ]).T,
+        0,
+        False,
+    ),
+    (
+        lifting_functions.BilinearInputLiftingFn(),
+        np.array([
+            # States
+            [0, 1, 2, 3, 4, 5],
+            [1, 2, 3, 4, 5, 6],
+            [6, 5, 4, 3, 2, 1],
+            # Inputs
+            [5, 4, 3, 2, 1, 1],
+        ]).T,
+        np.array([
+            # x
+            [0, 1, 2, 3, 4, 5],
+            [1, 2, 3, 4, 5, 6],
+            [6, 5, 4, 3, 2, 1],
+            # x * u1
+            [0, 4, 6, 6, 4, 5],
+            [5, 8, 9, 8, 5, 6],
+            [30, 20, 12, 6, 2, 1],
+            # u
+            [5, 4, 3, 2, 1, 1],
+        ]).T,
+        1,
+        False,
+    ),
+    (
+        lifting_functions.BilinearInputLiftingFn(),
+        np.array([
+            # States
+            [0, 1, 2, 3, 4, 5],
+            [1, 2, 3, 4, 5, 6],
+            # Inputs
+            [6, 5, 4, 3, 2, 1],
+            [5, 4, 3, 2, 1, 1],
+        ]).T,
+        np.array([
+            # x
+            [0, 1, 2, 3, 4, 5],
+            [1, 2, 3, 4, 5, 6],
+            # x * u1
+            [0, 5, 8, 9, 8, 5],
+            [6, 10, 12, 12, 10, 6],
+            # x * u2
+            [0, 4, 6, 6, 4, 5],
+            [5, 8, 9, 8, 5, 6],
+            # u
+            [6, 5, 4, 3, 2, 1],
+            [5, 4, 3, 2, 1, 1],
+        ]).T,
+        2,
+        False,
+    ),
+    (
+        lifting_functions.BilinearInputLiftingFn(),
+        np.array([
+            # States
+            [0, 1, 2, 3, 4, 5],
+            # Inputs
+            [1, 2, 3, 4, 5, 6],
+            [6, 5, 4, 3, 2, 1],
+            [5, 4, 3, 2, 1, 1],
+        ]).T,
+        np.array([
+            # x
+            [0, 1, 2, 3, 4, 5],
+            # x * u1
+            [0, 2, 6, 12, 20, 30],
+            # x * u2
+            [0, 5, 8, 9, 8, 5],
+            # x * u3
+            [0, 4, 6, 6, 4, 5],
+            # Inputs
+            [1, 2, 3, 4, 5, 6],
+            [6, 5, 4, 3, 2, 1],
+            [5, 4, 3, 2, 1, 1],
+        ]).T,
+        3,
+        False,
+    ),
 ]
 
 
 @pytest.mark.parametrize('lf, X, Xt_exp, n_inputs, episode_feature',
-                         sklearn_lf_test_cases)
-def test_sklearn_lifting_fn_transform(lf, X, Xt_exp, n_inputs,
-                                      episode_feature):
+                         episode_indep_test_cases)
+def test_lifting_fn_transform(lf, X, Xt_exp, n_inputs, episode_feature):
     lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
     Xt = lf.transform(X)
     np.testing.assert_allclose(Xt, Xt_exp)
 
 
 @pytest.mark.parametrize('lf, X, Xt_exp, n_inputs, episode_feature',
-                         sklearn_lf_test_cases)
-def test_sklearn_lifting_fn_inverse(lf, X, Xt_exp, n_inputs, episode_feature):
+                         episode_indep_test_cases)
+def test_lifting_fn_inverse(lf, X, Xt_exp, n_inputs, episode_feature):
     lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
     Xt = lf.transform(X)
     Xi = lf.inverse_transform(Xt)
