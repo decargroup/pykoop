@@ -148,6 +148,7 @@ class KoopmanLiftingFn(sklearn.base.BaseEstimator,
             lifting function.
         """
         self.lift_input = lift_input
+        super().__init__()
 
     @abc.abstractmethod
     def fit(self,
@@ -264,6 +265,11 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
         Set by :func:`fit`.
+
+    Notes
+    -----
+    The ``lift_input`` parameter is handled automatically by this abstract base
+    class. Subclasses do not need to worry about it.
     """
 
     def fit(self,
@@ -271,6 +277,7 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
             y: np.ndarray = None,
             n_inputs: int = 0,
             episode_feature: bool = False) -> 'EpisodeIndependentLiftingFn':
+        # noqa: D102
         # Validate constructor parameters
         self._validate_parameters()
         # Validate fit parameters
@@ -304,6 +311,7 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
         return self
 
     def transform(self, X: np.ndarray) -> np.ndarray:
+        # noqa: D102
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
         # Validate data
@@ -317,6 +325,7 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
         return self._apply_transform_or_inverse(X, 'transform')
 
     def inverse_transform(self, X: np.ndarray) -> np.ndarray:
+        # noqa: D102
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
         # Validate data
@@ -330,6 +339,7 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
         return self._apply_transform_or_inverse(X, 'inverse_transform')
 
     def n_samples_in(self, n_samples_out: int = 1) -> int:
+        # noqa: D102
         # Episode-independent lifting functions have an input for every output.
         return n_samples_out
 
@@ -486,6 +496,9 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
 
     Notes
     -----
+    The ``lift_input`` parameter is **not** handled by this abstract base
+    class. Subclasses must handle it on their own.
+
     When :func:`fit` is called with multiple episodes, it only considers the
     first episode. It is assumed that the first episode contains all the
     information needed to properly fit the transformer. Typically, :func:`fit`
@@ -499,6 +512,7 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
             y: np.ndarray = None,
             n_inputs: int = 0,
             episode_feature: bool = False) -> 'EpisodeDependentLiftingFn':
+        # noqa: D102
         # Validate constructor parameters
         self._validate_parameters()
         # Validate fit parameters
@@ -531,6 +545,7 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
         return self
 
     def transform(self, X: np.ndarray) -> np.ndarray:
+        # noqa: D102
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
         # Validate data
@@ -544,6 +559,7 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
         return self._apply_transform_or_inverse(X, 'transform')
 
     def inverse_transform(self, X: np.ndarray) -> np.ndarray:
+        # noqa: D102
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
         # Validate data
@@ -555,10 +571,6 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
                              '`inverse_transform()` called with '
                              f'{X.shape[1]} features.')
         return self._apply_transform_or_inverse(X, 'inverse_transform')
-
-    @abc.abstractmethod
-    def n_samples_in(self, n_samples_out: int = 1) -> int:
-        raise NotImplementedError()
 
     def _apply_transform_or_inverse(self, X: np.ndarray,
                                     transform: str) -> np.ndarray:
