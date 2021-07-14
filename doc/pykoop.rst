@@ -1,7 +1,7 @@
-DMD estimators
+Regressors
 --------------
 
-.. automodule:: pykoop.dmd
+.. automodule:: pykoop.regressors
    :members:
 
 Koopman pipeline
@@ -20,7 +20,7 @@ Lifting functions
 LMI estimators
 --------------
 
-.. automodule:: pykoop.lmi
+.. automodule:: pykoop.lmi_regressors
    :members:
 
 Utilities
