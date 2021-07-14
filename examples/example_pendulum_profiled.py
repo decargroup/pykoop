@@ -33,17 +33,17 @@ kp = koopman_pipeline.KoopmanPipeline(
     delay=lifting_functions.Delay(n_delay_x=1, n_delay_u=1),
     lifting_function=lifting_functions.PolynomialLiftingFn(order=2),
     # estimator=dmd.Edmd()
-    estimator=lmi.LmiEdmdTikhonovReg(alpha=1e-6, inv_method='sqrt',
-                                     solver='mosek')
+    estimator=lmi.LmiEdmdTikhonovReg(alpha=1e-6, inv_method='svd')
+    # estimator=lmi.LmiEdmdTikhonovReg(alpha=1e-6, inv_method='sqrt')
 )
 
 # Set up profiling
-# pr = cProfile.Profile()
-# pr.enable()
+pr = cProfile.Profile()
+pr.enable()
 # Run profiled code
-kp.fit(X.T, n_u=1)
+kp.fit(X.T, n_u=1, r=None)
 score = kp.score(X.T)
-print(f'score = {score}')
 # Print profiling stats
-# ps = pstats.Stats(pr)
-# ps.strip_dirs().sort_stats('cumtime').print_stats()
+ps = pstats.Stats(pr)
+ps.strip_dirs().sort_stats('cumtime').reverse_order().print_stats()
+print(f'score = {score}')

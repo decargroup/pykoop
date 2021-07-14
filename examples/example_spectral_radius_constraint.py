@@ -3,6 +3,7 @@ from scipy import integrate, linalg
 from pykoop import lmi
 from dynamics import mass_spring_damper
 from matplotlib import pyplot as plt
+import logging
 
 plt.rc('lines', linewidth=2)
 plt.rc('axes', grid=True)
@@ -10,19 +11,22 @@ plt.rc('grid', linestyle='--')
 
 
 def main():
+    logging.basicConfig(level=logging.INFO)
+
     # Set up problem
     t_range = (0, 5)
     t_step = 0.1
-    msd = mass_spring_damper.MassSpringDamper(
-        mass=0.5,
-        stiffness=0.7,
-        damping=0.6
-    )
+    msd = mass_spring_damper.MassSpringDamper(mass=0.5,
+                                              stiffness=0.7,
+                                              damping=0.6)
     # Solve ODE for training data
     x0 = msd.x0(np.array([1, 0]))
-    sol = integrate.solve_ivp(lambda t, x: msd.f(t, x, 0), t_range, x0,
+    sol = integrate.solve_ivp(lambda t, x: msd.f(t, x, 0),
+                              t_range,
+                              x0,
                               t_eval=np.arange(*t_range, t_step),
-                              rtol=1e-8, atol=1e-8)
+                              rtol=1e-8,
+                              atol=1e-8)
     # Split the data
     X = sol.y[:, :-1]
     Xp = sol.y[:, 1:]
@@ -30,21 +34,32 @@ def main():
     # Regressor with no constraint
     reg_no_const = lmi.LmiEdmdTikhonovReg(alpha=0)
 
-    # Can call _calc_G_H to preview G and H and their condition numbers.
-    # Might be helpful to make sure your data isn't "bad"
-    a = lmi._calc_G_H(X.T, Xp.T, 1)
-    print(a)
+    sp = {
+        'dualize': False,
+    }
 
     reg_no_const.fit(X.T, Xp.T)
     U_no_const = reg_no_const.coef_.T
     # Regressor with constraint larger than actual spectral radius.
     # Should not have any effect on the problem.
-    reg_big_const = lmi.LmiEdmdSpectralRadiusConstr(rho_bar=1.1)
+    reg_big_const = lmi.LmiEdmdSpectralRadiusConstr(
+        rho_bar=1.1,
+        max_iter=100,
+        tol=1e-3,
+        picos_eps=0,
+        solver_params=sp,
+    )
     reg_big_const.fit(X.T, Xp.T)
     U_big_const = reg_big_const.coef_.T
     # Regressor with significant constraint on spectral radius.
     # Will push eigenvalues toward centre of unit circle.
-    reg_small_const = lmi.LmiEdmdSpectralRadiusConstr(rho_bar=0.8)
+    reg_small_const = lmi.LmiEdmdSpectralRadiusConstr(
+        rho_bar=0.8,
+        max_iter=100,
+        tol=1e-3,
+        picos_eps=0,
+        solver_params=sp,
+    )
     reg_small_const.fit(X.T, Xp.T)
     U_small_const = reg_small_const.coef_.T
 
@@ -58,6 +73,12 @@ def main():
     plt_eig(U_small_const, ax, r'Constrained, $\bar{\rho}=0.8$')
     ax.set_rmax(1.1)
     ax.legend()
+
+    fig, ax = plt.subplots(2, 1)
+    ax[0].plot(np.array(reg_big_const.objective_log_))
+    ax[0].plot(np.array(reg_small_const.objective_log_))
+    ax[1].plot(np.diff(np.array(reg_big_const.objective_log_)))
+    ax[1].plot(np.diff(np.array(reg_small_const.objective_log_)))
     plt.show()
 
 
