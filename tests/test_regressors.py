@@ -12,22 +12,22 @@ from sklearn import linear_model
 @pytest.fixture(
     params=[
         (pykoop.Edmd(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
-        (pykoop.lmi_regressors.LmiEdmdTikhonovReg(alpha=0, inv_method='eig'),
+        (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='eig'),
          'msd-no-input', 1e-4, 1e-5, 'exact'),
-        (pykoop.lmi_regressors.LmiEdmdTikhonovReg(
+        (pykoop.lmi_regressors.LmiEdmd(
             alpha=0,
             inv_method='inv',
             solver_params={'dualize': False},
         ), 'msd-no-input', 1e-4, 1e-5, 'exact'),
-        (pykoop.lmi_regressors.LmiEdmdTikhonovReg(alpha=0, inv_method='ldl'),
+        (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='ldl'),
          'msd-no-input', 1e-4, 1e-5, 'exact'),
-        (pykoop.lmi_regressors.LmiEdmdTikhonovReg(alpha=0, inv_method='chol'),
+        (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='chol'),
          'msd-no-input', 1e-4, 1e-5, 'exact'),
-        (pykoop.lmi_regressors.LmiEdmdTikhonovReg(alpha=0, inv_method='sqrt'),
+        (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='sqrt'),
          'msd-no-input', 1e-4, 1e-5, 'exact'),
-        (pykoop.lmi_regressors.LmiEdmdTikhonovReg(alpha=0, inv_method='svd'),
+        (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='svd'),
          'msd-no-input', 1e-4, 1e-5, 'exact'),
-        (pykoop.lmi_regressors.LmiEdmdTikhonovReg(alpha=1, inv_method='chol'),
+        (pykoop.lmi_regressors.LmiEdmd(alpha=1, inv_method='chol'),
          'msd-no-input', 1e-4, None, 'sklearn-ridge'),
         # (
         #     pykoop.lmi.LmiEdmdTwoNormReg(alpha=1,

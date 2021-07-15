@@ -42,11 +42,17 @@ def sigint_handler(sig, frame):
 signal.signal(signal.SIGINT, sigint_handler)
 
 
-class LmiEdmdTikhonovReg(koopman_pipeline.KoopmanRegressor):
+# TODO Make it all one class...
+# TODO Hinf and the like only really reuse create_problem and extract_solution.
+#      just pull them out completely...
+class LmiEdmd(koopman_pipeline.KoopmanRegressor):
     """LMI-based EDMD with Tikhonov regularization.
 
     Attributes
     ----------
+    alpha_tikhonov_ : float
+        Tikhonov regularization coefficient. Must be saved separately for
+        derived classes with mixed regularizers to use.
     solver_params_ : dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
@@ -90,7 +96,7 @@ class LmiEdmdTikhonovReg(koopman_pipeline.KoopmanRegressor):
                  inv_method: str = 'svd',
                  picos_eps: float = 0,
                  solver_params: dict[str, Any] = None) -> None:
-        """Instantiate :class:`LmiEdmdTikhonovReg`.
+        """Instantiate :class:`LmiEdmd`.
 
         Parameters
         ----------
@@ -130,6 +136,8 @@ class LmiEdmdTikhonovReg(koopman_pipeline.KoopmanRegressor):
         self.solver_params_ = self._default_solver_params.copy()
         if self.solver_params is not None:
             self.solver_params_.update(self.solver_params)
+        # Save Tikhonov coefficient
+        self.alpha_tikhonov_ = self.alpha
         # Form optimization problem
         problem = self._create_problem(X_unshifted, X_shifted)
         # Solve optimiztion problem
@@ -171,7 +179,7 @@ class LmiEdmdTikhonovReg(koopman_pipeline.KoopmanRegressor):
         picos.Problem
             Optimization problem.
         """
-        c, G, H, _ = _calc_c_G_H(X_unshifted, X_shifted, self.alpha)
+        c, G, H, _ = _calc_c_G_H(X_unshifted, X_shifted, self.alpha_tikhonov_)
         # Optimization problem
         problem = picos.Problem()
         # Constants
@@ -223,8 +231,8 @@ class LmiEdmdTikhonovReg(koopman_pipeline.KoopmanRegressor):
                     [sqrtH.T * U.T, 'I'],
                 ]) >> 0)
         elif self.inv_method == 'svd':
-            QSig = picos.Constant('Q Sigma',
-                                  _calc_QSig(X_unshifted, self.alpha))
+            QSig = picos.Constant(
+                'Q Sigma', _calc_QSig(X_unshifted, self.alpha_tikhonov_))
             problem.add_constraint(
                 picos.block([
                     [Z, U * QSig],
@@ -267,8 +275,7 @@ def _calc_c_G_H(
     X_shifted: np.ndarray
         Shifted data matrix.
     alpha: float
-        Tikhonov regularization coefficient. Can be zero without introducing
-        numerical problems.
+        Tikhonov regularization coefficient.
 
     Returns
     -------
@@ -366,8 +373,7 @@ def _calc_QSig(X: np.ndarray, alpha: float, r: int = None) -> np.ndarray:
     X : np.ndarray
         ``X``, where ``H = X @ X.T``.
     alpha : float
-        Tikhonov regularization coefficient. Can be zero without introducing
-        numerical problems.
+        Tikhonov regularization coefficient.
     r : int
         Singular value truncation index.
     """

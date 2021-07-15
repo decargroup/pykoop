@@ -6,7 +6,7 @@ from sklearn import preprocessing
 
 @sklearn.utils.estimator_checks.parametrize_with_checks([
     pykoop.Edmd(),
-    pykoop.lmi_regressors.LmiEdmdTikhonovReg(alpha=0),
+    pykoop.lmi_regressors.LmiEdmd(alpha=0),
     # pykoop.lmi.LmiEdmdTwoNormReg(alpha=1, ratio=1),
     # pykoop.lmi.LmiEdmdNuclearNormReg(alpha=1, ratio=1),
     # pykoop.lmi.LmiEdmdSpectralRadiusConstr(tol=100),  # Loosen tol
