@@ -13,7 +13,21 @@ from . import koopman_pipeline
 
 
 class Edmd(koopman_pipeline.KoopmanRegressor):
-    """Extended Dynamic Mode Decomposition with Tikhonov regularization."""
+    """Extended Dynamic Mode Decomposition with Tikhonov regularization.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+    """
 
     def __init__(self, alpha: float = 0) -> None:
         """Instantiate :class:`Edmd`.

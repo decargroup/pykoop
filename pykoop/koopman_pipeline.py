@@ -102,7 +102,7 @@ episode feature.
 
 import abc
 from collections.abc import Callable
-from typing import Optional
+from typing import Optional, Any
 
 import numpy as np
 import pandas
@@ -930,14 +930,14 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
     """
 
     # Array check parameters for :func:`fit` when ``X`` and ``y` are given
-    _check_X_y_params = {
+    _check_X_y_params: dict[str, Any] = {
         'multi_output': True,
         'y_numeric': True,
     }
 
     # Array check parameters for :func:`predict` and :func:`fit` when only
     # ``X`` is given
-    _check_array_params = {
+    _check_array_params: dict[str, Any] = {
         'dtype': 'numeric',
     }
 
