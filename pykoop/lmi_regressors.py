@@ -42,7 +42,6 @@ def sigint_handler(sig, frame):
 signal.signal(signal.SIGINT, sigint_handler)
 
 
-# TODO Make it all one class...
 class LmiEdmd(koopman_pipeline.KoopmanRegressor):
     """LMI-based EDMD with regularization.
 
@@ -51,8 +50,10 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
 
     Attributes
     ----------
-    self.alpha_tikhonov_
-    self.alpha_other_
+    self.alpha_tikhonov_ : float
+        Tikhonov regularization coefficient used.
+    self.alpha_other_ : float
+        Matrix two norm or nuclear norm regularization coefficient used.
     solver_params_ : dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
