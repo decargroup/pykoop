@@ -9,9 +9,7 @@ from sklearn import preprocessing
     pykoop.lmi_regressors.LmiEdmd(alpha=0),
     pykoop.lmi_regressors.LmiEdmd(alpha=1, reg_method='twonorm', ratio=1),
     pykoop.lmi_regressors.LmiEdmd(alpha=1, reg_method='nuclear', ratio=1),
-    # pykoop.lmi.LmiEdmdTwoNormReg(alpha=1, ratio=1),
-    # pykoop.lmi.LmiEdmdNuclearNormReg(alpha=1, ratio=1),
-    # pykoop.lmi.LmiEdmdSpectralRadiusConstr(tol=100),  # Loosen tol
+    pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr(iter_tol=100),  # Loosen tol
     # pykoop.lmi.LmiEdmdHinfReg(alpha=1, ratio=1, tol=100),  # Loosen tol
     pykoop.AnglePreprocessor(),
     pykoop.PolynomialLiftingFn(),

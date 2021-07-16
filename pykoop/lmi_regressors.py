@@ -166,9 +166,9 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
             self.alpha_tikhonov_ = self.alpha * (1.0 - self.ratio)
             self.alpha_other_ = self.alpha * self.ratio
         # Form optimization problem
-        problem = self._create_problem(X_unshifted, X_shifted,
-                                       self.alpha_tikhonov_, self.inv_method,
-                                       self.picos_eps)
+        problem = self._create_base_problem(X_unshifted, X_shifted,
+                                            self.alpha_tikhonov_,
+                                            self.inv_method, self.picos_eps)
         if self.reg_method == 'twonorm':
             problem = self._add_twonorm(problem, X_unshifted.shape[0],
                                         self.alpha_other_, self.picos_eps)
@@ -203,7 +203,7 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
                 "`reg_method='nuclear'`.")
 
     @staticmethod
-    def _create_problem(
+    def _create_base_problem(
         X_unshifted: np.ndarray,
         X_shifted: np.ndarray,
         alpha_tikhonov: float,
@@ -429,6 +429,238 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         # Validate ``picos_eps``
         if picos_eps < 0:
             raise ValueError('Parameter `picos_eps` must be positive or zero.')
+
+
+class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
+    """LMI-based EDMD with spectral radius constraint.
+
+    Optionally supports Tikhonov regularization.
+
+    Attributes
+    ----------
+    TODO
+    solver_params_ : dict[str, Any]
+        Solver parameters used (defaults merged with constructor input).
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+    """
+
+    # Default solver parameters
+    _default_solver_params: dict[str, Any] = {
+        'primals': None,
+        'duals': None,
+        'dualize': True,
+        'abs_bnb_opt_tol': None,
+        'abs_dual_fsb_tol': None,
+        'abs_ipm_opt_tol': None,
+        'abs_prim_fsb_tol': None,
+        'integrality_tol': None,
+        'markowitz_tol': None,
+        'rel_bnb_opt_tol': None,
+        'rel_dual_fsb_tol': None,
+        'rel_ipm_opt_tol': None,
+        'rel_prim_fsb_tol': None,
+    }
+
+    # Override since PICOS only works with ``float64``.
+    _check_X_y_params: dict[str, Any] = {
+        'multi_output': True,
+        'y_numeric': True,
+        'dtype': 'float64',
+    }
+
+    def __init__(self,
+                 spectral_radius: float = 1.0,
+                 max_iter: int = 100,
+                 iter_tol: float = 1e-6,
+                 alpha: float = 0,
+                 inv_method: str = 'svd',
+                 picos_eps: float = 0,
+                 solver_params: dict[str, Any] = None) -> None:
+        """Instantiate :class:`LmiEdmdSpectralRadiusConstr`.
+
+        To disable regularization, use ``alpha=0``.
+
+        Parameters
+        ----------
+        spectral_radius : float
+            Maximum spectral radius.
+
+        max_iter : int
+            Maximum number of solver iterations.
+
+        iter_tol : float
+            Absolute tolerance for change in objective function value. When the
+            change in objective function is less than ``iter_tol``, the
+            iteration will stop.
+
+        alpha : float
+            Regularization coefficient. Can only be zero if
+            ``reg_method='tikhonov'``.
+
+        inv_method : str
+            Method to handle or avoid inversion of the ``H`` matrix when
+            forming the LMI problem. Possible values are
+
+            - ``'inv'`` -- invert ``H`` directly,
+            - ``'pinv'`` -- apply the Moore-Penrose pseudoinverse to ``H``,
+            - ``'eig'`` -- split ``H`` using an eigendecomposition,
+            - ``'ldl'`` -- split ``H`` using an LDL decomposition,
+            - ``'chol'`` -- split ``H`` using a Cholesky decomposition,
+            - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
+            - ``'svd'`` -- split ``H`` using a singular value decomposition.
+
+        picos_eps : float
+            Tolerance used for strict LMIs. If nonzero, should be larger than
+            solver tolerance.
+
+        solver_params : dict[str, Any]
+            Parameters passed to PICOS :func:`picos.Problem.solve()`. By
+            default, allows chosen solver to select its own tolerances.
+        """
+        self.spectral_radius = spectral_radius
+        self.max_iter = max_iter
+        self.iter_tol = iter_tol
+        self.alpha = alpha
+        self.inv_method = inv_method
+        self.picos_eps = picos_eps
+        self.solver_params = solver_params
+
+    def _fit_regressor(self, X_unshifted: np.ndarray,
+                       X_shifted: np.ndarray) -> np.ndarray:
+        # Set solver parameters
+        self.solver_params_ = self._default_solver_params.copy()
+        if self.solver_params is not None:
+            self.solver_params_.update(self.solver_params)
+        # Get needed sizes
+        p = X_unshifted.shape[1]
+        p_theta = X_shifted.shape[1]
+        # Make initial guesses and iterate
+        Gamma = np.eye(p_theta)
+        # Set scope of other variables
+        U = np.zeros((p_theta, p))
+        P = np.zeros((p_theta, p_theta))
+        self.objective_log_ = []
+        for k in range(self.max_iter):
+            # Formulate Problem A
+            problem_a = self._create_problem_a(X_shifted, X_unshifted, Gamma)
+            # Solve Problem A
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem A{k}')
+            problem_a.solve(**self.solver_params_)
+            solution_status_a = problem_a.last_solution.claimedStatus
+            if solution_status_a != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_a`. Used last valid `U`. '
+                    f'Solution status: `{solution_status_a}`.'
+                )
+                log.warn(self.stop_reason_)
+                break
+            U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
+            P = np.array(problem_a.get_valued_variable('P'), ndmin=2)
+            # Check stopping condition
+            self.objective_log_.append(problem_a.value)
+            if len(self.objective_log_) > 1:
+                diff = np.absolute(
+                    self.objective_log_[-2] - self.objective_log_[-1]
+                )
+                if (diff < self.iter_tol):
+                    self.stop_reason_ = f'Reached tolerance {diff}'
+                    break
+            # Formulate Problem B
+            problem_b = self._create_problem_b(U, P)
+            # Solve Problem B
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem B{k}')
+            problem_b.solve(**self.solver_params_)
+            solution_status_b = problem_b.last_solution.claimedStatus
+            if solution_status_b != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_b`. Used last valid `U`. '
+                    f'Solution status: `{solution_status_b}`.'
+                )
+                log.warn(self.stop_reason_)
+                break
+            Gamma = np.array(problem_b.get_valued_variable('Gamma'), ndmin=2)
+        else:
+            self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
+            log.warn(self.stop_reason_)
+        self.n_iter_ = k + 1
+        coef = U.T
+        # Only useful for debugging
+        self.Gamma_ = Gamma
+        self.P_ = P
+        return coef
+
+    def _validate_parameters(self) -> None:
+        # Check problem creation parameters
+        LmiEdmd._validate_problem_parameters(self.alpha, self.inv_method,
+                                             self.picos_eps)
+        # Check spectral radius
+        if self.spectral_radius <= 0:
+            raise ValueError('`spectral_radius` must be positive.')
+        if self.max_iter <= 0:
+            raise ValueError('`max_iter` must be positive.')
+        if self.iter_tol <= 0:
+            raise ValueError('`iter_tol` must be positive.')
+
+    def _create_problem_a(self, X_shifted: np.ndarray, X_unshifted: np.ndarray,
+                          Gamma: np.ndarray) -> picos.Problem:
+        """Create first problem in iteration scheme."""
+        problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
+                                                 self.alpha, self.inv_method,
+                                                 self.picos_eps)
+        # Extract information from problem
+        U = problem_a.variables['U']
+        # Get needed sizes
+        p_theta = U.shape[0]
+        # Add new constraints
+        rho_bar_sq = picos.Constant('rho_bar^2', self.spectral_radius**2)
+        Gamma = picos.Constant('Gamma', Gamma)
+        P = picos.SymmetricVariable('P', p_theta)
+        problem_a.add_constraint(P >> self.picos_eps)
+        problem_a.add_constraint(
+            picos.block([
+                [rho_bar_sq * P, U[:, :p_theta].T * Gamma],
+                [Gamma.T * U[:, :p_theta], Gamma + Gamma.T - P],
+            ]) >> self.picos_eps)
+        return problem_a
+
+    def _create_problem_b(self, U: np.ndarray, P: np.ndarray) -> picos.Problem:
+        """Create second problem in iteration scheme."""
+        # Create optimization problem
+        problem_b = picos.Problem()
+        # Get needed sizes
+        p_theta = U.shape[0]
+        # Create constants
+        rho_bar_sq = picos.Constant('rho_bar^2', self.spectral_radius**2)
+        U = picos.Constant('U', U)
+        P = picos.Constant('P', P)
+        # Create variables
+        Gamma = picos.RealVariable('Gamma', P.shape)
+        # Add constraints
+        problem_b.add_constraint(
+            picos.block([
+                [rho_bar_sq * P, U[:, :p_theta].T * Gamma],
+                [Gamma.T * U[:, :p_theta], Gamma + Gamma.T - P],
+            ]) >> self.picos_eps)
+        # Set objective
+        problem_b.set_objective('find')
+        return problem_b
 
 
 @memory.cache

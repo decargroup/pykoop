@@ -1,11 +1,10 @@
 import numpy as np
+import pykoop
+import pykoop.lmi_regressors
 import pytest
 from dynamics import mass_spring_damper
 from scipy import integrate, linalg
 from sklearn import linear_model
-
-import pykoop
-import pykoop.lmi_regressors
 
 # TODO This file is a nightmare
 
@@ -68,34 +67,35 @@ import pykoop.lmi_regressors
                 [0.875848, -0.017190],  # noqa: E201
                 [-0.210071, 0.727786]
             ])),
-        # pytest.param(
-        #     (
-        #         pykoop.lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol',
-        #                                                rho_bar=1.1),
-        #         'msd-no-input',
-        #         1e-4,
-        #         1e-5,
-        #         # Since the constraint is larger than the actual eigenvalue magnitudes,
-        #         # it will have no effect and we can compare to the exact solution.
-        #         'exact'),
-        #     marks=pytest.mark.slow),
-        # pytest.param(
-        #     (
-        #         pykoop.lmi.LmiEdmdSpectralRadiusConstr(
-        #             inv_method='chol',
-        #             rho_bar=0.8,
-        #             solver_params={'dualize': False}),
-        #         'msd-no-input',
-        #         1e-4,
-        #         None,
-        #         # Regression test generated from this code. Result was manually
-        #         # checked (eigenvalue magnitudes are less than 0.8) but strictly
-        #         # speaking, it hasn't been checked against other code.
-        #         np.array([
-        #             [0.88994802, 0.04260765],  # noqa: E201
-        #             [-0.22883601, 0.70816555]
-        #         ])),
-        #     marks=pytest.mark.slow),
+        pytest.param(
+            (
+                pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr(
+                    inv_method='chol', spectral_radius=1.1),
+                'msd-no-input',
+                2e-4,
+                1e-5,
+                # Since the constraint is larger than the actual eigenvalue
+                # magnitudes it will have no effect and we can compare to the
+                # exact solution.
+                'exact'),
+            marks=pytest.mark.slow),
+        pytest.param(
+            (
+                pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr(
+                    inv_method='chol',
+                    spectral_radius=0.8,
+                    solver_params={'dualize': False}),
+                'msd-no-input',
+                1e-4,
+                None,
+                # Regression test generated from this code. Result was manually
+                # checked (eigenvalue magnitudes are less than 0.8) but
+                # strictly speaking, it hasn't been checked against other code.
+                np.array([
+                    [0.88994802, 0.04260765],  # noqa: E201
+                    [-0.22883601, 0.70816555]
+                ])),
+            marks=pytest.mark.slow),
         # pytest.param(
         #     (
         #         pykoop.lmi.LmiEdmdHinfReg(inv_method='eig',
