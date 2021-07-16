@@ -438,7 +438,16 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
 
     Attributes
     ----------
-    TODO
+    objective_log_ : list[float]
+        Objective function history.
+    stop_reason_ : str
+        Reason iteration stopped.
+    n_iter_ : int
+        Number of iterations
+    Gamma_ : np.ndarray
+        ``Gamma`` matrix, for debugging.
+    P_ : np.ndarray
+        ``P`` matrix, for debugging.
     solver_params_ : dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
