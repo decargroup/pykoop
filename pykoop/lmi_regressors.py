@@ -43,16 +43,16 @@ signal.signal(signal.SIGINT, sigint_handler)
 
 
 # TODO Make it all one class...
-# TODO Hinf and the like only really reuse create_problem and extract_solution.
-#      just pull them out completely...
 class LmiEdmd(koopman_pipeline.KoopmanRegressor):
-    """LMI-based EDMD with Tikhonov regularization.
+    """LMI-based EDMD with regularization.
+
+    Supports Tikhonov regularization, optionally mixed with matrix two-norm
+    regularization or nuclear norm regularization.
 
     Attributes
     ----------
-    alpha_tikhonov_ : float
-        Tikhonov regularization coefficient. Must be saved separately for
-        derived classes with mixed regularizers to use.
+    self.alpha_tikhonov_
+    self.alpha_other_
     solver_params_ : dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
@@ -93,16 +93,36 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
 
     def __init__(self,
                  alpha: float = 0,
+                 ratio: float = 1,
+                 reg_method: str = 'tikhonov',
                  inv_method: str = 'svd',
                  picos_eps: float = 0,
                  solver_params: dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiEdmd`.
 
+        To disable regularization, use ``alpha=0`` paired with
+        ``reg_method='tikhonov'``.
+
         Parameters
         ----------
         alpha : float
-            Tikhonov regularization coefficient. Can be zero without
-            introducing numerical problems.
+            Regularization coefficient. Can only be zero if
+            ``reg_method='tikhonov'``.
+
+        ratio : float
+            Ratio of matrix two-norm or nuclear norm to use in mixed
+            regularization. If ``ratio=1``, no Tikhonov regularization is
+            used. Cannot be zero. Ignored if ``reg_method='tikhonov'``.
+
+        reg_method : str
+            Regularization method to use. Possible values are
+
+            - ``'tikhonov'`` -- pure Tikhonov regularization (``ratio``
+              is ignored),
+            - ``'twonorm'`` -- matrix two-norm regularization mixed with
+              Tikhonov regularization, or
+            - ``'nuclear'`` -- nuclear norm regularization mixed with Tikhonov
+              regularization.
 
         inv_method : str
             Method to handle or avoid inversion of the ``H`` matrix when
@@ -121,11 +141,12 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
             solver tolerance.
 
         solver_params : dict[str, Any]
-            Parameters passed to PICOS
-            :func:`picos.Problem.solve()`.
+            Parameters passed to PICOS :func:`picos.Problem.solve()`. By
+            default, allows chosen solver to select its own tolerances.
         """
-        # TODO Add truncated svd inv_method (dimension, cutoff, or optht)
         self.alpha = alpha
+        self.ratio = ratio
+        self.reg_method = reg_method
         self.inv_method = inv_method
         self.picos_eps = picos_eps
         self.solver_params = solver_params
@@ -136,10 +157,23 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         self.solver_params_ = self._default_solver_params.copy()
         if self.solver_params is not None:
             self.solver_params_.update(self.solver_params)
-        # Save Tikhonov coefficient
-        self.alpha_tikhonov_ = self.alpha
+        # Compute regularization coefficients
+        if self.reg_method == 'tikhonov':
+            self.alpha_tikhonov_ = self.alpha
+            self.alpha_other_ = 0.0
+        else:
+            self.alpha_tikhonov_ = self.alpha * (1.0 - self.ratio)
+            self.alpha_other_ = self.alpha * self.ratio
         # Form optimization problem
-        problem = self._create_problem(X_unshifted, X_shifted)
+        problem = self._create_problem(X_unshifted, X_shifted,
+                                       self.alpha_tikhonov_, self.inv_method,
+                                       self.picos_eps)
+        if self.reg_method == 'twonorm':
+            problem = self._add_twonorm(problem, X_unshifted.shape[0],
+                                        self.alpha_other_, self.picos_eps)
+        elif self.reg_method == 'nuclear':
+            problem = self._add_nuclear(problem, X_unshifted.shape[0],
+                                        self.alpha_other_, self.picos_eps)
         # Solve optimiztion problem
         problem.solve(**self.solver_params_)
         # Save solution status
@@ -149,22 +183,32 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         return coef
 
     def _validate_parameters(self) -> None:
-        # Validate ``alpha``
-        if self.alpha < 0:
-            raise ValueError('Parameter `alpha` must be positive or zero.')
-        # Validate ``inv_method``
-        valid_inv_methods = [
-            'inv', 'pinv', 'eig', 'ldl', 'chol', 'sqrt', 'svd'
-        ]
-        if self.inv_method not in valid_inv_methods:
-            raise ValueError('`inv_method` must be one of: '
-                             f'{", ".join(valid_inv_methods)}.')
-        # Validate ``picos_eps``
-        if self.picos_eps < 0:
-            raise ValueError('Parameter `picos_eps` must be positive or zero.')
+        # Check problem creation parameters
+        self._validate_problem_parameters(self.alpha, self.inv_method,
+                                          self.picos_eps)
+        # Check regularization methods
+        valid_reg_methods = ['tikhonov', 'twonorm', 'nuclear']
+        if self.reg_method not in valid_reg_methods:
+            raise ValueError('`reg_method` must be one of '
+                             f'{valid_reg_methods}.')
+        # Check ratio
+        if self.ratio <= 0:
+            raise ValueError('`ratio` must be greater than zero and less than '
+                             'or equal to one.')
+        # Check regularization method
+        if self.reg_method != 'tikhonov' and self.alpha == 0:
+            raise ValueError(
+                "`alpha` cannot be zero if `reg_method='twonorm'` or "
+                "`reg_method='nuclear'`.")
 
-    def _create_problem(self, X_unshifted: np.ndarray,
-                        X_shifted: np.ndarray) -> picos.Problem:
+    @staticmethod
+    def _create_problem(
+        X_unshifted: np.ndarray,
+        X_shifted: np.ndarray,
+        alpha_tikhonov: float,
+        inv_method: str,
+        picos_eps: float,
+    ) -> picos.Problem:
         """Create optimization problem.
 
         Parameters
@@ -173,13 +217,23 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
             Unshifted data matrix.
         X_shifted : np.ndarray
             Shifted data matrix.
+        alpha_tikhonov : float
+            Tikhonov regularization coefficient.
+        inv_method : str
+            Method to handle or avoid inversion of the ``H`` matrix when
+            forming the LMI problem.
+        picos_eps : float
+            Tolerance used for strict LMIs. If nonzero, should be larger than
+            solver tolerance.
 
         Returns
         -------
         picos.Problem
             Optimization problem.
         """
-        c, G, H, _ = _calc_c_G_H(X_unshifted, X_shifted, self.alpha_tikhonov_)
+        LmiEdmd._validate_problem_parameters(alpha_tikhonov, inv_method,
+                                             picos_eps)
+        c, G, H, _ = _calc_c_G_H(X_unshifted, X_shifted, alpha_tikhonov)
         # Optimization problem
         problem = picos.Problem()
         # Constants
@@ -188,56 +242,59 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         U = picos.RealVariable('U', (G.shape[0], H.shape[0]))
         Z = picos.SymmetricVariable('Z', (G.shape[0], G.shape[0]))
         # Constraints
-        problem.add_constraint(Z >> self.picos_eps)
+        problem.add_constraint(Z >> picos_eps)
         # Choose method to handle inverse of H
-        if self.inv_method == 'inv':
+        if inv_method == 'inv':
             H_inv = picos.Constant('H^-1', _calc_Hinv(H))
             problem.add_constraint(picos.block([
                 [Z, U],
                 [U.T, H_inv],
             ]) >> 0)
-        elif self.inv_method == 'pinv':
+        elif inv_method == 'pinv':
             H_inv = picos.Constant('H^+', _calc_Hpinv(H))
             problem.add_constraint(picos.block([
                 [Z, U],
                 [U.T, H_inv],
             ]) >> 0)
-        elif self.inv_method == 'eig':
+        elif inv_method == 'eig':
             VsqrtLmb = picos.Constant('(V Lambda^(1/2))', _calc_VsqrtLmb(H))
             problem.add_constraint(
                 picos.block([
                     [Z, U * VsqrtLmb],
                     [VsqrtLmb.T * U.T, 'I'],
                 ]) >> 0)
-        elif self.inv_method == 'ldl':
+        elif inv_method == 'ldl':
             LsqrtD = picos.Constant('(L D^(1/2))', _calc_LsqrtD(H))
             problem.add_constraint(
                 picos.block([
                     [Z, U * LsqrtD],
                     [LsqrtD.T * U.T, 'I'],
                 ]) >> 0)
-        elif self.inv_method == 'chol':
+        elif inv_method == 'chol':
             L = picos.Constant('L', _calc_L(H))
             problem.add_constraint(
                 picos.block([
                     [Z, U * L],
                     [L.T * U.T, 'I'],
                 ]) >> 0)
-        elif self.inv_method == 'sqrt':
+        elif inv_method == 'sqrt':
             sqrtH = picos.Constant('sqrt(H)', _calc_sqrtH(H))
             problem.add_constraint(
                 picos.block([
                     [Z, U * sqrtH],
                     [sqrtH.T * U.T, 'I'],
                 ]) >> 0)
-        elif self.inv_method == 'svd':
-            QSig = picos.Constant(
-                'Q Sigma', _calc_QSig(X_unshifted, self.alpha_tikhonov_))
+        elif inv_method == 'svd':
+            QSig = picos.Constant('Q Sigma',
+                                  _calc_QSig(X_unshifted, alpha_tikhonov))
             problem.add_constraint(
                 picos.block([
                     [Z, U * QSig],
                     [QSig.T * U.T, 'I'],
                 ]) >> 0)
+        else:
+            # Should never, ever get here.
+            assert False
         # Set objective
         obj = c - 2 * picos.trace(U * G_T) + picos.trace(Z)
         problem.set_objective('min', obj)
@@ -255,9 +312,122 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         Returns
         -------
         np.ndarray
-            Solution.
+            Solution matrix.
         """
         return np.array(problem.get_valued_variable('U'), ndmin=2).T
+
+    @staticmethod
+    def _add_twonorm(problem: picos.Problem, q: int, alpha_other: float,
+                     picos_eps: float) -> picos.Problem:
+        """Add matrix two norm regularizer to an optimization problem.
+
+        Parameters
+        ----------
+        problem : picos.Problem
+            Optimization problem.
+        q : int
+            Number of timesteps in unshifted data matrix.
+        alpha_other : float
+            Regularization coefficient.
+        picos_eps : float
+            Tolerance used for strict LMIs.
+
+        Returns
+        -------
+        picos.Problem
+            Optimization problem with regularizer added.
+        """
+        # Extract information from problem
+        U = problem.variables['U']
+        direction = problem.objective.direction
+        objective = problem.objective.function
+        # Get needed sizes
+        p_theta, p = U.shape
+        # Add new constraint
+        gamma = picos.RealVariable('gamma', 1)
+        problem.add_constraint(
+            picos.block([[picos.diag(gamma, p), U.T],
+                         [U, picos.diag(gamma, p_theta)]]) >> 0)
+        # Add term to cost function
+        alpha_scaled = picos.Constant('alpha_2/q', alpha_other / q)
+        objective += alpha_scaled * gamma
+        problem.set_objective(direction, objective)
+        return problem
+
+    @staticmethod
+    def _add_nuclear(problem: picos.Problem, q: int, alpha_other: float,
+                     picos_eps: float) -> picos.Problem:
+        """Add nuclear norm regularizer to an optimization problem.
+
+        Parameters
+        ----------
+        problem : picos.Problem
+            Optimization problem.
+        q : int
+            Number of timesteps in unshifted data matrix.
+        alpha_other : float
+            Regularization coefficient.
+        picos_eps : float
+            Tolerance used for strict LMIs.
+
+        Returns
+        -------
+        picos.Problem
+            Optimization problem with regularizer added.
+        """
+        # Extract information from problem
+        U = problem.variables['U']
+        direction = problem.objective.direction
+        objective = problem.objective.function
+        # Get needed sizes
+        p_theta, p = U.shape
+        # Add new constraint
+        gamma = picos.RealVariable('gamma', 1)
+        W_1 = picos.SymmetricVariable('W_1', (p_theta, p_theta))
+        W_2 = picos.SymmetricVariable('W_2', (p, p))
+        problem.add_constraint(
+            picos.trace(W_1) + picos.trace(W_2) <= 2 * gamma)
+        problem.add_constraint(picos.block([[W_1, U], [U.T, W_2]]) >> 0)
+        # Add term to cost function
+        alpha_scaled = picos.Constant('alpha_*/q', alpha_other / q)
+        objective += alpha_scaled * gamma
+        problem.set_objective(direction, objective)
+        return problem
+
+    @staticmethod
+    def _validate_problem_parameters(alpha: float, inv_method: str,
+                                     picos_eps: float) -> None:
+        """Validate parameters involved in problem creation.
+
+        Parameters
+        ----------
+        alpha : float
+            Tikhonov regularization coefficient.
+        inv_method : str
+            Method to handle or avoid inversion of the ``H`` matrix when
+            forming the LMI problem.
+        picos_eps : float
+            Tolerance used for strict LMIs. If nonzero, should be larger than
+            solver tolerance.
+
+        Raises
+        ------
+        ValueError
+            If any of the parameters are incorrect.
+        """
+        # Validate ``alpha``
+        if alpha < 0:
+            raise ValueError('Parameter `alpha` must be positive or zero.')
+        # Validate ``inv_method``
+        valid_inv_methods = [
+            'inv', 'pinv', 'eig', 'ldl', 'chol', 'sqrt', 'svd'
+        ]
+        if inv_method not in valid_inv_methods:
+            raise ValueError('`inv_method` must be one of '
+                             f'{valid_inv_methods}.')
+        # Validate ``picos_eps``
+        if picos_eps < 0:
+            raise ValueError('Parameter `picos_eps` must be positive or zero.')
 
 
 @memory.cache

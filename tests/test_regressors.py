@@ -1,10 +1,11 @@
 import numpy as np
-import pykoop
-import pykoop.lmi_regressors
 import pytest
 from dynamics import mass_spring_damper
 from scipy import integrate, linalg
 from sklearn import linear_model
+
+import pykoop
+import pykoop.lmi_regressors
 
 # TODO This file is a nightmare
 
@@ -29,43 +30,44 @@ from sklearn import linear_model
          'msd-no-input', 1e-4, 1e-5, 'exact'),
         (pykoop.lmi_regressors.LmiEdmd(alpha=1, inv_method='chol'),
          'msd-no-input', 1e-4, None, 'sklearn-ridge'),
-        # (
-        #     pykoop.lmi.LmiEdmdTwoNormReg(alpha=1,
-        #                                  inv_method='chol',
-        #                                  solver_params={'dualize': False}),
-        #     'msd-no-input',
-        #     1e-4,
-        #     None,
-        #     # Regression test! Not unit test!
-        #     # If regularizing using the norm squared, use:
-        #     # np.array([
-        #     #     [ 0.89995985, 0.07048035],  # noqa: E201
-        #     #     [-0.07904385, 0.89377084]
-        #     # ])
-        #     # If regularizing using the norm alone, use:
-        #     np.array([
-        #         [0.929949, 0.065987],  # noqa: E201
-        #         [-0.102050, 0.893498]
-        #     ])),
-        # (
-        #     pykoop.lmi.LmiEdmdNuclearNormReg(inv_method='chol',
-        #                                      alpha=1,
-        #                                      ratio=1,
-        #                                      solver_params={'dualize': False}),
-        #     'msd-no-input',
-        #     1e-4,
-        #     None,
-        #     # Regression test! Not unit test!
-        #     # If regularizing using the norm squared, use:
-        #     # np.array([
-        #     #     [ 0.70623152, -0.17749238],  # noqa: E201
-        #     #     [-0.32354638,  0.50687639]
-        #     # ])
-        #     # If regularizing using the norm alone, use:
-        #     np.array([
-        #         [0.875848, -0.017190],  # noqa: E201
-        #         [-0.210071, 0.727786]
-        #     ])),
+        (
+            pykoop.lmi_regressors.LmiEdmd(alpha=1,
+                                          reg_method='twonorm',
+                                          inv_method='chol',
+                                          solver_params={'dualize': False}),
+            'msd-no-input',
+            1e-4,
+            None,
+            # Regression test! Not unit test!
+            # If regularizing using the norm squared, use:
+            # np.array([
+            #     [ 0.89995985, 0.07048035],  # noqa: E201
+            #     [-0.07904385, 0.89377084]
+            # ])
+            # If regularizing using the norm alone, use:
+            np.array([
+                [0.929949, 0.065987],  # noqa: E201
+                [-0.102050, 0.893498]
+            ])),
+        (
+            pykoop.lmi_regressors.LmiEdmd(alpha=1,
+                                          reg_method='nuclear',
+                                          inv_method='chol',
+                                          solver_params={'dualize': False}),
+            'msd-no-input',
+            1e-4,
+            None,
+            # Regression test! Not unit test!
+            # If regularizing using the norm squared, use:
+            # np.array([
+            #     [ 0.70623152, -0.17749238],  # noqa: E201
+            #     [-0.32354638,  0.50687639]
+            # ])
+            # If regularizing using the norm alone, use:
+            np.array([
+                [0.875848, -0.017190],  # noqa: E201
+                [-0.210071, 0.727786]
+            ])),
         # pytest.param(
         #     (
         #         pykoop.lmi.LmiEdmdSpectralRadiusConstr(inv_method='chol',

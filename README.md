@@ -10,6 +10,7 @@ Koopman operator identification library in Python.
 - [ ] Merge LMI methods with new abstract base class
 - [ ] Fix examples (Must merge LMI methods first)
 - [ ] Handle methods that don't save a `coef_`?
+- [ ] Cosmetic: Replace ints with floats in function signature?
 
 ### LMI
 
