@@ -2,7 +2,7 @@ import numpy as np
 import pykoop
 import pykoop.lmi_regressors
 import pytest
-from dynamics import mass_spring_damper
+import mass_spring_damper
 from scipy import integrate, linalg
 from sklearn import linear_model
 
@@ -133,7 +133,7 @@ def scenario(request):
         t_step = 0.1
         msd = mass_spring_damper.MassSpringDamper(0.5, 0.7, 0.6)
         # Solve ODE for training data
-        x0 = msd.x0(np.array([1, 0]))
+        x0 = np.array([1, 0])
         sol = integrate.solve_ivp(lambda t, x: msd.f(t, x, 0),
                                   t_range,
                                   x0,
@@ -160,7 +160,7 @@ def scenario(request):
             return msd.f(t, x, u(t))
 
         # Solve ODE for training data
-        x0 = msd.x0(np.array([0, 0]))
+        x0 = np.array([0, 0])
         sol = integrate.solve_ivp(ivp,
                                   t_range,
                                   x0,

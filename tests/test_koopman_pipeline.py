@@ -1,7 +1,7 @@
 import numpy as np
 import pykoop
 import pytest
-from dynamics import mass_spring_damper
+import mass_spring_damper
 from scipy import integrate, linalg
 
 
@@ -139,7 +139,7 @@ def test_kp_fit():
         return msd.f(t, x, u(t))
 
     # Solve ODE for training data
-    x0 = msd.x0(np.array([0, 0]))
+    x0 = np.array([0, 0])
     sol = integrate.solve_ivp(ivp,
                               t_range,
                               x0,
@@ -448,7 +448,7 @@ def test_multistep_prediction(kp):
         return msd.f(t, x, u(t))
 
     # Solve ODE for training data
-    x0 = msd.x0(np.array([0, 0]))
+    x0 = np.array([0, 0])
     sol = integrate.solve_ivp(ivp,
                               t_range,
                               x0,
