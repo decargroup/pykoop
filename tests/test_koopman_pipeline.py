@@ -1,6 +1,5 @@
 import numpy as np
 import pykoop
-import pykoop.lmi
 import pytest
 from dynamics import mass_spring_damper
 from scipy import integrate, linalg
