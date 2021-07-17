@@ -1,4 +1,4 @@
-"""Collection of LMI-based Koopman regressors.
+"""Collection of experimental LMI-based Koopman regressors.
 
 Warning
 -------
@@ -24,22 +24,22 @@ from . import koopman_pipeline
 log = logging.getLogger(__name__)
 
 # Create temporary cache directory for memoized computations
-cachedir = tempfile.TemporaryDirectory(prefix='pykoop_')
-log.info(f'Temporary directory created at `{cachedir.name}`')
-memory = joblib.Memory(cachedir.name, verbose=0)
+_cachedir = tempfile.TemporaryDirectory(prefix='pykoop_')
+log.info(f'Temporary directory created at `{_cachedir.name}`')
+memory = joblib.Memory(_cachedir.name, verbose=0)
 
 # Create signal handler to politely stop computations
 polite_stop = False
 
 
-def sigint_handler(sig, frame):
+def _sigint_handler(sig, frame):
     """Signal handler for ^C."""
     print('Stop requested. Regression will terminate at next iteration...')
     global polite_stop
     polite_stop = True
 
 
-signal.signal(signal.SIGINT, sigint_handler)
+signal.signal(signal.SIGINT, _sigint_handler)
 
 
 class LmiEdmd(koopman_pipeline.KoopmanRegressor):
@@ -193,9 +193,8 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
             raise ValueError('`reg_method` must be one of '
                              f'{valid_reg_methods}.')
         # Check ratio
-        if self.ratio <= 0:
-            raise ValueError('`ratio` must be greater than zero and less than '
-                             'or equal to one.')
+        if (self.ratio <= 0) or (self.ratio > 1):
+            raise ValueError('`ratio` must be positive and less than one.')
         # Check regularization method
         if self.reg_method != 'tikhonov' and self.alpha == 0:
             raise ValueError(
@@ -560,7 +559,7 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
         self.objective_log_ = []
         for k in range(self.max_iter):
             # Formulate Problem A
-            problem_a = self._create_problem_a(X_shifted, X_unshifted, Gamma)
+            problem_a = self._create_problem_a(X_unshifted, X_shifted, Gamma)
             # Solve Problem A
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
@@ -572,8 +571,7 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
             if solution_status_a != 'optimal':
                 self.stop_reason_ = (
                     'Unable to solve `problem_a`. Used last valid `U`. '
-                    f'Solution status: `{solution_status_a}`.'
-                )
+                    f'Solution status: `{solution_status_a}`.')
                 log.warn(self.stop_reason_)
                 break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
@@ -581,9 +579,8 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
             # Check stopping condition
             self.objective_log_.append(problem_a.value)
             if len(self.objective_log_) > 1:
-                diff = np.absolute(
-                    self.objective_log_[-2] - self.objective_log_[-1]
-                )
+                diff = np.absolute(self.objective_log_[-2]
+                                   - self.objective_log_[-1])
                 if (diff < self.iter_tol):
                     self.stop_reason_ = f'Reached tolerance {diff}'
                     break
@@ -600,8 +597,7 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
             if solution_status_b != 'optimal':
                 self.stop_reason_ = (
                     'Unable to solve `problem_b`. Used last valid `U`. '
-                    f'Solution status: `{solution_status_b}`.'
-                )
+                    f'Solution status: `{solution_status_b}`.')
                 log.warn(self.stop_reason_)
                 break
             Gamma = np.array(problem_b.get_valued_variable('Gamma'), ndmin=2)
@@ -627,7 +623,7 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
         if self.iter_tol <= 0:
             raise ValueError('`iter_tol` must be positive.')
 
-    def _create_problem_a(self, X_shifted: np.ndarray, X_unshifted: np.ndarray,
+    def _create_problem_a(self, X_unshifted: np.ndarray, X_shifted: np.ndarray,
                           Gamma: np.ndarray) -> picos.Problem:
         """Create first problem in iteration scheme."""
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
@@ -670,6 +666,373 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
         # Set objective
         problem_b.set_objective('find')
         return problem_b
+
+
+class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
+    """LMI-based EDMD with H-infinity norm regularization.
+
+    Optionally supports additional Tikhonov regularization.
+
+    Attributes
+    ----------
+    objective_log_ : list[float]
+        Objective function history.
+    stop_reason_ : str
+        Reason iteration stopped.
+    n_iter_ : int
+        Number of iterations
+
+    solver_params_ : dict[str, Any]
+        Solver parameters used (defaults merged with constructor input).
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+    """
+
+    # Default solver parameters
+    _default_solver_params: dict[str, Any] = {
+        'primals': None,
+        'duals': None,
+        'dualize': True,
+        'abs_bnb_opt_tol': None,
+        'abs_dual_fsb_tol': None,
+        'abs_ipm_opt_tol': None,
+        'abs_prim_fsb_tol': None,
+        'integrality_tol': None,
+        'markowitz_tol': None,
+        'rel_bnb_opt_tol': None,
+        'rel_dual_fsb_tol': None,
+        'rel_ipm_opt_tol': None,
+        'rel_prim_fsb_tol': None,
+    }
+
+    # Override since PICOS only works with ``float64``.
+    _check_X_y_params: dict[str, Any] = {
+        'multi_output': True,
+        'y_numeric': True,
+        'dtype': 'float64',
+    }
+
+    def __init__(self,
+                 alpha: float = 1,
+                 ratio: float = 1,
+                 weight: tuple[str, np.ndarray, np.ndarray, np.ndarray,
+                               np.ndarray] = None,
+                 max_iter: int = 100,
+                 iter_tol: float = 1e-6,
+                 inv_method: str = 'svd',
+                 picos_eps: float = 0,
+                 solver_params: dict[str, Any] = None) -> None:
+        """Instantiate :class:`LmiEdmdHinfReg`.
+
+        Supports cascading the plant with an LTI weighting function.
+
+        Parameters
+        ----------
+        alpha : float
+            Regularization coefficient. Cannot be zero.
+
+        ratio : float
+            Ratio of H-infinity norm to use in mixed regularization. If
+            ``ratio=1``, no Tikhonov regularization is used. Cannot be zero.
+
+        weight : tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+            Tuple containing weight type (``'pre'`` or ``'post'``), and the
+            weight state space matrices (``A``, ``B``, ``C``, and ``D``). If
+            ``None``, no weighting is used.
+
+        max_iter : int
+            Maximum number of solver iterations.
+
+        iter_tol : float
+            Absolute tolerance for change in objective function value. When the
+            change in objective function is less than ``iter_tol``, the
+            iteration will stop.
+
+        inv_method : str
+            Method to handle or avoid inversion of the ``H`` matrix when
+            forming the LMI problem. Possible values are
+
+            - ``'inv'`` -- invert ``H`` directly,
+            - ``'pinv'`` -- apply the Moore-Penrose pseudoinverse to ``H``,
+            - ``'eig'`` -- split ``H`` using an eigendecomposition,
+            - ``'ldl'`` -- split ``H`` using an LDL decomposition,
+            - ``'chol'`` -- split ``H`` using a Cholesky decomposition,
+            - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
+            - ``'svd'`` -- split ``H`` using a singular value decomposition.
+
+        picos_eps : float
+            Tolerance used for strict LMIs. If nonzero, should be larger than
+            solver tolerance.
+
+        solver_params : dict[str, Any]
+            Parameters passed to PICOS :func:`picos.Problem.solve()`. By
+            default, allows chosen solver to select its own tolerances.
+        """
+        self.alpha = alpha
+        self.ratio = ratio
+        self.weight = weight
+        self.max_iter = max_iter
+        self.iter_tol = iter_tol
+        self.inv_method = inv_method
+        self.picos_eps = picos_eps
+        self.solver_params = solver_params
+
+    def _fit_regressor(self, X_unshifted: np.ndarray,
+                       X_shifted: np.ndarray) -> np.ndarray:
+        # Set solver parameters
+        self.solver_params_ = self._default_solver_params.copy()
+        if self.solver_params is not None:
+            self.solver_params_.update(self.solver_params)
+        # Set regularization coefficients
+        self.alpha_tikhonov_ = self.alpha * (1 - self.ratio)
+        self.alpha_other_ = self.alpha * self.ratio
+        # Get needed sizes
+        p = X_unshifted.shape[1]
+        p_theta = X_shifted.shape[1]
+        # Check that at least one input is present
+        if p_theta == p:
+            # If you remove the `{p} features(s)` part of this message,
+            # the scikit-learn estimator_checks will fail!
+            raise ValueError('LmiEdmdHinfReg() requires an input to function.'
+                             '`X` and `y` must therefore have different '
+                             'numbers of features. `X and y` both have '
+                             f'{p} feature(s).')
+        # Set up weights
+        if self.weight is None:
+            P = np.eye(p_theta)
+        elif self.weight[0] == 'pre':
+            n_u = p - p_theta
+            P = np.eye(p_theta + n_u * self.weight[1].shape[0])
+        elif self.weight[0] == 'post':
+            n_x = p_theta
+            P = np.eye(p_theta + n_x * self.weight[1].shape[0])
+        else:
+            # Already checked. Should never get here.
+            assert False
+        # Solve optimization problem iteratively
+        U = np.zeros((p_theta, p))
+        gamma = np.zeros((1, ))
+        self.objective_log_ = []
+        for k in range(self.max_iter):
+            # Formulate Problem A
+            problem_a = self._create_problem_a(X_unshifted, X_shifted, P)
+            # Solve Problem A
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem A{k}')
+            problem_a.solve(**self.solver_params_)
+            solution_status_a = problem_a.last_solution.claimedStatus
+            if solution_status_a != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_a`. Used last valid `U`. '
+                    f'Solution status: `{solution_status_a}`.')
+                log.warn(self.stop_reason_)
+                break
+            U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
+            gamma = np.array(problem_a.get_valued_variable('gamma'))
+            self.objective_log_.append(problem_a.value)
+            if len(self.objective_log_) > 1:
+                diff = np.absolute(self.objective_log_[-2]
+                                   - self.objective_log_[-1])
+                if (diff < self.iter_tol):
+                    self.stop_reason_ = f'Reached tolerance {diff}'
+                    break
+            # Formulate Problem B
+            problem_b = self._create_problem_b(U, gamma)
+            # Solve Problem B
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem B{k}')
+            problem_b.solve(**self.solver_params_)
+            solution_status_b = problem_b.last_solution.claimedStatus
+            if solution_status_b != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_b`. Used last valid `U`. '
+                    'Solution status: f`{solution_status_b}`.')
+                log.warn(self.stop_reason_)
+                break
+            P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
+        else:
+            self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
+            log.warn(self.stop_reason_)
+        self.n_iter_ = k + 1
+        coef = U.T
+        # Only useful for debugging
+        self.P_ = P
+        self.gamma_ = gamma
+        return coef
+
+    def _validate_parameters(self) -> None:
+        # Check problem creation parameters
+        LmiEdmd._validate_problem_parameters(self.alpha, self.inv_method,
+                                             self.picos_eps)
+        # Check other parameters
+        if self.alpha <= 0:
+            # Check alpha again because ``_validate_problem_parameters`` allows
+            # zero alpha.
+            raise ValueError('`alpha` must be positive.')
+        if (self.ratio <= 0) or (self.ratio > 1):
+            raise ValueError('`ratio` must be positive and less than one.')
+        valid_weight_types = ['pre', 'post']
+        if self.weight is not None:
+            if self.weight[0] not in valid_weight_types:
+                raise ValueError('First element of the `weight` must be one'
+                                 f'of {valid_weight_types}.')
+        if self.max_iter <= 0:
+            raise ValueError('`max_iter` must be positive.')
+        if self.iter_tol <= 0:
+            raise ValueError('`iter_tol` must be positive.')
+
+    def _create_problem_a(self, X_unshifted: np.ndarray, X_shifted: np.ndarray,
+                          P: np.ndarray) -> picos.Problem:
+        """Create first problem in iteration scheme."""
+        problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
+                                                 self.alpha_tikhonov_,
+                                                 self.inv_method,
+                                                 self.picos_eps)
+        # Extract information from problem
+        U = problem_a.variables['U']
+        direction = problem_a.objective.direction
+        objective = problem_a.objective.function
+        # Get needed sizes
+        p_theta = U.shape[0]
+        q = X_unshifted.shape[0]
+        # Add new constraint
+        P = picos.Constant('P', P)
+        gamma = picos.RealVariable('gamma', 1)
+        # Get weighted state space matrices
+        A, B, C, D = self._create_ss(U)
+        gamma_33 = picos.diag(gamma, D.shape[1])
+        gamma_44 = picos.diag(gamma, D.shape[0])
+        problem_a.add_constraint(
+            picos.block([
+                [P,          A * P,    B,         0],
+                [P.T * A.T,  P,        0,         P * C.T],
+                [B.T,        0,        gamma_33,  D.T],
+                [0,          C * P.T,  D,         gamma_44],
+            ]) >> self.picos_eps)  # yapf: disable
+        # Add term to cost function
+        alpha_scaled = picos.Constant('alpha_inf/q', self.alpha_other_ / q)
+        objective += alpha_scaled * gamma
+        problem_a.set_objective(direction, objective)
+        return problem_a
+
+    def _create_problem_b(self, U: np.ndarray,
+                          gamma: np.ndarray) -> picos.Problem:
+        """Create second problem in iteration scheme."""
+        # Create optimization problem
+        problem_b = picos.Problem()
+        # Get needed sizes
+        p_theta = U.shape[0]
+        # Create constants
+        U = picos.Constant('U', U)
+        gamma = picos.Constant('gamma', gamma)
+        # Get weighted state space matrices
+        A, B, C, D = self._create_ss(U)
+        # Create variables
+        P = picos.SymmetricVariable('P', A.shape[0])
+        # Add constraints
+        problem_b.add_constraint(P >> self.picos_eps)
+        gamma_33 = picos.diag(gamma, D.shape[1])
+        gamma_44 = picos.diag(gamma, D.shape[0])
+        problem_b.add_constraint(
+            picos.block([
+                [P,          A * P,    B,         0],
+                [P.T * A.T,  P,        0,         P * C.T],
+                [B.T,        0,        gamma_33,  D.T],
+                [0,          C * P.T,  D,         gamma_44],
+            ]) >> self.picos_eps)  # yapf: disable
+        # Set objective
+        problem_b.set_objective('find')
+        return problem_b
+
+    def _create_ss(
+        self, U: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Augment Koopman system with weight if present.
+
+        Parameters
+        ----------
+        U : np.ndarray
+            Koopman matrix containing ``A`` and ``B`` concatenated
+            horizontally.
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+            Weighted state space matrices (``A``, ``B``, ``C``, ``D``).
+        """
+        p_theta = U.shape[0]
+        if self.weight is None:
+            A = U[:, :p_theta]
+            B = U[:, p_theta:]
+            C = picos.Constant('C', np.eye(p_theta))
+            D = picos.Constant('D', np.zeros((C.shape[0], B.shape[1])))
+        else:
+            Am = U[:, :p_theta]
+            Bm = U[:, p_theta:]
+            Cm = picos.Constant('Cm', np.eye(p_theta))
+            Dm = picos.Constant('Dm', np.zeros((Cm.shape[0], Bm.shape[1])))
+            if self.weight_type_ == 'pre':
+                n_u = Bm.shape[1]
+                Aw_blk = linalg.block_diag(*([self.weight[1]] * n_u))
+                Bw_blk = linalg.block_diag(*([self.weight[2]] * n_u))
+                Cw_blk = linalg.block_diag(*([self.weight[3]] * n_u))
+                Dw_blk = linalg.block_diag(*([self.weight[4]] * n_u))
+                Aw = picos.Constant('Aw', Aw_blk)
+                Bw = picos.Constant('Bw', Bw_blk)
+                Cw = picos.Constant('Cw', Cw_blk)
+                Dw = picos.Constant('Dw', Dw_blk)
+                A = picos.block([
+                    [Aw, 0],
+                    [Bm * Cw, Am],
+                ])
+                B = picos.block([
+                    [Bw],
+                    [Bm * Dw],
+                ])
+                C = picos.block([
+                    [Dm * Cw, Cm],
+                ])
+                D = Dm * Dw
+            elif self.weight_type_ == 'post':
+                n_x = Bm.shape[0]
+                Aw_blk = linalg.block_diag(*([self.weight[1]] * n_x))
+                Bw_blk = linalg.block_diag(*([self.weight[2]] * n_x))
+                Cw_blk = linalg.block_diag(*([self.weight[3]] * n_x))
+                Dw_blk = linalg.block_diag(*([self.weight[4]] * n_x))
+                Aw = picos.Constant('Aw', Aw_blk)
+                Bw = picos.Constant('Bw', Bw_blk)
+                Cw = picos.Constant('Cw', Cw_blk)
+                Dw = picos.Constant('Dw', Dw_blk)
+                A = picos.block([
+                    [Am, 0],
+                    [Bw * Cm, Aw],
+                ])
+                B = picos.block([
+                    [Bm],
+                    [Bw * Dm],
+                ])
+                C = picos.block([
+                    [Dw * Cm, Cw],
+                ])
+                D = Dw * Dm
+            else:
+                # Already checked, should not get here.
+                assert False
+        return (A, B, C, D)
 
 
 @memory.cache

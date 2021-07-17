@@ -96,29 +96,29 @@ from sklearn import linear_model
                     [-0.22883601, 0.70816555]
                 ])),
             marks=pytest.mark.slow),
-        # pytest.param(
-        #     (
-        #         pykoop.lmi.LmiEdmdHinfReg(inv_method='eig',
-        #                                   max_iter=100,
-        #                                   tol=1e-6,
-        #                                   alpha=1,
-        #                                   ratio=1,
-        #                                   solver_params={'dualize': False}),
-        #         'msd-sin-input',
-        #         1e-4,
-        #         None,
-        #         # Regression test! Not unit test!
-        #         # If regularizing using the norm squared, use:
-        #         # np.array([
-        #         #     [ 0.54830794, -0.29545739, 0.48111973],  # noqa: E201
-        #         #     [-0.31602199,  0.17028950, 0.86402040]
-        #         # ])
-        #         # If regularizing using the norm alone, use:
-        #         np.array([
-        #             [0.759993, -0.423835, 0.466796],  # noqa: E201
-        #             [-0.417579, 0.232879, 0.837136]
-        #         ])),
-        #     marks=pytest.mark.slow),
+        pytest.param(
+            (
+                pykoop.lmi_regressors.LmiEdmdHinfReg(inv_method='eig',
+                                          max_iter=100,
+                                          iter_tol=5e-8,
+                                          alpha=1,
+                                          ratio=1,
+                                          solver_params={'dualize': False}),
+                'msd-sin-input',
+                1e-4,
+                None,
+                # Regression test! Not unit test!
+                # If regularizing using the norm squared, use:
+                # np.array([
+                #     [ 0.54830794, -0.29545739, 0.48111973],  # noqa: E201
+                #     [-0.31602199,  0.17028950, 0.86402040]
+                # ])
+                # If regularizing using the norm alone, use:
+                np.array([
+                    [0.759993, -0.423835, 0.466796],  # noqa: E201
+                    [-0.417579, 0.232879, 0.837136]
+                ])),
+            marks=pytest.mark.slow),
     ],
     ids=lambda value: f'{value[0]}-{value[1]}')  # Formatting for test IDs
 def scenario(request):
