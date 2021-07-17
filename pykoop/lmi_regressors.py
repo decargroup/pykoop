@@ -175,7 +175,7 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         elif self.reg_method == 'nuclear':
             problem = self._add_nuclear(problem, X_unshifted.shape[0],
                                         self.alpha_other_, self.picos_eps)
-        # Solve optimiztion problem
+        # Solve optimization problem
         problem.solve(**self.solver_params_)
         # Save solution status
         self.solution_status_ = problem.last_solution.claimedStatus
@@ -425,6 +425,202 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         if inv_method not in valid_inv_methods:
             raise ValueError('`inv_method` must be one of '
                              f'{valid_inv_methods}.')
+        # Validate ``picos_eps``
+        if picos_eps < 0:
+            raise ValueError('Parameter `picos_eps` must be positive or zero.')
+
+
+class LmiDmdc(koopman_pipeline.KoopmanRegressor):
+    """LMI-based DMDc."""
+
+    # Default solver parameters
+    _default_solver_params: dict[str, Any] = {
+        'primals': None,
+        'duals': None,
+        'dualize': True,
+        'abs_bnb_opt_tol': None,
+        'abs_dual_fsb_tol': None,
+        'abs_ipm_opt_tol': None,
+        'abs_prim_fsb_tol': None,
+        'integrality_tol': None,
+        'markowitz_tol': None,
+        'rel_bnb_opt_tol': None,
+        'rel_dual_fsb_tol': None,
+        'rel_ipm_opt_tol': None,
+        'rel_prim_fsb_tol': None,
+    }
+
+    # Override since PICOS only works with ``float64``.
+    _check_X_y_params: dict[str, Any] = {
+        'multi_output': True,
+        'y_numeric': True,
+        'dtype': 'float64',
+    }
+
+    def __init__(self,
+                 alpha: float = 0,
+                 ratio: float = 1,
+                 reg_method: str = 'tikhonov',
+                 picos_eps: float = 0,
+                 solver_params: dict[str, Any] = None) -> None:
+        """Instantiate :class:`LmiDmdc`."""
+        self.alpha = alpha
+        self.ratio = ratio
+        self.reg_method = reg_method
+        self.picos_eps = picos_eps
+        self.solver_params = solver_params
+
+    def _fit_regressor(self, X_unshifted: np.ndarray,
+                       X_shifted: np.ndarray) -> np.ndarray:
+        # Set solver parameters
+        self.solver_params_ = self._default_solver_params.copy()
+        if self.solver_params is not None:
+            self.solver_params_.update(self.solver_params)
+        # Compute regularization coefficients
+        if self.reg_method == 'tikhonov':
+            self.alpha_tikhonov_ = self.alpha
+            self.alpha_other_ = 0.0
+        else:
+            self.alpha_tikhonov_ = self.alpha * (1.0 - self.ratio)
+            self.alpha_other_ = self.alpha * self.ratio
+        # Get needed sizes
+        q, p = X_unshifted.shape
+        p_theta = X_shifted.shape[1]
+        # Compute SVDs
+        Q_tld, sigma_tld, Zh_tld = linalg.svd(X_unshifted.T,
+                                              full_matrices=False)
+        Q_hat, sigma_hat, Zh_hat = linalg.svd(X_shifted.T, full_matrices=False)
+        # Transpose notation to make checking math easier
+        Z_tld = Zh_tld.T
+        Z_hat = Zh_hat.T
+        # Truncate SVD
+        r_tld = sigma_tld.shape[0]
+        r_hat = sigma_hat.shape[0]
+        Q_tld = Q_tld[:, :r_tld]
+        sigma_tld = sigma_tld[:r_tld]
+        Z_tld = Z_tld[:, :r_tld]
+        Q_hat = Q_hat[:, :r_hat]
+        sigma_hat = sigma_hat[:r_hat]
+        Z_hat = Z_hat[:, :r_hat]
+        # Form optimization problem
+        problem = self._create_base_problem(Q_tld, sigma_tld, Z_tld, Q_hat,
+                                            sigma_hat, Z_hat,
+                                            self.alpha_tikhonov_,
+                                            self.picos_eps)
+        if self.reg_method == 'twonorm':
+            problem = self._add_twonorm(problem, X_unshifted.shape[0],
+                                        self.alpha_other_, self.picos_eps)
+        elif self.reg_method == 'nuclear':
+            problem = self._add_nuclear(problem, X_unshifted.shape[0],
+                                        self.alpha_other_, self.picos_eps)
+        # Solve optimization problem
+        problem.solve(**self.solver_params_)
+        # Save solution status
+        self.solution_status_ = problem.last_solution.claimedStatus
+        # Extract solution from ``Problem`` object
+        U_hat = self._extract_solution(problem).T
+        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p - p_theta)).T
+        return U.T
+
+    def _validate_parameters(self) -> None:
+        # Check problem creation parameters
+        self._validate_problem_parameters(self.alpha, self.picos_eps)
+        # Check regularization methods
+        valid_reg_methods = ['tikhonov', 'twonorm', 'nuclear']
+        if self.reg_method not in valid_reg_methods:
+            raise ValueError('`reg_method` must be one of '
+                             f'{valid_reg_methods}.')
+        # Check ratio
+        if (self.ratio <= 0) or (self.ratio > 1):
+            raise ValueError('`ratio` must be positive and less than one.')
+        # Check regularization method
+        if self.reg_method != 'tikhonov' and self.alpha == 0:
+            raise ValueError(
+                "`alpha` cannot be zero if `reg_method='twonorm'` or "
+                "`reg_method='nuclear'`.")
+
+    @staticmethod
+    def _create_base_problem(
+        Q_tld: np.ndarray,
+        sigma_tld: np.ndarray,
+        Z_tld: np.ndarray,
+        Q_hat: np.ndarray,
+        sigma_hat: np.ndarray,
+        Z_hat: np.ndarray,
+        alpha_tikhonov: float,
+        picos_eps: float,
+    ) -> picos.Problem:
+        """Create optimization problem."""
+        LmiDmdc._validate_problem_parameters(alpha_tikhonov, picos_eps)
+        # Compute needed sizes
+        p, r_tld = Q_tld.shape
+        p_theta, r_hat = Q_hat.shape
+        # Compute Q_hat
+        Q_bar = linalg.block_diag(Q_hat, np.eye(p - p_theta)).T @ Q_tld
+        # Create optimization problem
+        problem = picos.Problem()
+        # Constants
+        Sigma_hat_sq = picos.Constant('Sigma_hat^2', np.diag(sigma_hat**2))
+        Sigma_hat = np.diag(sigma_hat)
+        Sigma_tld = np.diag(sigma_tld)
+        big_constant = picos.Constant(
+            'Q_bar Sigma_tld Z_tld.T Z_hat Sigma_Hat',
+            Q_bar @ Sigma_tld @ Z_tld.T @ Z_hat @ Sigma_hat,
+        )
+        Q_bar_Sigma_tld = picos.Constant(
+            'Q_bar Sigma_tld',
+            Q_bar @ Sigma_tld,
+        )
+        m1 = picos.Constant('-1', -1 * np.eye(r_tld))
+        Sigma_hat = picos.Constant('Sigma_hat', Sigma_hat)
+        # Variables
+        U_hat = picos.RealVariable('U_hat', (r_hat, r_hat + p - p_theta))
+        W_hat = picos.SymmetricVariable('W_hat', (r_hat, r_hat))
+        # Constraints
+        problem.add_constraint(W_hat >> picos_eps)
+        problem.add_constraint(
+            picos.block([
+                [
+                    -W_hat + Sigma_hat_sq - U_hat * big_constant
+                    - big_constant.T * U_hat.T, U_hat * Q_bar_Sigma_tld
+                ],
+                [Q_bar_Sigma_tld.T * U_hat.T, m1],
+            ]) << picos_eps)
+        problem.set_objective('min', picos.trace(W_hat))
+        return problem
+
+    @staticmethod
+    def _extract_solution(problem: picos.Problem) -> np.ndarray:
+        """Extract solution from an optimization problem.
+
+        Parameters
+        ----------
+        problem : picos.Problem
+            Solved optimization problem.
+
+        Returns
+        -------
+        np.ndarray
+            Solution matrix.
+        """
+        return np.array(problem.get_valued_variable('U_hat'), ndmin=2).T
+
+    @staticmethod
+    def _add_twonorm(problem: picos.Problem, q: int, alpha_other: float,
+                     picos_eps: float) -> picos.Problem:
+        raise NotImplementedError()
+
+    @staticmethod
+    def _add_nuclear(problem: picos.Problem, q: int, alpha_other: float,
+                     picos_eps: float) -> picos.Problem:
+        raise NotImplementedError()
+
+    @staticmethod
+    def _validate_problem_parameters(alpha: float, picos_eps: float) -> None:
+        """Validate parameters involved in problem creation."""
+        # Validate ``alpha``
+        if alpha < 0:
+            raise ValueError('Parameter `alpha` must be positive or zero.')
         # Validate ``picos_eps``
         if picos_eps < 0:
             raise ValueError('Parameter `picos_eps` must be positive or zero.')

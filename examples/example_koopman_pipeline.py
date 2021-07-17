@@ -1,7 +1,8 @@
 import numpy as np
+import pykoop
+from pykoop import lmi_regressors
 from dynamics import mass_spring_damper
 from matplotlib import pyplot as plt
-from pykoop import dmd, koopman_pipeline, lifting_functions
 from scipy import integrate
 
 plt.rc('lines', linewidth=2)
@@ -40,40 +41,33 @@ def main():
         u_sim[:, :-1],
     ))
 
-    kp = koopman_pipeline.KoopmanPipeline(
+    kp = pykoop.KoopmanPipeline(
         preprocessors=None,
-        lifting_functions=[
-            (
-                'delay2',
-                lifting_functions.DelayLiftingFn(n_delays_state=4,
-                                                 n_delays_input=4),
-            ),
-            (
-                'delay',
-                lifting_functions.DelayLiftingFn(n_delays_state=0,
-                                                 n_delays_input=0),
-            ),
-        ],
-        regressor=('edmd', dmd.Edmd()),
+        # lifting_functions=[
+        #     pykoop.DelayLiftingFn(n_delays_state=4, n_delays_input=4),
+        # ],
+        lifting_functions=None,
+        # regressor=pykoop.Edmd(),
+        regressor=lmi_regressors.LmiDmdc(),
     )
     kp.fit(X.T, n_inputs=1, episode_feature=True)
 
     ns = None
     sc = 'neg_mean_squared_error'
     ms = True
-    s1 = koopman_pipeline.KoopmanPipeline.make_scorer(
+    s1 = pykoop.KoopmanPipeline.make_scorer(
         discount_factor=1,
         n_steps=ns,
         regression_metric=sc,
         multistep=ms,
     )
-    s2 = koopman_pipeline.KoopmanPipeline.make_scorer(
+    s2 = pykoop.KoopmanPipeline.make_scorer(
         discount_factor=0.99,
         n_steps=ns,
         regression_metric=sc,
         multistep=ms,
     )
-    s3 = koopman_pipeline.KoopmanPipeline.make_scorer(
+    s3 = pykoop.KoopmanPipeline.make_scorer(
         discount_factor=0,
         n_steps=ns,
         regression_metric=sc,
