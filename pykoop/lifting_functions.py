@@ -1,245 +1,569 @@
+"""Collection of Koopman lifting functions.
+
+All of the lifting functions included in this module adhere to the interface
+defined in :class:`KoopmanLiftingFn`.
+"""
+
+import numpy as np
 import sklearn.base
 import sklearn.preprocessing
-import numpy as np
+import sklearn.utils.validation
+
+from . import koopman_pipeline
 
 
-class AnglePreprocessor(sklearn.base.BaseEstimator,
-                        sklearn.base.TransformerMixin):
+class AnglePreprocessor(koopman_pipeline.EpisodeIndependentLiftingFn):
+    """Preprocessor used to replace angles with their cosines and sines.
+
+    Intended as a preprocessor to be applied once to the input, rather than a
+    lifting function that is inverted after prediction.
+
+    Attributes
+    ----------
+    angles_in_ : np.ndarray
+        Boolean array that indicates which input features are angles.
+    lin_out_ : np.ndarray
+        Boolean array that indicates which output features are linear.
+    cos_out_ : np.ndarray
+        Boolean array that indicates which output features are cosines.
+    sin_out_ : np.ndarray
+        Boolean array that indicates which output features are sines.
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+
+    Warnings
+    --------
+    The inverse of this preprocessor is not the true inverse unless the data is
+    inside ``[-pi, pi]``. Any offsets of ``2pi`` are lost when ``cos`` and
+    ``sin`` are applied to the angles.
     """
-    Warning, inverse is not true inverse unless data is inside [-pi, pi]
-    """
 
-    def __init__(self, unwrap=False):
-        self.unwrap = unwrap
+    def __init__(self,
+                 angle_features: np.ndarray = None,
+                 unwrap_inverse: bool = False) -> None:
+        """Instantiate :class:`AnglePreprocessor`.
 
-    def fit(self, X, y=None, angles=None):  # TODO Make angles list of ints?
-        X = self._validate_data(X, reset=True)
-        if angles is None:
-            self.angles_ = np.zeros((self.n_features_in_,), dtype=bool)
+        Parameters
+        ----------
+        angle_features : np.ndarray
+            Indices of features that are angles.
+        unwrap_inverse : bool
+            Unwrap inverse by replacing absolute jumps greater than ``pi`` by
+            their ``2pi`` complement.
+        """
+        self.angle_features = angle_features
+        self.unwrap_inverse = unwrap_inverse
+
+    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int]:
+        # Compute boolean array with one entry per feature. A ``True`` value
+        # indicates that the feature is an angle.
+        n_states_inputs_in = self.n_states_in_ + self.n_inputs_in_
+        if ((self.angle_features is None)
+                or (self.angle_features.shape[0] == 0)):
+            self.angles_in_ = np.zeros((n_states_inputs_in, ), dtype=bool)
         else:
-            self.angles_ = angles
-        # Figure out what the new angle features will be
-        self.n_features_out_ = np.sum(~self.angles_) + 2 * np.sum(self.angles_)
-        self.lin_ = np.zeros((self.n_features_out_,), dtype=bool)
-        self.cos_ = np.zeros((self.n_features_out_,), dtype=bool)
-        self.sin_ = np.zeros((self.n_features_out_,), dtype=bool)
+            # Create an array with all ```False``.
+            angles_bool = np.zeros((n_states_inputs_in, ), dtype=bool)
+            # Set indicated entries to ``True``.
+            angles_bool[self.angle_features] = True
+            self.angles_in_ = angles_bool
+        # Figure out how many linear and angular features there are.
+        n_lin_states = np.sum(~self.angles_in_[:self.n_states_in_])
+        n_lin_inputs = np.sum(~self.angles_in_[self.n_states_in_:])
+        n_ang_states = 2 * np.sum(self.angles_in_[:self.n_states_in_])
+        n_ang_inputs = 2 * np.sum(self.angles_in_[self.n_states_in_:])
+        n_states_out = n_lin_states + n_ang_states
+        n_inputs_out = n_lin_inputs + n_ang_inputs
+        # Create array for linear, cosine, and sine feature indices.
+        self.lin_out_ = np.zeros((n_states_out + n_inputs_out, ), dtype=bool)
+        self.cos_out_ = np.zeros((n_states_out + n_inputs_out, ), dtype=bool)
+        self.sin_out_ = np.zeros((n_states_out + n_inputs_out, ), dtype=bool)
+        # Figure out which features are cosines, sines, or linear.
         i = 0
-        for j in range(self.n_features_in_):
-            if self.angles_[j]:
-                self.cos_[i] = True
-                self.sin_[i + 1] = True
+        for j in range(n_states_inputs_in):
+            if self.angles_in_[j]:
+                self.cos_out_[i] = True
+                self.sin_out_[i + 1] = True
                 i += 2
             else:
-                self.lin_[i] = True
+                self.lin_out_[i] = True
                 i += 1
-        return self
+        return (n_states_out, n_inputs_out)
 
-    def transform(self, X):
-        X = self._validate_data(X, reset=False)
-        sklearn.utils.validation.check_is_fitted(self)
-        Xt = np.zeros((X.shape[0], self.n_features_out_))
-        Xt[:, self.lin_] = X[:, ~self.angles_]
-        Xt[:, self.cos_] = np.cos(X[:, self.angles_])
-        Xt[:, self.sin_] = np.sin(X[:, self.angles_])
+    def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        # Create blank array
+        n_states_inputs_out = self.n_states_out_ + self.n_inputs_out_
+        Xt = np.zeros((X.shape[0], n_states_inputs_out))
+        # Apply cos and sin to appropriate features.
+        Xt[:, self.lin_out_] = X[:, ~self.angles_in_]
+        Xt[:, self.cos_out_] = np.cos(X[:, self.angles_in_])
+        Xt[:, self.sin_out_] = np.sin(X[:, self.angles_in_])
         return Xt
 
-    def inverse_transform(self, X):
-        X = self._validate_data(X, reset=False)
-        sklearn.utils.validation.check_is_fitted(self)
-        Xt = np.zeros((X.shape[0], self.n_features_in_))
-        Xt[:, ~self.angles_] = X[:, self.lin_]
-        angles = np.arctan2(X[:, self.sin_], X[:, self.cos_])
-        if self.unwrap:
-            Xt[:, self.angles_] = np.unwrap(angles, axis=0)
+    def _inverse_transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        # Create blank array
+        n_states_inputs_in = self.n_states_in_ + self.n_inputs_in_
+        Xt = np.zeros((X.shape[0], n_states_inputs_in))
+        # Put linear features back where they belong
+        Xt[:, ~self.angles_in_] = X[:, self.lin_out_]
+        # Invert transform for angles. Unwrap if necessary.
+        angle_values = np.arctan2(X[:, self.sin_out_], X[:, self.cos_out_])
+        if self.unwrap_inverse:
+            Xt[:, self.angles_in_] = np.unwrap(angle_values, axis=0)
         else:
-            Xt[:, self.angles_] = angles
+            Xt[:, self.angles_in_] = angle_values
         return Xt
 
-    def _validate_data(self, X, y=None, reset=True, **check_array_params):
-        X = sklearn.utils.validation.check_array(X, **check_array_params)
-        if reset:
-            self.n_features_in_ = X.shape[1]
-        return X
+    def _validate_parameters(self) -> None:
+        pass  # No constructor parameters need validation.
 
 
-class PolynomialLiftingFn(sklearn.base.BaseEstimator,
-                          sklearn.base.TransformerMixin):
+class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
+    """Lifting function that wraps a ``scikit-learn`` transformer.
 
-    def __init__(self, order=1, interaction_only=False):
+    Examples of appropriate transformers are
+
+    - ``sklearn.preprocessing.StandardScaler``,
+    - ``sklearn.preprocessing.MinMaxScaler``, or
+    - ``sklearn.preprocessing.MaxAbsScaler``.
+
+    See [transformers]_ for more appropriate transformers (though not all have
+    been tested).
+
+    Attributes
+    ----------
+    transformer_ : sklearn.base.BaseEstimator
+        Fit transformer.
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+
+    References
+    ----------
+    .. [transformers] https://scikit-learn.org/stable/modules/classes.html#module-sklearn.preprocessing  # noqa: E501
+    """
+
+    def __init__(
+        self,
+        transformer: sklearn.base.BaseEstimator = None,
+    ) -> None:
+        """Instantiate :class:`SkLearnLiftingFn`.
+
+        Parameters
+        ----------
+        transformer : sklearn.base.BaseEstimator
+            Transformer to wrap.
+        """
+        self.transformer = transformer
+
+    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int]:
+        self.transformer_ = sklearn.base.clone(self.transformer)
+        self.transformer_.fit(X)
+        return (self.n_states_in_, self.n_inputs_in_)
+
+    def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        Xt = self.transformer_.transform(X)
+        return Xt
+
+    def _inverse_transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        Xt = self.transformer_.inverse_transform(X)
+        return Xt
+
+    def _validate_parameters(self) -> None:
+        # Let transformer do its own validation
+        pass
+
+
+class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
+    """Lifting function to generate all monomials of the input features.
+
+    Attributes
+    ----------
+    transformer_ : sklearn.preprocessing.PolynomialFeatures
+        Internal transformer generating the polynomial features.
+    transform_order_ : np.ndarray
+        Indices indicating reordering needed after applying ``transformer_``.
+    inverse_transform_order_ : np.ndarray
+        Indices indicating reverse ordering needed to reverse
+        ``transform_order_``.
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    """
+
+    def __init__(self, order: int = 1, interaction_only: bool = False) -> None:
+        """Instantiate :class:`PolynomialLiftingFn`.
+
+        Parameters
+        ----------
+        order : int
+            Order of monomials to generate.
+        interaction_only : bool
+            If ``True``, skip powers of the same feature.
+        """
         self.order = order
         self.interaction_only = interaction_only
 
-    def fit(self, X, y=None, n_u=0):
-        self._validate_parameters()
-        X = self._validate_data(X, reset=True)
+    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int]:
         self.transformer_ = sklearn.preprocessing.PolynomialFeatures(
             degree=self.order,
             interaction_only=self.interaction_only,
-            include_bias=False
-        )
+            include_bias=False)
         self.transformer_.fit(X)
-        self.n_features_out_ = self.transformer_.powers_.shape[0]
-        self.n_x_ = X.shape[1] - n_u
-        self.n_u_ = n_u
         # Figure out which lifted states correspond to the original states and
         # original inputs
         orig_states = []
         orig_inputs = []
-        eye = np.eye(self.n_features_in_)
-        for i in range(self.n_features_in_):
-            index = np.nonzero(np.all(self.transformer_.powers_ == eye[i, :],
-                                      axis=1))
-            if i < self.n_x_:
+        eye = np.eye(self.n_states_in_ + self.n_inputs_in_)
+        for i in range(self.n_states_in_ + self.n_inputs_in_):
+            # Original states and inputs will have a ``power_`` that's a
+            # row of the identity matrix, since they are mononomials of the
+            # form ``x_1^1 * x_2^0 * x_3^0``. In that case, the row would be
+            # ``[1, 0, 0]``.
+            index = np.nonzero(
+                np.all(self.transformer_.powers_ == eye[i, :], axis=1))
+            # Split up the "original states" from the "original inputs"
+            if i < self.n_states_in_:
                 orig_states.append(index)
             else:
                 orig_inputs.append(index)
-        original_state_features = np.ravel(orig_states).astype(int)
-        original_input_features = np.ravel(orig_inputs).astype(int)
-        # Figure out which other lifted states contain inputs
-        all_input_features = np.nonzero(np.any(
-            (self.transformer_.powers_ != 0)[:, self.n_x_:],
-            axis=1
-        ))[0].astype(int)
-        other_input_features = np.setdiff1d(all_input_features,
-                                            original_input_features)
+        original_states = np.ravel(orig_states).astype(int)
+        original_input = np.ravel(orig_inputs).astype(int)
+        # Figure out which other lifted states contain inputs. These ones will
+        # go at the bottom of the output.
+        # Find all input-dependent features:
+        all_inputs = np.nonzero(
+            np.any(self.transformer_.powers_[:, self.n_states_in_:] != 0,
+                   axis=1))[0].astype(int)
+        # Do a set difference to remove the unlifted input features:
+        other_inputs = np.setdiff1d(all_inputs, original_input)
         # Figure out which other lifted states contain states (but are not the
-        # original states themselves
-        other_state_features = np.setdiff1d(
-            np.arange(self.n_features_out_),
-            np.union1d(
-                np.union1d(
-                    original_state_features,
-                    original_input_features
-                ),
-                other_input_features
-            )
+        # original states themselves. Accomplish this by subtracting off
+        # all the other types of features we found. That is, if it's not in
+        # ``original_state_features``, ``original_input_features``, or
+        # ``other_input_features``, it must be in ``other_state_features``.
+        other_states = np.setdiff1d(
+            np.arange(self.transformer_.powers_.shape[0]),
+            np.union1d(np.union1d(original_states, original_input),
+                       other_inputs),
         ).astype(int)
-        # Form new order
-        self.transform_order_ = np.concatenate((
-            original_state_features,
-            other_state_features,
-            original_input_features,
-            other_input_features
-        ))
-        # Figure out original order of features
-        self.inverse_transform_order_ = np.concatenate((
-            np.arange(original_state_features.shape[0]),
-            np.arange(
-                (original_state_features.shape[0]
-                 + other_state_features.shape[0]),
-                (original_state_features.shape[0]
-                 + other_state_features.shape[0]
-                 + original_input_features.shape[0])
-            )
-        ))
+        # Form new ordering of states. Input-dependent states go at the end.
+        self.transform_order_ = np.concatenate(
+            (original_states, other_states, original_input, other_inputs))
         # Compute how many input-independent lifted states and input-dependent
         # lifted states there are
-        self.n_xl_ = (original_state_features.shape[0]
-                      + other_state_features.shape[0])
-        self.n_ul_ = (original_input_features.shape[0]
-                      + other_state_features.shape[0])
-        return self
+        n_states_out = (original_states.shape[0] + other_states.shape[0])
+        n_inputs_out = (original_input.shape[0] + other_inputs.shape[0])
+        # Figure out original order of features
+        self.inverse_transform_order_ = np.concatenate((
+            np.arange(0, self.n_states_in_),
+            np.arange(n_states_out, (n_states_out + self.n_inputs_in_)),
+        ))
+        return (n_states_out, n_inputs_out)
 
-    def transform(self, X):
-        X = self._validate_data(X, reset=False)
-        sklearn.utils.validation.check_is_fitted(self)
+    def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        # Transform states
         Xt = self.transformer_.transform(X)
+        # Reorder states
         return Xt[:, self.transform_order_]
 
-    def inverse_transform(self, X):
-        X = self._validate_data(X, reset=False)
-        sklearn.utils.validation.check_is_fitted(self)
+    def _inverse_transform_one_ep(self, X: np.ndarray) -> np.ndarray:
         # Extract the original features from the lifted features
         return X[:, self.inverse_transform_order_]
 
-    def _validate_data(self, X, y=None, reset=True, **check_array_params):
-        X = sklearn.utils.validation.check_array(X, **check_array_params)
-        if reset:
-            self.n_features_in_ = X.shape[1]
-        return X
-
-    def _validate_parameters(self):
+    def _validate_parameters(self) -> None:
         if self.order <= 0:
             raise ValueError('`order` must be greater than or equal to 1.')
 
 
-class Delay(sklearn.base.BaseEstimator, sklearn.base.TransformerMixin):
+class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
+    """Lifting function to generate bilinear products of the state and input.
+
+    Given a state ``x`` and input::
+
+        u = np.array([
+            [u1],
+            [u2],
+            [u3],
+        ])
+
+    the biliner lifted state has the form::
+
+        psi = np.array([
+            [x],
+            [x * u1],
+            [x * u2],
+            [x * u3],
+            [u].
+        ])
+
+    where the products are element-wise.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
     """
-    Sadly, transform() and inverse_transform() are not exact inverses unless
-    n_delay_x and n_delay_u are the same. Only the last samples will be the
-    same, since some will need to be dropped.
+
+    def __init__(self) -> None:
+        """Instantiate :class:`BilinearInputLiftingFn`."""
+        # Nothing to do but write the docstring.
+        pass
+
+    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int]:
+        n_states_out = self.n_states_in_
+        n_inputs_out = (self.n_states_in_ + 1) * self.n_inputs_in_
+        return (n_states_out, n_inputs_out)
+
+    def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        states = X[:, :self.n_states_in_]
+        inputs = X[:, self.n_states_in_:]
+        features = [states]
+        for k in range(self.n_inputs_in_):
+            features.append(states * inputs[:, [k]])
+        features.append(inputs)
+        Xt = np.hstack(features)
+        return Xt
+
+    def _inverse_transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        Xt = np.hstack((
+            X[:, :self.n_states_in_],
+            X[:, self.n_states_out_ + self.n_inputs_out_ - self.n_inputs_in_:],
+        ))
+        return Xt
+
+    def _validate_parameters(self) -> None:
+        # No parameters to validate
+        pass
+
+
+class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
+    """Lifting function to generate delay coordinates for state and input.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features before transformation, including episode feature if
+        present.
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature if
+        present.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+
+    Warnings
+    --------
+    :func:`transform` and :func:`inverse_transform` are not exact inverses
+    unless ``n_delays_x`` and ``n_delays_u`` are the same. Only the last
+    samples will be the same, since the ``abs(n_delays_x - n_delays_u)``
+    earliest samples will need to be dropped to ensure the output array is
+    rectangular.
     """
 
-    def __init__(self, n_delay_x=0, n_delay_u=0):
-        self.n_delay_x = n_delay_x
-        self.n_delay_u = n_delay_u
+    def __init__(self,
+                 n_delays_state: int = 0,
+                 n_delays_input: int = 0) -> None:
+        """Instantiate :class:`DelayLiftingFn`.
 
-    def fit(self, X, y=None, n_u=0):
-        self._validate_parameters()
-        X = self._validate_data(X, reset=True)
-        self.n_x_ = X.shape[1] - n_u
-        self.n_u_ = n_u
-        self.n_xd_ = self.n_x_ * (self.n_delay_x + 1)
-        self.n_ud_ = self.n_u_ * (self.n_delay_u + 1)
-        self.largest_delay_ = max(self.n_delay_x, self.n_delay_u)
-        self.n_samples_needed_ = max(self.n_delay_x, self.n_delay_u) + 1
-        return self
+        Parameters
+        ----------
+        n_delays_state : int
+            Number of delays to apply to the state.
+        n_delays_input : int
+            Number of delays to apply to the input.
+        """
+        self.n_delays_state = n_delays_state
+        self.n_delays_input = n_delays_input
 
-    def transform(self, X):
-        X = self._validate_data(X, reset=False)
-        sklearn.utils.validation.check_is_fitted(self)
-        if X.shape[1] != self.n_features_in_:
-            raise ValueError(f'Delay `fit()` called wth {self.n_features_in_} '
-                             'features, but `transform() called with '
-                             f'{X.shape[1]}' 'features.')
-        X_x = X[:, :self.n_x_]
-        X_u = X[:, self.n_x_:]
-        Xd_x = self._delay(X_x, self.n_delay_x)
-        Xd_u = self._delay(X_u, self.n_delay_u)
+    def n_samples_in(self, n_samples_out: int = 1) -> int:
+        # noqa: D102
+        return n_samples_out + max(self.n_delays_state, self.n_delays_input)
+
+    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int, int]:
+        # Compute number of states and inputs that will be output.
+        n_states_out = self.n_states_in_ * (self.n_delays_state + 1)
+        n_inputs_out = self.n_inputs_in_ * (self.n_delays_input + 1)
+        # Compute the minimum number of samples needed to use this transformer.
+        min_samples = max(self.n_delays_state, self.n_delays_input) + 1
+        return (n_states_out, n_inputs_out, min_samples)
+
+    def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        # Separate states and inputs
+        X_x = X[:, :self.n_states_in_]
+        X_u = X[:, self.n_states_in_:]
+        # Delay states and inputs separately
+        Xd_x = DelayLiftingFn._delay(X_x, self.n_delays_state)
+        Xd_u = DelayLiftingFn._delay(X_u, self.n_delays_input)
+        # ``Xd_x`` and ``Xd_u`` have different numbers of samples at this
+        # point. Truncate the larger one to the same shape.
         n_samples = min(Xd_x.shape[0], Xd_u.shape[0])
         Xd = np.hstack((Xd_x[-n_samples:, :], Xd_u[-n_samples:, :]))
         return Xd
 
-    def inverse_transform(self, X):
-        X = self._validate_data(X, reset=False)
-        sklearn.utils.validation.check_is_fitted(self)
-        X_x = X[:, :self.n_xd_]
-        X_u = X[:, self.n_xd_:]
-        Xu_x = self._undelay(X_x, self.n_delay_x, self.n_x_)
-        Xu_u = self._undelay(X_u, self.n_delay_u, self.n_u_)
+    def _inverse_transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        # Separate states and inputs.
+        X_x = X[:, :self.n_states_out_]
+        X_u = X[:, self.n_states_out_:]
+        # Undelay states and inputs separately.
+        Xu_x = DelayLiftingFn._undelay(X_x, self.n_delays_state)
+        Xu_u = DelayLiftingFn._undelay(X_u, self.n_delays_input)
+        # ``Xu_x`` and ``Xu_u`` have different numbers of samples at this
+        # point. Truncate the larger one to the same shape.
         n_samples = min(Xu_x.shape[0], Xu_u.shape[0])
         Xu = np.hstack((Xu_x[-n_samples:, :], Xu_u[-n_samples:, :]))
         return Xu
 
     def _validate_parameters(self):
-        if self.n_delay_x < 0:
-            raise ValueError('`n_delay_x` must be greater than or equal to '
-                             'zero.')
-        if self.n_delay_u < 0:
-            raise ValueError('`n_delay_u` must be greater than or equal to '
-                             'zero.')
+        if self.n_delays_state < 0:
+            raise ValueError(
+                '`n_delays_x` must be greater than or equal to 0.')
+        if self.n_delays_input < 0:
+            raise ValueError(
+                '`n_delays_u` must be greater than or equal to 0.')
 
-    def _validate_data(self, X, y=None, reset=True, **check_array_params):
-        X = sklearn.utils.validation.check_array(X, **check_array_params)
-        if reset:
-            self.n_features_in_ = X.shape[1]
-        return X
+    @staticmethod
+    def _delay(X: np.ndarray, n_delays: int) -> np.ndarray:
+        """Delay an array by a specific number of samples.
 
-    def _delay(self, X, n_delay):
-        n_samples_out = X.shape[0] - n_delay
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+        n_delays : int
+            Number of delays.
+
+        Returns
+        -------
+        np.ndarray
+            Delayed matrix.
+        """
+        n_samples_out = X.shape[0] - n_delays
+        # Go through matrix with moving window and treat each window as a new
+        # set of features.
         delays = []
-        for i in range(n_delay, -1, -1):
+        for i in range(n_delays, -1, -1):
             delays.append(X[i:(n_samples_out + i), :])
         Xd = np.concatenate(delays, axis=1)
         return Xd
 
-    def _undelay(self, X, n_delay, n_features):
-        if X.shape[1] == 0:
-            # TODO This seems like a hack. Maybe revisit.
-            n_samples = X.shape[0] + self.largest_delay_
-            Xu = np.array([[]] * n_samples)
-        else:
-            Xu_1 = [X[:-1, -n_features:]]
-            Xu_2 = np.split(X[[-1], :], n_delay + 1, axis=1)[::-1]
-            Xu = np.vstack(Xu_1 + Xu_2)
+    @staticmethod
+    def _undelay(X: np.ndarray, n_delays: int) -> np.ndarray:
+        """Undelay an array by a specific number of samples.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+        n_delays : int
+            Number of delays.
+
+        Returns
+        -------
+        np.ndarray
+            Undelayed matrix.
+
+        Notes
+        -----
+        To understand how this implementation works, consider a matrix::
+
+            [1 -1]
+            [2 -2]
+            [3 -3]
+            [4 -4]
+
+        and its delayed-by-one version::
+
+            [2 -2 1 -1]
+            [3 -3 2 -2]
+            [4 -4 3 -3]
+
+        The last two features contain the first three timesteps of the original
+        matrix::
+
+            [1 -1]
+            [2 -2]
+            [3 -3]
+
+        The last timestep contains the last two timesteps of the original
+        matrix::
+
+            [4 -4 3 -3]
+
+        By merging these two blocks of the matrix (omitting the last timestep
+        of the last two features to avoid duplication), we can reconstruct the
+        original matrix.
+        """
+        # Compute number of features
+        n_features = X.shape[1] // (n_delays + 1)
+        # Get the first part of the sequence from the last features (omitting
+        # the last sample to avoid duplication).
+        Xu_1 = [X[:-1, -n_features:]]
+        # Get the rest of the sequence from the last sample
+        Xu_2 = np.split(X[[-1], :], n_delays + 1, axis=1)[::-1]
+        # Put the sequence together
+        Xu = np.vstack(Xu_1 + Xu_2)
         return Xu

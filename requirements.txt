@@ -1,8 +1,11 @@
-numpy==1.20.1
-scipy==1.6.1
-scikit-learn==0.24.1
-PICOS==2.2.0
-Mosek==9.2.37
+numpy
+scipy
+scikit-learn>=0.24.1
+PICOS>=2.2.0
+Mosek>=9.2.37
 
-pytest==6.2.2
-matplotlib==3.3.4
+pytest
+matplotlib
+
+sphinx
+sphinx-rtd-theme
