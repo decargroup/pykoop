@@ -171,17 +171,19 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         else:
             self.alpha_tikhonov_ = self.alpha * (1.0 - self.ratio)
             self.alpha_other_ = self.alpha * self.ratio
-        # Form optimization problem
+        # Form optimization problem. Regularization coefficients must be scaled
+        # because of how G and H are defined.
+        q = X_unshifted.shape[0]
         problem = self._create_base_problem(X_unshifted, X_shifted,
-                                            self.alpha_tikhonov_,
+                                            self.alpha_tikhonov_ / q,
                                             self.inv_method, self.n_sv,
                                             self.picos_eps)
         if self.reg_method == 'twonorm':
-            problem = _add_twonorm(problem, X_unshifted.shape[0],
-                                   self.alpha_other_, self.picos_eps)
+            problem = _add_twonorm(problem, self.alpha_other_ / q,
+                                   self.picos_eps)
         elif self.reg_method == 'nuclear':
-            problem = _add_nuclear(problem, X_unshifted.shape[0],
-                                   self.alpha_other_, self.picos_eps)
+            problem = _add_nuclear(problem, self.alpha_other_ / q,
+                                   self.picos_eps)
         # Solve optimization problem
         problem.solve(**self.solver_params_)
         # Save solution status
@@ -218,8 +220,9 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         picos_eps: float,
     ) -> picos.Problem:
         """Create optimization problem."""
-        LmiEdmd._validate_problem_parameters(alpha_tikhonov, inv_method, n_sv,
-                                             picos_eps)
+        q = X_unshifted.shape[0]
+        LmiEdmd._validate_problem_parameters(alpha_tikhonov, inv_method,
+                                             n_sv, picos_eps)
         c, G, H, _ = _calc_c_G_H(X_unshifted, X_shifted, alpha_tikhonov)
         # Optimization problem
         problem = picos.Problem()
@@ -393,11 +396,9 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
                                             self.alpha_tikhonov_,
                                             self.picos_eps)
         if self.reg_method == 'twonorm':
-            problem = _add_twonorm(problem, X_unshifted.shape[0],
-                                   self.alpha_other_, self.picos_eps)
+            problem = _add_twonorm(problem, self.alpha_other_, self.picos_eps)
         elif self.reg_method == 'nuclear':
-            problem = _add_nuclear(problem, X_unshifted.shape[0],
-                                   self.alpha_other_, self.picos_eps)
+            problem = _add_nuclear(problem, self.alpha_other_, self.picos_eps)
         # Solve optimization problem
         problem.solve(**self.solver_params_)
         # Save solution status
@@ -692,9 +693,11 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
     def _create_problem_a(self, X_unshifted: np.ndarray, X_shifted: np.ndarray,
                           Gamma: np.ndarray) -> picos.Problem:
         """Create first problem in iteration scheme."""
+        q = X_unshifted.shape[0]
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
-                                                 self.alpha, self.inv_method,
-                                                 self.n_sv, self.picos_eps)
+                                                 self.alpha / q,
+                                                 self.inv_method, self.n_sv,
+                                                 self.picos_eps)
         # Extract information from problem
         U = problem_a.variables['U']
         # Get needed sizes
@@ -969,8 +972,9 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
     def _create_problem_a(self, X_unshifted: np.ndarray, X_shifted: np.ndarray,
                           P: np.ndarray) -> picos.Problem:
         """Create first problem in iteration scheme."""
+        q = X_unshifted.shape[0]
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
-                                                 self.alpha_tikhonov_,
+                                                 self.alpha_tikhonov_ / q,
                                                  self.inv_method, self.n_sv,
                                                  self.picos_eps)
         # Extract information from problem
@@ -979,7 +983,6 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         objective = problem_a.objective.function
         # Get needed sizes
         p_theta = U.shape[0]
-        q = X_unshifted.shape[0]
         # Add new constraint
         P = picos.Constant('P', P)
         gamma = picos.RealVariable('gamma', 1)
@@ -1106,7 +1109,7 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         return (A, B, C, D)
 
 
-def _add_twonorm(problem: picos.Problem, q: int, alpha_other: float,
+def _add_twonorm(problem: picos.Problem, alpha_other: float,
                  picos_eps: float) -> picos.Problem:
     """Add matrix two norm regularizer to an optimization problem.
 
@@ -1114,10 +1117,8 @@ def _add_twonorm(problem: picos.Problem, q: int, alpha_other: float,
     ----------
     problem : picos.Problem
         Optimization problem.
-    q : int
-        Number of timesteps in unshifted data matrix.
     alpha_other : float
-        Regularization coefficient.
+        Regularization coefficient (already divided by ``q`` if applicable).
     picos_eps : float
         Tolerance used for strict LMIs.
 
@@ -1138,13 +1139,13 @@ def _add_twonorm(problem: picos.Problem, q: int, alpha_other: float,
         picos.block([[picos.diag(gamma, p), U.T],
                      [U, picos.diag(gamma, p_theta)]]) >> 0)
     # Add term to cost function
-    alpha_scaled = picos.Constant('alpha_2/q', alpha_other / q)
+    alpha_scaled = picos.Constant('alpha_scaled_2', alpha_other)
     objective += alpha_scaled * gamma
     problem.set_objective(direction, objective)
     return problem
 
 
-def _add_nuclear(problem: picos.Problem, q: int, alpha_other: float,
+def _add_nuclear(problem: picos.Problem, alpha_other: float,
                  picos_eps: float) -> picos.Problem:
     """Add nuclear norm regularizer to an optimization problem.
 
@@ -1152,10 +1153,8 @@ def _add_nuclear(problem: picos.Problem, q: int, alpha_other: float,
     ----------
     problem : picos.Problem
         Optimization problem.
-    q : int
-        Number of timesteps in unshifted data matrix.
     alpha_other : float
-        Regularization coefficient.
+        Regularization coefficient (already divided by ``q`` if applicable).
     picos_eps : float
         Tolerance used for strict LMIs.
 
@@ -1177,7 +1176,7 @@ def _add_nuclear(problem: picos.Problem, q: int, alpha_other: float,
     problem.add_constraint(picos.trace(W_1) + picos.trace(W_2) <= 2 * gamma)
     problem.add_constraint(picos.block([[W_1, U], [U.T, W_2]]) >> 0)
     # Add term to cost function
-    alpha_scaled = picos.Constant('alpha_*/q', alpha_other / q)
+    alpha_scaled = picos.Constant('alpha_scaled_*', alpha_other)
     objective += alpha_scaled * gamma
     problem.set_objective(direction, objective)
     return problem
@@ -1198,7 +1197,7 @@ def _calc_c_G_H(
     X_shifted: np.ndarray
         Shifted data matrix.
     alpha: float
-        Tikhonov regularization coefficient.
+        Tikhonov regularization coefficient (divided by ``q``).
 
     Returns
     -------
@@ -1213,7 +1212,9 @@ def _calc_c_G_H(
     # Compute G and Tikhonov-regularized H
     G = (Theta_p @ Psi.T) / q
     H_unreg = (Psi @ Psi.T) / q
-    H_reg = H_unreg + (alpha * np.eye(p)) / q
+    # ``alpha`` is already divided by ``q`` to be consistent with ``G`` and
+    # ``H``
+    H_reg = H_unreg + (alpha * np.eye(p))
     # Compute c
     c = np.trace(Theta_p @ Theta_p.T) / q
     # Check condition number and rank of G and H
@@ -1291,12 +1292,30 @@ def _calc_sqrtH(H: np.ndarray) -> np.ndarray:
 def _calc_QSig(X: np.ndarray, alpha: float, r: int = None) -> np.ndarray:
     """Split ``H`` using the truncated SVD of ``X``.
 
+    ``H`` is defined as:
+
+        H = 1/q * X_unshifted @ X_unshifted.T
+
+    Consider the SVD::
+
+        X_unshifted = Q @ Sig @ V.T
+
+    Without regularization, ``H`` is then::
+
+        H = 1/q * Q @ Sig**2 @ Q.T
+          = Q @ (Sig**2 / q) @ Q.T
+          = (Q @ sqrt(Sig**2 / q)) @ (sqrt(Sig**2 / q) @ Q.T)
+
+    With regularization::
+
+        H = (Q @ sqrt(Sig**2 / q + alpha)) @ (sqrt(Sig**2 / q + alpha) @ Q.T)
+
     Parameters
     ----------
     X : np.ndarray
-        ``X``, where ``H = X @ X.T``.
+        ``X``, where ``H = 1/q * X @ X.T``.
     alpha : float
-        Tikhonov regularization coefficient.
+        Tikhonov regularization coefficient (divided by ``q``).
     r : int
         Singular value truncation index.
     """
@@ -1307,7 +1326,9 @@ def _calc_QSig(X: np.ndarray, alpha: float, r: int = None) -> np.ndarray:
     sr = s[:r]
     # Regularize
     q = X.shape[0]
-    sr_reg = np.sqrt((sr**2 + alpha) / q)
+    # ``alpha`` is already divided by ``q`` to be consistent with ``G`` and
+    # ``H``.
+    sr_reg = np.sqrt((sr**2 / q) + alpha)
     Sr_reg = np.diag(sr_reg)
     # Multiply with Q and return
     QSig = Qr @ Sr_reg
