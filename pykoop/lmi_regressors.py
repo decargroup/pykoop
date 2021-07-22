@@ -11,7 +11,7 @@ that long regressions can be stopped politely.
 import logging
 import signal
 import tempfile
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import joblib
 import numpy as np
@@ -98,7 +98,7 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
                  ratio: float = 1,
                  reg_method: str = 'tikhonov',
                  inv_method: str = 'svd',
-                 n_sv: int = None,
+                 tsvd_method: Union[str, tuple[str, ...]] = 'economy',
                  picos_eps: float = 0,
                  solver_params: dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiEdmd`.
@@ -139,9 +139,18 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
             - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
             - ``'svd'`` -- split ``H`` using a singular value decomposition.
 
-         n_sv: int
-            Number of singular values to keep if ``inv_method='svd'``. If
-            `None`, performs an economy SVD.
+         tsvd_method : Union[str, tuple[str, ...]]
+            Singular value truncation method if ``inv_method='svd'``. Very
+            experimental. Possible values are
+
+            - ``'economy'`` or ``('economy', )`` -- use economy SVD without
+              truncating singular values
+            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- use optimal
+              hard truncation [optht]_ with unknown noise to truncate,
+            - ``('known_noise', sigma)`` -- use optimal hard truncation
+              [optht]_ with known noise ``sigma`` to truncate, or
+            - ``('manual', rank)`` -- manually truncate SVDs of ``X_unshifted``
+            to ``rank``.
 
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
@@ -150,12 +159,19 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         solver_params : dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
+
+        References
+        ----------
+        .. [optht] Gavish, Matan, and David L. Donoho. "The optimal hard
+           threshold for singular values is 4/sqrt(3)" IEEE Transactions on
+           Information Theory 60.8 (2014): 5040-5053.
+           http://arxiv.org/abs/1305.5870
         """
         self.alpha = alpha
         self.ratio = ratio
         self.reg_method = reg_method
         self.inv_method = inv_method
-        self.n_sv = n_sv
+        self.tsvd_method = tsvd_method
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
@@ -177,7 +193,7 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         q = X_unshifted.shape[0]
         problem = self._create_base_problem(X_unshifted, X_shifted,
                                             self.alpha_tikhonov_ / q,
-                                            self.inv_method, self.n_sv,
+                                            self.inv_method, self.tsvd_method,
                                             self.picos_eps)
         if self.reg_method == 'twonorm':
             problem = _add_twonorm(problem, problem.variables['U'],
@@ -196,7 +212,7 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
     def _validate_parameters(self) -> None:
         # Check problem creation parameters
         self._validate_problem_parameters(self.alpha, self.inv_method,
-                                          self.n_sv, self.picos_eps)
+                                          self.tsvd_method, self.picos_eps)
         # Check regularization methods
         valid_reg_methods = ['tikhonov', 'twonorm', 'nuclear']
         if self.reg_method not in valid_reg_methods:
@@ -217,13 +233,13 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         X_shifted: np.ndarray,
         alpha_tikhonov: float,
         inv_method: str,
-        n_sv: Optional[int],
+        tsvd_method: Union[str, tuple[str, ...]],
         picos_eps: float,
     ) -> picos.Problem:
         """Create optimization problem."""
         q = X_unshifted.shape[0]
-        LmiEdmd._validate_problem_parameters(alpha_tikhonov, inv_method, n_sv,
-                                             picos_eps)
+        LmiEdmd._validate_problem_parameters(alpha_tikhonov, inv_method,
+                                             tsvd_method, picos_eps)
         c, G, H, _ = _calc_c_G_H(X_unshifted, X_shifted, alpha_tikhonov)
         # Optimization problem
         problem = picos.Problem()
@@ -277,7 +293,8 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
                 ]) >> 0)
         elif inv_method == 'svd':
             QSig = picos.Constant(
-                'Q Sigma', _calc_QSig(X_unshifted, alpha_tikhonov, n_sv))
+                'Q Sigma', _calc_QSig(X_unshifted, alpha_tikhonov,
+                                      tsvd_method))
             problem.add_constraint(
                 picos.block([
                     [Z, U * QSig],
@@ -298,7 +315,7 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
 
     @staticmethod
     def _validate_problem_parameters(alpha: float, inv_method: str,
-                                     n_sv: Optional[int],
+                                     tsvd_method: Union[str, tuple[str, ...]],
                                      picos_eps: float) -> None:
         """Validate parameters involved in problem creation."""
         # Validate ``alpha``
@@ -312,8 +329,7 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
             raise ValueError('`inv_method` must be one of '
                              f'{valid_inv_methods}.')
         # Check number of singular values to keep.
-        if (n_sv is not None) and (n_sv) <= 0:
-            raise ValueError('`n_sv` must be greater than zero.')
+        _validate_tsvd_method(tsvd_method, manual_len=2)
         # Validate ``picos_eps``
         if picos_eps < 0:
             raise ValueError('Parameter `picos_eps` must be positive or zero.')
@@ -349,7 +365,7 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
     def __init__(self,
                  alpha: float = 0,
                  ratio: float = 1,
-                 tsvd_method: tuple = ('economy', ),
+                 tsvd_method: Union[str, tuple[str, ...]] = 'economy',
                  reg_method: str = 'tikhonov',
                  picos_eps: float = 0,
                  solver_params: dict[str, Any] = None) -> None:
@@ -385,10 +401,12 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
         Z_tld = Zh_tld.T
         Z_hat = Zh_hat.T
         # Truncate SVD
-        if self.tsvd_method[0] == 'economy':
+        if ((self.tsvd_method == 'economy')
+                or (self.tsvd_method[0] == 'economy')):
             r_tld = sigma_tld.shape[0]
             r_hat = sigma_hat.shape[0]
-        elif self.tsvd_method[0] == 'unknown_noise':
+        elif ((self.tsvd_method == 'unknown_noise')
+              or (self.tsvd_method[0] == 'unknown_noise')):
             r_tld = optht.optht(X_unshifted.T, sigma_tld)
             r_hat = optht.optht(X_shifted.T, sigma_hat)
         elif self.tsvd_method[0] == 'known_noise':
@@ -430,12 +448,7 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
     def _validate_parameters(self) -> None:
         # Check problem creation parameters
         self._validate_problem_parameters(self.alpha, self.picos_eps)
-        valid_tsvd_methods = [
-            'economy', 'unknown_noise', 'known_noise', 'manual'
-        ]
-        if self.tsvd_method[0] not in valid_tsvd_methods:
-            raise ValueError('`tsvd_method` must be one of '
-                             f'{valid_tsvd_methods}.')
+        _validate_tsvd_method(self.tsvd_method, manual_len=3)
         # Check regularization methods
         valid_reg_methods = ['tikhonov', 'twonorm', 'nuclear']
         if self.reg_method not in valid_reg_methods:
@@ -577,7 +590,7 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
                  iter_tol: float = 1e-6,
                  alpha: float = 0,
                  inv_method: str = 'svd',
-                 n_sv: int = None,
+                 tsvd_method: Union[str, tuple[str, ...]] = 'economy',
                  picos_eps: float = 0,
                  solver_params: dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiEdmdSpectralRadiusConstr`.
@@ -613,9 +626,18 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
             - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
             - ``'svd'`` -- split ``H`` using a singular value decomposition.
 
-         n_sv: int
-            Number of singular values to keep if ``inv_method='svd'``. If
-            `None`, performs an economy SVD.
+         tsvd_method : Union[str, tuple[str, ...]]
+            Singular value truncation method if ``inv_method='svd'``. Very
+            experimental. Possible values are
+
+            - ``'economy'`` or ``('economy', )`` -- use economy SVD without
+              truncating singular values
+            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- use optimal
+              hard truncation [optht]_ with unknown noise to truncate,
+            - ``('known_noise', sigma)`` -- use optimal hard truncation
+              [optht]_ with known noise ``sigma`` to truncate, or
+            - ``('manual', rank)`` -- manually truncate SVDs of ``X_unshifted``
+            to ``rank``.
 
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
@@ -630,7 +652,7 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
         self.iter_tol = iter_tol
         self.alpha = alpha
         self.inv_method = inv_method
-        self.n_sv = n_sv
+        self.tsvd_method = tsvd_method
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
@@ -706,7 +728,7 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
     def _validate_parameters(self) -> None:
         # Check problem creation parameters
         LmiEdmd._validate_problem_parameters(self.alpha, self.inv_method,
-                                             self.n_sv, self.picos_eps)
+                                             self.tsvd_method, self.picos_eps)
         # Check spectral radius
         if self.spectral_radius <= 0:
             raise ValueError('`spectral_radius` must be positive.')
@@ -721,7 +743,8 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
         q = X_unshifted.shape[0]
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
                                                  self.alpha / q,
-                                                 self.inv_method, self.n_sv,
+                                                 self.inv_method,
+                                                 self.tsvd_method,
                                                  self.picos_eps)
         # Extract information from problem
         U = problem_a.variables['U']
@@ -821,7 +844,7 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
                  max_iter: int = 100,
                  iter_tol: float = 1e-6,
                  inv_method: str = 'svd',
-                 n_sv: int = None,
+                 tsvd_method: Union[str, tuple[str, ...]] = 'economy',
                  picos_eps: float = 0,
                  solver_params: dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiEdmdHinfReg`.
@@ -862,9 +885,18 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
             - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
             - ``'svd'`` -- split ``H`` using a singular value decomposition.
 
-         n_sv: int
-            Number of singular values to keep if ``inv_method='svd'``. If
-            `None`, performs an economy SVD.
+         tsvd_method : Union[str, tuple[str, ...]]
+            Singular value truncation method if ``inv_method='svd'``. Very
+            experimental. Possible values are
+
+            - ``'economy'`` or ``('economy', )`` -- use economy SVD without
+              truncating singular values
+            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- use optimal
+              hard truncation [optht]_ with unknown noise to truncate,
+            - ``('known_noise', sigma)`` -- use optimal hard truncation
+              [optht]_ with known noise ``sigma`` to truncate, or
+            - ``('manual', rank)`` -- manually truncate SVDs of ``X_unshifted``
+            to ``rank``.
 
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
@@ -880,7 +912,7 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         self.max_iter = max_iter
         self.iter_tol = iter_tol
         self.inv_method = inv_method
-        self.n_sv = n_sv
+        self.tsvd_method = tsvd_method
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
@@ -976,7 +1008,7 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
     def _validate_parameters(self) -> None:
         # Check problem creation parameters
         LmiEdmd._validate_problem_parameters(self.alpha, self.inv_method,
-                                             self.n_sv, self.picos_eps)
+                                             self.tsvd_method, self.picos_eps)
         # Check other parameters
         if self.alpha <= 0:
             # Check alpha again because ``_validate_problem_parameters`` allows
@@ -1000,7 +1032,8 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         q = X_unshifted.shape[0]
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
                                                  self.alpha_tikhonov_ / q,
-                                                 self.inv_method, self.n_sv,
+                                                 self.inv_method,
+                                                 self.tsvd_method,
                                                  self.picos_eps)
         # Extract information from problem
         U = problem_a.variables['U']
@@ -1209,6 +1242,55 @@ def _add_nuclear(problem: picos.Problem, U: picos.RealVariable,
     return problem
 
 
+def _validate_tsvd_method(tsvd_method: Union[str, tuple[str, ...]],
+                          manual_len: int) -> None:
+    """Validate ``tsvd_method``.
+
+    Parameters
+    ----------
+    tsvd_method : Union[str, tuple[str, ...]]
+        Singular value truncation method if ``inv_method='svd'``.
+    manual_len : int
+        Number of ranks that need to be specified in the ``'manual'`` tuple.
+    """
+    # Value is required tuple length
+    valid_tsvd_methods = {
+        'economy': 1,
+        'unknown_noise': 1,
+        'known_noise': 2,
+        'manual': manual_len,
+    }
+    # String representation of options
+    valid_tsvd_methods_str = [
+        "'economy'",
+        "'unknown_noise'",
+        "('economy', )",
+        "('unknown_noise', )",
+        "('known_noise', `sigma`)",
+    ]
+    # Add last option depending on ``manual_len``
+    if manual_len == 2:
+        valid_tsvd_methods_str.append("('manual', `rank`)")
+    elif manual_len == 3:
+        valid_tsvd_methods_str.append(
+            "('manual', `rank_unshifted`, `rank_shifted`)")
+    else:
+        raise NotImplementedError('Not a valid ``manual_len``. Add its '
+                                  'string representation here?')
+    if type(tsvd_method) is str:
+        if tsvd_method not in ['economy', 'unknown_noise']:
+            raise ValueError('`tsvd_method` must be one of '
+                             f'{valid_tsvd_methods_str}.')
+    else:
+        if tsvd_method[0] not in valid_tsvd_methods:
+            raise ValueError('`tsvd_method` must be one of '
+                             f'{valid_tsvd_methods_str}.')
+        if (len(tsvd_method) != valid_tsvd_methods[tsvd_method[0]]):
+            raise ValueError('Wrong number of tuple elements in '
+                             '`tsvd_method`. Must be one of'
+                             f'{valid_tsvd_methods_str}.')
+
+
 @memory.cache
 def _calc_c_G_H(
     X_unshifted: np.ndarray,
@@ -1316,7 +1398,8 @@ def _calc_sqrtH(H: np.ndarray) -> np.ndarray:
 
 
 @memory.cache
-def _calc_QSig(X: np.ndarray, alpha: float, r: int = None) -> np.ndarray:
+def _calc_QSig(X: np.ndarray, alpha: float,
+               tsvd_method: Union[str, tuple[str, ...]]) -> np.ndarray:
     """Split ``H`` using the truncated SVD of ``X``.
 
     ``H`` is defined as:
@@ -1343,11 +1426,30 @@ def _calc_QSig(X: np.ndarray, alpha: float, r: int = None) -> np.ndarray:
         ``X``, where ``H = 1/q * X @ X.T``.
     alpha : float
         Tikhonov regularization coefficient (divided by ``q``).
-    r : int
-        Singular value truncation index.
+     tsvd_method : Union[str, tuple[str, ...]]
+        Singular value truncation method if ``inv_method='svd'``.
+
+    Returns
+    -------
+    np.ndarray
+        Split ``H`` matrix.
     """
     # SVD
     Q, s, _ = linalg.svd(X.T, full_matrices=False)
+    # Compute truncation rank
+    if ((tsvd_method == 'economy') or (tsvd_method[0] == 'economy')):
+        r = s.shape[0]
+    elif ((tsvd_method == 'unknown_noise')
+          or (tsvd_method[0] == 'unknown_noise')):
+        r = optht.optht(X.T, s)
+    elif tsvd_method[0] == 'known_noise':
+        variance = tsvd_method[1]
+        r = optht.optht(X.T, s, variance)
+    elif tsvd_method[0] == 'manual':
+        r = tsvd_method[1]
+    else:
+        # Already checked
+        assert False
     # Truncate
     Qr = Q[:, :r]
     sr = s[:r]

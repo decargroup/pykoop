@@ -47,8 +47,9 @@ def main():
         #     pykoop.DelayLiftingFn(n_delays_state=4, n_delays_input=4),
         # ],
         lifting_functions=None,
-        # regressor=pykoop.Edmd(),
+        regressor=lmi_regressors.LmiEdmd(tsvd_method=('manual', 4)),
         # regressor=lmi_regressors.LmiDmdc(tsvd_method=('known_noise', 0.1)),
+        # regressor=lmi_regressors.LmiDmdc(tsvd_method=('economy', )),
     )
     kp.fit(X.T, n_inputs=1, episode_feature=True)
 
