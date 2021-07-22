@@ -1557,6 +1557,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
             else:
                 X_predicted = estimator.predict(X_unshifted)
             # Strip episode feature and initial conditions
+            # TODO THIS IS WRONG IF THERE ARE MANY EPISODES??? UH OH
             if estimator.episode_feature_:
                 X_shifted = X_shifted[estimator.min_samples_:, 1:]
                 X_predicted = X_predicted[estimator.min_samples_:, 1:]
