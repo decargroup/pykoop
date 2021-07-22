@@ -179,11 +179,11 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
                                             self.inv_method, self.n_sv,
                                             self.picos_eps)
         if self.reg_method == 'twonorm':
-            problem = _add_twonorm(problem, self.alpha_other_ / q,
-                                   self.picos_eps)
+            problem = _add_twonorm(problem, problem.variables['U'],
+                                   self.alpha_other_ / q, self.picos_eps)
         elif self.reg_method == 'nuclear':
-            problem = _add_nuclear(problem, self.alpha_other_ / q,
-                                   self.picos_eps)
+            problem = _add_nuclear(problem, problem.variables['U'],
+                                   self.alpha_other_ / q, self.picos_eps)
         # Solve optimization problem
         problem.solve(**self.solver_params_)
         # Save solution status
@@ -221,8 +221,8 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
     ) -> picos.Problem:
         """Create optimization problem."""
         q = X_unshifted.shape[0]
-        LmiEdmd._validate_problem_parameters(alpha_tikhonov, inv_method,
-                                             n_sv, picos_eps)
+        LmiEdmd._validate_problem_parameters(alpha_tikhonov, inv_method, n_sv,
+                                             picos_eps)
         c, G, H, _ = _calc_c_G_H(X_unshifted, X_shifted, alpha_tikhonov)
         # Optimization problem
         problem = picos.Problem()
@@ -396,9 +396,11 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
                                             self.alpha_tikhonov_,
                                             self.picos_eps)
         if self.reg_method == 'twonorm':
-            problem = _add_twonorm(problem, self.alpha_other_, self.picos_eps)
+            problem = _add_twonorm(problem, problem.variables['U_hat'],
+                                   self.alpha_other_, self.picos_eps)
         elif self.reg_method == 'nuclear':
-            problem = _add_nuclear(problem, self.alpha_other_, self.picos_eps)
+            problem = _add_nuclear(problem, problem.variables['U_hat'],
+                                   self.alpha_other_, self.picos_eps)
         # Solve optimization problem
         problem.solve(**self.solver_params_)
         # Save solution status
@@ -1109,14 +1111,16 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         return (A, B, C, D)
 
 
-def _add_twonorm(problem: picos.Problem, alpha_other: float,
-                 picos_eps: float) -> picos.Problem:
+def _add_twonorm(problem: picos.Problem, U: picos.RealVariable,
+                 alpha_other: float, picos_eps: float) -> picos.Problem:
     """Add matrix two norm regularizer to an optimization problem.
 
     Parameters
     ----------
     problem : picos.Problem
         Optimization problem.
+    U : picos.RealVariable
+        Koopman matrix variable.
     alpha_other : float
         Regularization coefficient (already divided by ``q`` if applicable).
     picos_eps : float
@@ -1128,7 +1132,6 @@ def _add_twonorm(problem: picos.Problem, alpha_other: float,
         Optimization problem with regularizer added.
     """
     # Extract information from problem
-    U = problem.variables['U']
     direction = problem.objective.direction
     objective = problem.objective.function
     # Get needed sizes
@@ -1145,14 +1148,16 @@ def _add_twonorm(problem: picos.Problem, alpha_other: float,
     return problem
 
 
-def _add_nuclear(problem: picos.Problem, alpha_other: float,
-                 picos_eps: float) -> picos.Problem:
+def _add_nuclear(problem: picos.Problem, U: picos.RealVariable,
+                 alpha_other: float, picos_eps: float) -> picos.Problem:
     """Add nuclear norm regularizer to an optimization problem.
 
     Parameters
     ----------
     problem : picos.Problem
         Optimization problem.
+    U : picos.RealVariable
+        Koopman matrix variable.
     alpha_other : float
         Regularization coefficient (already divided by ``q`` if applicable).
     picos_eps : float
@@ -1164,7 +1169,6 @@ def _add_nuclear(problem: picos.Problem, alpha_other: float,
         Optimization problem with regularizer added.
     """
     # Extract information from problem
-    U = problem.variables['U']
     direction = problem.objective.direction
     objective = problem.objective.function
     # Get needed sizes
