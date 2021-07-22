@@ -15,6 +15,7 @@ from typing import Any, Optional
 
 import joblib
 import numpy as np
+import optht
 import picos
 from scipy import linalg
 
@@ -348,12 +349,14 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
     def __init__(self,
                  alpha: float = 0,
                  ratio: float = 1,
+                 tsvd_method: tuple = ('economy', ),
                  reg_method: str = 'tikhonov',
                  picos_eps: float = 0,
                  solver_params: dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiDmdc`."""
         self.alpha = alpha
         self.ratio = ratio
+        self.tsvd_method = tsvd_method
         self.reg_method = reg_method
         self.picos_eps = picos_eps
         self.solver_params = solver_params
@@ -382,8 +385,22 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
         Z_tld = Zh_tld.T
         Z_hat = Zh_hat.T
         # Truncate SVD
-        r_tld = sigma_tld.shape[0]
-        r_hat = sigma_hat.shape[0]
+        if self.tsvd_method[0] == 'economy':
+            r_tld = sigma_tld.shape[0]
+            r_hat = sigma_hat.shape[0]
+        elif self.tsvd_method[0] == 'unknown_noise':
+            r_tld = optht.optht(X_unshifted.T, sigma_tld)
+            r_hat = optht.optht(X_shifted.T, sigma_hat)
+        elif self.tsvd_method[0] == 'known_noise':
+            variance = self.tsvd_method[1]
+            r_tld = optht.optht(X_unshifted.T, sigma_tld, variance)
+            r_hat = optht.optht(X_shifted.T, sigma_hat, variance)
+        elif self.tsvd_method[0] == 'manual':
+            r_tld = self.tsvd_method[1]
+            r_hat = self.tsvd_method[2]
+        else:
+            # Already checked
+            assert False
         Q_tld = Q_tld[:, :r_tld]
         sigma_tld = sigma_tld[:r_tld]
         Z_tld = Z_tld[:, :r_tld]
@@ -413,6 +430,12 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
     def _validate_parameters(self) -> None:
         # Check problem creation parameters
         self._validate_problem_parameters(self.alpha, self.picos_eps)
+        valid_tsvd_methods = [
+            'economy', 'unknown_noise', 'known_noise', 'manual'
+        ]
+        if self.tsvd_method[0] not in valid_tsvd_methods:
+            raise ValueError('`tsvd_method` must be one of '
+                             f'{valid_tsvd_methods}.')
         # Check regularization methods
         valid_reg_methods = ['tikhonov', 'twonorm', 'nuclear']
         if self.reg_method not in valid_reg_methods:

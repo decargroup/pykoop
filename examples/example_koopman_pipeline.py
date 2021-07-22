@@ -1,8 +1,8 @@
 import numpy as np
 import pykoop
-from pykoop import lmi_regressors
 from dynamics import mass_spring_damper
 from matplotlib import pyplot as plt
+from pykoop import lmi_regressors
 from scipy import integrate
 
 plt.rc('lines', linewidth=2)
@@ -48,7 +48,7 @@ def main():
         # ],
         lifting_functions=None,
         # regressor=pykoop.Edmd(),
-        regressor=lmi_regressors.LmiDmdc(),
+        # regressor=lmi_regressors.LmiDmdc(tsvd_method=('known_noise', 0.1)),
     )
     kp.fit(X.T, n_inputs=1, episode_feature=True)
 
