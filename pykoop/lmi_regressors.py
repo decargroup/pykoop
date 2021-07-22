@@ -1185,7 +1185,7 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
             Bm = U[:, p_theta:]
             Cm = picos.Constant('Cm', np.eye(p_theta))
             Dm = picos.Constant('Dm', np.zeros((Cm.shape[0], Bm.shape[1])))
-            if self.weight_type_ == 'pre':
+            if self.weight[0] == 'pre':
                 n_u = Bm.shape[1]
                 Aw_blk = linalg.block_diag(*([self.weight[1]] * n_u))
                 Bw_blk = linalg.block_diag(*([self.weight[2]] * n_u))
@@ -1207,7 +1207,7 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
                     [Dm * Cw, Cm],
                 ])
                 D = Dm * Dw
-            elif self.weight_type_ == 'post':
+            elif self.weight[0] == 'post':
                 n_x = Bm.shape[0]
                 Aw_blk = linalg.block_diag(*([self.weight[1]] * n_x))
                 Bw_blk = linalg.block_diag(*([self.weight[2]] * n_x))
