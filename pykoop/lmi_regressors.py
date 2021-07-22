@@ -486,7 +486,8 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
         # Constants
         Sigma_hat_sq = picos.Constant('Sigma_hat^2', np.diag(sigma_hat**2))
         Sigma_hat = np.diag(sigma_hat)
-        Sigma_tld = np.diag(sigma_tld)
+        # Add regularizer to ``Sigma_tld``
+        Sigma_tld = np.diag(np.sqrt(sigma_tld**2 + alpha_tikhonov))
         big_constant = picos.Constant(
             'Q_bar Sigma_tld Z_tld.T Z_hat Sigma_Hat',
             Q_bar @ Sigma_tld @ Z_tld.T @ Z_hat @ Sigma_hat,

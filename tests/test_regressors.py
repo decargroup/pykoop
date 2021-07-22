@@ -1,8 +1,8 @@
+import mass_spring_damper
 import numpy as np
 import pykoop
 import pykoop.lmi_regressors
 import pytest
-import mass_spring_damper
 from scipy import integrate, linalg
 from sklearn import linear_model
 
@@ -27,8 +27,12 @@ from sklearn import linear_model
          'msd-no-input', 1e-4, 1e-5, 'exact'),
         (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='svd'),
          'msd-no-input', 1e-4, 1e-5, 'exact'),
+        (pykoop.lmi_regressors.LmiDmdc(alpha=0), 'msd-no-input', 1e-4, 1e-5,
+         'exact'),
         (pykoop.lmi_regressors.LmiEdmd(alpha=1, inv_method='chol'),
          'msd-no-input', 1e-4, None, 'sklearn-ridge'),
+        # (pykoop.lmi_regressors.LmiDmdc(alpha=1), 'msd-no-input', 1e-4, None,
+        #  'sklearn-ridge'), I don't think this is the same
         (
             pykoop.lmi_regressors.LmiEdmd(alpha=1,
                                           reg_method='twonorm',
@@ -98,12 +102,13 @@ from sklearn import linear_model
             marks=pytest.mark.slow),
         pytest.param(
             (
-                pykoop.lmi_regressors.LmiEdmdHinfReg(inv_method='eig',
-                                          max_iter=100,
-                                          iter_tol=5e-8,
-                                          alpha=1,
-                                          ratio=1,
-                                          solver_params={'dualize': False}),
+                pykoop.lmi_regressors.LmiEdmdHinfReg(
+                    inv_method='eig',
+                    max_iter=100,
+                    iter_tol=5e-8,
+                    alpha=1,
+                    ratio=1,
+                    solver_params={'dualize': False}),
                 'msd-sin-input',
                 1e-4,
                 None,
