@@ -3,7 +3,7 @@ from scipy import signal, interpolate
 
 
 def random_state(low, high, rng=None):
-    """Generates a random initial state.
+    """Generate a random initial state.
 
     Generates uniform random data between specified bounds.
 
@@ -33,7 +33,7 @@ def random_state(low, high, rng=None):
 
 def random_input(t_range, t_step, low, high, cutoff, order=2, rng=None,
                  output='function'):
-    """Generates a smooth random input.
+    """Generate a smooth random input.
 
     Generates uniform random data between specified bounds, lowpass filters the
     data, then optionally linearly interpolates to return a function of time.
