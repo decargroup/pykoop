@@ -6,6 +6,13 @@ Importing this module has side effects! When imported, the module creates a
 temporary directory with the prefix ``pykoop_``, which is used to memoize long
 computations that may be repreated frequently. It also catches ``SIGINT`` so
 that long regressions can be stopped politely.
+
+References
+----------
+.. [optht] Gavish, Matan, and David L. Donoho. "The optimal hard
+   threshold for singular values is 4/sqrt(3)" IEEE Transactions on
+   Information Theory 60.8 (2014): 5040-5053.
+   http://arxiv.org/abs/1305.5870
 """
 
 import logging
@@ -150,7 +157,7 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
             - ``('known_noise', sigma)`` -- use optimal hard truncation
               [optht]_ with known noise ``sigma`` to truncate, or
             - ``('manual', rank)`` -- manually truncate SVDs of ``X_unshifted``
-            to ``rank``.
+              to ``rank``.
 
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
@@ -159,13 +166,6 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         solver_params : dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
-
-        References
-        ----------
-        .. [optht] Gavish, Matan, and David L. Donoho. "The optimal hard
-           threshold for singular values is 4/sqrt(3)" IEEE Transactions on
-           Information Theory 60.8 (2014): 5040-5053.
-           http://arxiv.org/abs/1305.5870
         """
         self.alpha = alpha
         self.ratio = ratio
@@ -435,14 +435,6 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
         solver_params : dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
-
-        References
-        ----------
-        .. [optht] Gavish, Matan, and David L. Donoho. "The optimal hard
-           threshold for singular values is 4/sqrt(3)" IEEE Transactions on
-           Information Theory 60.8 (2014): 5040-5053.
-           http://arxiv.org/abs/1305.5870
-
         """
         self.alpha = alpha
         self.ratio = ratio
@@ -713,7 +705,7 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
             - ``('known_noise', sigma)`` -- use optimal hard truncation
               [optht]_ with known noise ``sigma`` to truncate, or
             - ``('manual', rank)`` -- manually truncate SVDs of ``X_unshifted``
-            to ``rank``.
+              to ``rank``.
 
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
@@ -972,7 +964,7 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
             - ``('known_noise', sigma)`` -- use optimal hard truncation
               [optht]_ with known noise ``sigma`` to truncate, or
             - ``('manual', rank)`` -- manually truncate SVDs of ``X_unshifted``
-            to ``rank``.
+              to ``rank``.
 
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
