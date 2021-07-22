@@ -336,7 +336,30 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
 
 
 class LmiDmdc(koopman_pipeline.KoopmanRegressor):
-    """LMI-based DMDc."""
+    """LMI-based DMDc with regularization.
+
+    Supports Tikhonov regularization, optionally mixed with matrix two-norm
+    regularization or nuclear norm regularization.
+
+    Attributes
+    ----------
+    self.alpha_tikhonov_ : float
+        Tikhonov regularization coefficient used.
+    self.alpha_other_ : float
+        Matrix two norm or nuclear norm regularization coefficient used.
+    solver_params_ : dict[str, Any]
+        Solver parameters used (defaults merged with constructor input).
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+    """
 
     # Default solver parameters
     _default_solver_params: dict[str, Any] = {
@@ -369,7 +392,58 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
                  reg_method: str = 'tikhonov',
                  picos_eps: float = 0,
                  solver_params: dict[str, Any] = None) -> None:
-        """Instantiate :class:`LmiDmdc`."""
+        """Instantiate :class:`LmiDmdc`.
+
+        Parameters
+        ----------
+        alpha : float
+            Regularization coefficient. Can only be zero if
+            ``reg_method='tikhonov'``.
+
+        ratio : float
+            Ratio of matrix two-norm or nuclear norm to use in mixed
+            regularization. If ``ratio=1``, no Tikhonov regularization is
+            used. Cannot be zero. Ignored if ``reg_method='tikhonov'``.
+
+         tsvd_method : Union[str, tuple[str, ...]]
+            Singular value truncation method used to change basis. Possible
+            values are
+
+            - ``'economy'`` or ``('economy', )`` -- use economy SVD without
+              truncating singular values
+            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- use optimal
+              hard truncation [optht]_ with unknown noise to truncate,
+            - ``('known_noise', sigma)`` -- use optimal hard truncation
+              [optht]_ with known noise ``sigma`` to truncate, or
+            - ``('manual', rank_unshifted, rank_shifted)`` -- manually truncate
+              SVDs of ``X_unshifted`` and ``X_shifted``.
+
+        reg_method : str
+            Regularization method to use. Possible values are
+
+            - ``'tikhonov'`` -- pure Tikhonov regularization (``ratio``
+              is ignored),
+            - ``'twonorm'`` -- matrix two-norm regularization mixed with
+              Tikhonov regularization, or
+            - ``'nuclear'`` -- nuclear norm regularization mixed with Tikhonov
+              regularization.
+
+        picos_eps : float
+            Tolerance used for strict LMIs. If nonzero, should be larger than
+            solver tolerance.
+
+        solver_params : dict[str, Any]
+            Parameters passed to PICOS :func:`picos.Problem.solve()`. By
+            default, allows chosen solver to select its own tolerances.
+
+        References
+        ----------
+        .. [optht] Gavish, Matan, and David L. Donoho. "The optimal hard
+           threshold for singular values is 4/sqrt(3)" IEEE Transactions on
+           Information Theory 60.8 (2014): 5040-5053.
+           http://arxiv.org/abs/1305.5870
+
+        """
         self.alpha = alpha
         self.ratio = ratio
         self.tsvd_method = tsvd_method
@@ -443,7 +517,8 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
         # Extract solution from ``Problem`` object
         U_hat = self._extract_solution(problem).T
         U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p - p_theta)).T
-        return U.T
+        coef = U.T
+        return coef
 
     def _validate_parameters(self) -> None:
         # Check problem creation parameters
