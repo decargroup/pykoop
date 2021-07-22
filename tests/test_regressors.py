@@ -31,8 +31,8 @@ from sklearn import linear_model
          'exact'),
         (pykoop.lmi_regressors.LmiEdmd(alpha=1, inv_method='chol'),
          'msd-no-input', 1e-4, None, 'sklearn-ridge'),
-        # (pykoop.lmi_regressors.LmiDmdc(alpha=1), 'msd-no-input', 1e-4, None,
-        #  'sklearn-ridge'), I don't think this is the same
+        # (pykoop.lmi_regressors.LmiDmdc(alpha=2.29), 'msd-no-input', 1e-4,
+        #  None, 'sklearn-ridge-1'),  # I don't think this is the same
         (
             pykoop.lmi_regressors.LmiEdmd(alpha=1,
                                           reg_method='twonorm',
@@ -192,6 +192,13 @@ def scenario(request):
                                  tol=1e-8)
         clf.fit(X_train.T, Xp_train.T)
         U_valid = clf.coef_
+    # elif soln == 'sklearn-ridge-1':
+    #     clf = linear_model.Ridge(alpha=1,
+    #                              fit_intercept=False,
+    #                              solver='cholesky',
+    #                              tol=1e-8)
+    #     clf.fit(X_train.T, Xp_train.T)
+    #     U_valid = clf.coef_
     # Return fixture dictionary
     return {
         'X_train': X_train,
