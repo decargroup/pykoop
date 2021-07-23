@@ -1532,18 +1532,6 @@ class LmiDmdcHinfReg(koopman_pipeline.KoopmanRegressor):
                              '`X` and `y` must therefore have different '
                              'numbers of features. `X and y` both have '
                              f'{p} feature(s).')
-        # Set up weights
-        if self.weight is None:
-            P = np.eye(p_theta)
-        elif self.weight[0] == 'pre':
-            n_u = p - p_theta
-            P = np.eye(p_theta + n_u * self.weight[1].shape[0])
-        elif self.weight[0] == 'post':
-            n_x = p_theta
-            P = np.eye(p_theta + n_x * self.weight[1].shape[0])
-        else:
-            # Already checked. Should never get here.
-            assert False
         # Compute SVDs
         Q_tld, sig_tld, Z_tld = _tsvd(X_unshifted.T,
                                       self.tsvd_method,
@@ -1551,8 +1539,22 @@ class LmiDmdcHinfReg(koopman_pipeline.KoopmanRegressor):
         Q_hat, sig_hat, Z_hat = _tsvd(X_shifted.T,
                                       self.tsvd_method,
                                       matrix_type='shifted')
+        r = Q_tld.shape[1]
+        r_theta = Q_hat.shape[1]
+        # Set up weights
+        if self.weight is None:
+            P = np.eye(r_theta)
+        elif self.weight[0] == 'pre':
+            n_u = r - r_theta
+            P = np.eye(r_theta + n_u * self.weight[1].shape[0])
+        elif self.weight[0] == 'post':
+            n_x = r_theta
+            P = np.eye(r_theta + n_x * self.weight[1].shape[0])
+        else:
+            # Already checked. Should never get here.
+            assert False
         # Solve optimization problem iteratively
-        U_hat = np.zeros((p_theta, p))
+        U_hat = np.zeros((r_theta, r))
         gamma = np.zeros((1, ))
         self.objective_log_ = []
         for k in range(self.max_iter):
