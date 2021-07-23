@@ -17,6 +17,7 @@ from sklearn import preprocessing
     pykoop.lmi_regressors.LmiDmdc(alpha=1, reg_method='twonorm', ratio=1),
     pykoop.lmi_regressors.LmiDmdc(alpha=1, reg_method='nuclear', ratio=1),
     pykoop.lmi_regressors.LmiDmdcSpectralRadiusConstr(iter_tol=100),
+    pykoop.lmi_regressors.LmiDmdcHinfReg(alpha=1, ratio=1, iter_tol=100),
     pykoop.AnglePreprocessor(),
     pykoop.PolynomialLiftingFn(),
     pykoop.DelayLiftingFn(),
