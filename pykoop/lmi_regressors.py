@@ -1192,7 +1192,7 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
                  inv_method: str = 'svd',
                  tsvd_method: Union[str, tuple[str, ...]] = 'economy',
                  picos_eps: float = 0,
-                 solver_params: dict[str, Any] = None) -> None:
+                 solver_params: dict[str, Any] = None,) -> None:
         """Instantiate :class:`LmiEdmdHinfReg`.
 
         Supports cascading the plant with an LTI weighting function.
@@ -1391,7 +1391,7 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         P = picos.Constant('P', P)
         gamma = picos.RealVariable('gamma', 1)
         # Get weighted state space matrices
-        A, B, C, D = self._create_ss(U)
+        A, B, C, D = _create_ss(U)
         gamma_33 = picos.diag(gamma, D.shape[1])
         gamma_44 = picos.diag(gamma, D.shape[0])
         problem_a.add_constraint(
@@ -1418,7 +1418,7 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         U = picos.Constant('U', U)
         gamma = picos.Constant('gamma', gamma)
         # Get weighted state space matrices
-        A, B, C, D = self._create_ss(U)
+        A, B, C, D = _create_ss(U)
         # Create variables
         P = picos.SymmetricVariable('P', A.shape[0])
         # Add constraints
@@ -1436,81 +1436,87 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         problem_b.set_objective('find')
         return problem_b
 
-    def _create_ss(
-        self, U: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """Augment Koopman system with weight if present.
 
-        Parameters
-        ----------
-        U : np.ndarray
-            Koopman matrix containing ``A`` and ``B`` concatenated
-            horizontally.
+def _create_ss(
+    U: np.ndarray,
+    weight: tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray] = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Augment Koopman system with weight if present.
 
-        Returns
-        -------
-        tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-            Weighted state space matrices (``A``, ``B``, ``C``, ``D``).
-        """
-        p_theta = U.shape[0]
-        if self.weight is None:
-            A = U[:, :p_theta]
-            B = U[:, p_theta:]
-            C = picos.Constant('C', np.eye(p_theta))
-            D = picos.Constant('D', np.zeros((C.shape[0], B.shape[1])))
+    Parameters
+    ----------
+    U : np.ndarray
+        Koopman matrix containing ``A`` and ``B`` concatenated
+        horizontally.
+    weight : tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        Tuple containing weight type (``'pre'`` or ``'post'``), and the
+        weight state space matrices (``A``, ``B``, ``C``, and ``D``). If
+        ``None``, no weighting is used.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        Weighted state space matrices (``A``, ``B``, ``C``, ``D``).
+    """
+    p_theta = U.shape[0]
+    if weight is None:
+        A = U[:, :p_theta]
+        B = U[:, p_theta:]
+        C = picos.Constant('C', np.eye(p_theta))
+        D = picos.Constant('D', np.zeros((C.shape[0], B.shape[1])))
+    else:
+        Am = U[:, :p_theta]
+        Bm = U[:, p_theta:]
+        Cm = picos.Constant('Cm', np.eye(p_theta))
+        Dm = picos.Constant('Dm', np.zeros((Cm.shape[0], Bm.shape[1])))
+        if weight[0] == 'pre':
+            n_u = Bm.shape[1]
+            Aw_blk = linalg.block_diag(*([weight[1]] * n_u))
+            Bw_blk = linalg.block_diag(*([weight[2]] * n_u))
+            Cw_blk = linalg.block_diag(*([weight[3]] * n_u))
+            Dw_blk = linalg.block_diag(*([weight[4]] * n_u))
+            Aw = picos.Constant('Aw', Aw_blk)
+            Bw = picos.Constant('Bw', Bw_blk)
+            Cw = picos.Constant('Cw', Cw_blk)
+            Dw = picos.Constant('Dw', Dw_blk)
+            A = picos.block([
+                [Aw, 0],
+                [Bm * Cw, Am],
+            ])
+            B = picos.block([
+                [Bw],
+                [Bm * Dw],
+            ])
+            C = picos.block([
+                [Dm * Cw, Cm],
+            ])
+            D = Dm * Dw
+        elif weight[0] == 'post':
+            n_x = Bm.shape[0]
+            Aw_blk = linalg.block_diag(*([weight[1]] * n_x))
+            Bw_blk = linalg.block_diag(*([weight[2]] * n_x))
+            Cw_blk = linalg.block_diag(*([weight[3]] * n_x))
+            Dw_blk = linalg.block_diag(*([weight[4]] * n_x))
+            Aw = picos.Constant('Aw', Aw_blk)
+            Bw = picos.Constant('Bw', Bw_blk)
+            Cw = picos.Constant('Cw', Cw_blk)
+            Dw = picos.Constant('Dw', Dw_blk)
+            A = picos.block([
+                [Am, 0],
+                [Bw * Cm, Aw],
+            ])
+            B = picos.block([
+                [Bm],
+                [Bw * Dm],
+            ])
+            C = picos.block([
+                [Dw * Cm, Cw],
+            ])
+            D = Dw * Dm
         else:
-            Am = U[:, :p_theta]
-            Bm = U[:, p_theta:]
-            Cm = picos.Constant('Cm', np.eye(p_theta))
-            Dm = picos.Constant('Dm', np.zeros((Cm.shape[0], Bm.shape[1])))
-            if self.weight[0] == 'pre':
-                n_u = Bm.shape[1]
-                Aw_blk = linalg.block_diag(*([self.weight[1]] * n_u))
-                Bw_blk = linalg.block_diag(*([self.weight[2]] * n_u))
-                Cw_blk = linalg.block_diag(*([self.weight[3]] * n_u))
-                Dw_blk = linalg.block_diag(*([self.weight[4]] * n_u))
-                Aw = picos.Constant('Aw', Aw_blk)
-                Bw = picos.Constant('Bw', Bw_blk)
-                Cw = picos.Constant('Cw', Cw_blk)
-                Dw = picos.Constant('Dw', Dw_blk)
-                A = picos.block([
-                    [Aw, 0],
-                    [Bm * Cw, Am],
-                ])
-                B = picos.block([
-                    [Bw],
-                    [Bm * Dw],
-                ])
-                C = picos.block([
-                    [Dm * Cw, Cm],
-                ])
-                D = Dm * Dw
-            elif self.weight[0] == 'post':
-                n_x = Bm.shape[0]
-                Aw_blk = linalg.block_diag(*([self.weight[1]] * n_x))
-                Bw_blk = linalg.block_diag(*([self.weight[2]] * n_x))
-                Cw_blk = linalg.block_diag(*([self.weight[3]] * n_x))
-                Dw_blk = linalg.block_diag(*([self.weight[4]] * n_x))
-                Aw = picos.Constant('Aw', Aw_blk)
-                Bw = picos.Constant('Bw', Bw_blk)
-                Cw = picos.Constant('Cw', Cw_blk)
-                Dw = picos.Constant('Dw', Dw_blk)
-                A = picos.block([
-                    [Am, 0],
-                    [Bw * Cm, Aw],
-                ])
-                B = picos.block([
-                    [Bm],
-                    [Bw * Dm],
-                ])
-                C = picos.block([
-                    [Dw * Cm, Cw],
-                ])
-                D = Dw * Dm
-            else:
-                # Already checked, should not get here.
-                assert False
-        return (A, B, C, D)
+            # Already checked, should not get here.
+            assert False
+    return (A, B, C, D)
 
 
 def _add_twonorm(problem: picos.Problem, U: picos.RealVariable,
