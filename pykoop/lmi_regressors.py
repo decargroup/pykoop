@@ -1007,7 +1007,7 @@ class LmiDmdcSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
         # Make initial guesses and iterate
         Gamma = np.eye(p_theta)
         # Set scope of other variables
-        U = np.zeros((p_theta, p))
+        U_hat = np.zeros((p_theta, p))
         P = np.zeros((p_theta, p_theta))
         self.objective_log_ = []
         for k in range(self.max_iter):
