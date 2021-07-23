@@ -9,10 +9,12 @@ that long regressions can be stopped politely.
 
 References
 ----------
-.. [optht] Gavish, Matan, and David L. Donoho. "The optimal hard
-   threshold for singular values is 4/sqrt(3)" IEEE Transactions on
-   Information Theory 60.8 (2014): 5040-5053.
-   http://arxiv.org/abs/1305.5870
+.. [optht] Matan Gavish and David L. Donoho. "The optimal hard threshold for
+   singular values is 4/sqrt(3)." IEEE Transactions on Information Theory 60.8
+   (2014): 5040-5053. http://arxiv.org/abs/1305.5870
+.. [dissip] Keita Hara, Masaki Inoue, and Noboru Sebe. "Learning Koopman
+   operator under dissipativity constraints." arXiv:1911.03884v1 [eess.SY]
+   (2019). https://arxiv.org/abs/1911.03884v1
 """
 
 import logging
@@ -1231,7 +1233,7 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         p_theta = X_shifted.shape[1]
         # Check that at least one input is present
         if p_theta == p:
-            # If you remove the `{p} features(s)` part of this message,
+            # If you remove the ``{p} features(s)`` part of this message,
             # the scikit-learn estimator_checks will fail!
             raise ValueError('LmiEdmdHinfReg() requires an input to function.'
                              '`X` and `y` must therefore have different '
@@ -1526,7 +1528,7 @@ class LmiDmdcHinfReg(koopman_pipeline.KoopmanRegressor):
         p_theta = X_shifted.shape[1]
         # Check that at least one input is present
         if p_theta == p:
-            # If you remove the `{p} features(s)` part of this message,
+            # If you remove the ``{p} features(s)`` part of this message,
             # the scikit-learn estimator_checks will fail!
             raise ValueError('LmiDmdcHinfReg() requires an input to function.'
                              '`X` and `y` must therefore have different '
@@ -1699,6 +1701,297 @@ class LmiDmdcHinfReg(koopman_pipeline.KoopmanRegressor):
                 [B.T,        0,        gamma_33,  D.T],
                 [0,          C * P.T,  D,         gamma_44],
             ]) >> self.picos_eps)  # yapf: disable
+        # Set objective
+        problem_b.set_objective('find')
+        return problem_b
+
+
+class LmiEdmdDissipativityConstr(koopman_pipeline.KoopmanRegressor):
+    """LMI-based EDMD with dissipativity constraint.
+
+    Optionally supports additional Tikhonov regularization.
+
+    Originally proposed in [dissip]_.
+
+    Attributes
+    ----------
+    objective_log_ : list[float]
+        Objective function history.
+    stop_reason_ : str
+        Reason iteration stopped.
+    n_iter_ : int
+        Number of iterations
+    solver_params_ : dict[str, Any]
+        Solver parameters used (defaults merged with constructor input).
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+    """
+
+    # Default solver parameters
+    _default_solver_params: dict[str, Any] = {
+        'primals': None,
+        'duals': None,
+        'dualize': True,
+        'abs_bnb_opt_tol': None,
+        'abs_dual_fsb_tol': None,
+        'abs_ipm_opt_tol': None,
+        'abs_prim_fsb_tol': None,
+        'integrality_tol': None,
+        'markowitz_tol': None,
+        'rel_bnb_opt_tol': None,
+        'rel_dual_fsb_tol': None,
+        'rel_ipm_opt_tol': None,
+        'rel_prim_fsb_tol': None,
+    }
+
+    # Override since PICOS only works with ``float64``.
+    _check_X_y_params: dict[str, Any] = {
+        'multi_output': True,
+        'y_numeric': True,
+        'dtype': 'float64',
+    }
+
+    def __init__(
+        self,
+        alpha: float = 1,
+        supply_rate: np.ndarray = None,
+        max_iter: int = 100,
+        iter_tol: float = 1e-6,
+        inv_method: str = 'svd',
+        tsvd_method: Union[str, tuple[str, ...]] = 'economy',
+        picos_eps: float = 0,
+        solver_params: dict[str, Any] = None,
+    ) -> None:
+        """Instantiate :class:`LmiEdmdDissipativityConstr`.
+
+        The supply rate ``s(u, y)`` is specified by ``Xi``::
+
+            s(u, y) = -[y, u] Xi [y; u]
+
+        Some example supply rate matrices ``Xi`` are::
+
+            Xi = [0, -1; -1, 0] -> passivity,
+            Xi = [1/gamma, 0; 0, -gamma] -> bounded L2 gain of gamma.
+
+        Parameters
+        ----------
+        alpha : float
+            Regularization coefficient. Cannot be zero.
+
+        supply_rate : np.ndarray
+            Supply rate matrix ``Xi``, where ``s(u, y) = -[y, u] Xi [y; u]``.
+            If ``None``, the an L2 gain of ``gamma=1`` is imposed.
+
+        max_iter : int
+            Maximum number of solver iterations.
+
+        iter_tol : float
+            Absolute tolerance for change in objective function value. When the
+            change in objective function is less than ``iter_tol``, the
+            iteration will stop.
+
+        inv_method : str
+            Method to handle or avoid inversion of the ``H`` matrix when
+            forming the LMI problem. Possible values are
+
+            - ``'inv'`` -- invert ``H`` directly,
+            - ``'pinv'`` -- apply the Moore-Penrose pseudoinverse to ``H``,
+            - ``'eig'`` -- split ``H`` using an eigendecomposition,
+            - ``'ldl'`` -- split ``H`` using an LDL decomposition,
+            - ``'chol'`` -- split ``H`` using a Cholesky decomposition,
+            - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
+            - ``'svd'`` -- split ``H`` using a singular value decomposition.
+
+         tsvd_method : Union[str, tuple[str, ...]]
+            Singular value truncation method if ``inv_method='svd'``. Very
+            experimental. Possible values are
+
+            - ``'economy'`` or ``('economy', )`` -- use economy SVD without
+              truncating singular values
+            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- use optimal
+              hard truncation [optht]_ with unknown noise to truncate,
+            - ``('known_noise', sigma)`` -- use optimal hard truncation
+              [optht]_ with known noise ``sigma`` to truncate, or
+            - ``('manual', rank)`` -- manually truncate SVDs of ``X_unshifted``
+              to ``rank``.
+
+        picos_eps : float
+            Tolerance used for strict LMIs. If nonzero, should be larger than
+            solver tolerance.
+
+        solver_params : dict[str, Any]
+            Parameters passed to PICOS :func:`picos.Problem.solve()`. By
+            default, allows chosen solver to select its own tolerances.
+        """
+        self.alpha = alpha
+        self.supply_rate = supply_rate
+        self.max_iter = max_iter
+        self.iter_tol = iter_tol
+        self.inv_method = inv_method
+        self.tsvd_method = tsvd_method
+        self.picos_eps = picos_eps
+        self.solver_params = solver_params
+
+    def _fit_regressor(self, X_unshifted: np.ndarray,
+                       X_shifted: np.ndarray) -> np.ndarray:
+        # Set solver parameters
+        self.solver_params_ = self._default_solver_params.copy()
+        if self.solver_params is not None:
+            self.solver_params_.update(self.solver_params)
+        # Set regularization coefficients
+        # Get needed sizes
+        p = X_unshifted.shape[1]
+        p_theta = X_shifted.shape[1]
+        # Check that at least one input is present
+        if p_theta == p:
+            # If you remove the ``{p} features(s)`` part of this message,
+            # the scikit-learn estimator_checks will fail!
+            raise ValueError('LmiEdmdDissipativityConstr() requires an input '
+                             'to function. `X` and `y` must therefore have '
+                             'different numbers of features. `X and y` both '
+                             f'have {p} feature(s).')
+        # Initialize ``P``
+        P = np.eye(p_theta)
+        # Solve optimization problem iteratively
+        U = np.zeros((p_theta, p))
+        self.objective_log_ = []
+        for k in range(self.max_iter):
+            # Formulate Problem A
+            problem_a = self._create_problem_a(X_unshifted, X_shifted, P)
+            # Solve Problem A
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem A{k}')
+            problem_a.solve(**self.solver_params_)
+            solution_status_a = problem_a.last_solution.claimedStatus
+            if solution_status_a != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_a`. Used last valid `U`. '
+                    f'Solution status: `{solution_status_a}`.')
+                log.warn(self.stop_reason_)
+                break
+            U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
+            self.objective_log_.append(problem_a.value)
+            if len(self.objective_log_) > 1:
+                diff = np.absolute(self.objective_log_[-2]
+                                   - self.objective_log_[-1])
+                if (diff < self.iter_tol):
+                    self.stop_reason_ = f'Reached tolerance {diff}'
+                    break
+            # Formulate Problem B
+            problem_b = self._create_problem_b(U)
+            # Solve Problem B
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem B{k}')
+            problem_b.solve(**self.solver_params_)
+            solution_status_b = problem_b.last_solution.claimedStatus
+            if solution_status_b != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_b`. Used last valid `U`. '
+                    'Solution status: f`{solution_status_b}`.')
+                log.warn(self.stop_reason_)
+                break
+            P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
+        else:
+            self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
+            log.warn(self.stop_reason_)
+        self.n_iter_ = k + 1
+        coef = U.T
+        # Only useful for debugging
+        self.P_ = P
+        return coef
+
+    def _validate_parameters(self) -> None:
+        # Check problem creation parameters
+        LmiEdmd._validate_problem_parameters(self.alpha, self.inv_method,
+                                             self.tsvd_method, self.picos_eps)
+        # Check other parameters
+        if self.max_iter <= 0:
+            raise ValueError('`max_iter` must be positive.')
+        if self.iter_tol <= 0:
+            raise ValueError('`iter_tol` must be positive.')
+
+    def _create_problem_a(self, X_unshifted: np.ndarray, X_shifted: np.ndarray,
+                          P: np.ndarray) -> picos.Problem:
+        """Create first problem in iteration scheme."""
+        q = X_unshifted.shape[0]
+        problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
+                                                 self.alpha / q,
+                                                 self.inv_method,
+                                                 self.tsvd_method,
+                                                 self.picos_eps)
+        # Extract information from problem
+        U = problem_a.variables['U']
+        # Get needed sizes
+        p_theta, p = U.shape
+        # Add new constraint
+        P = picos.Constant('P', P)
+        # Get weighted state space matrices
+        A, B, C, D = _create_ss(U, None)
+        # Add dissipativity constraint
+        if self.supply_rate is None:
+            n_u = p - p_theta
+            Xi = np.block([
+                [np.eye(p_theta), np.zeros((p_theta, n_u))],
+                [np.zeros((n_u, p_theta)), -np.eye(n_u)],
+            ])
+        else:
+            Xi = self.supply_rate
+        Xi11 = picos.Constant('Xi_11', Xi[:p_theta, :p_theta])
+        Xi12 = picos.Constant('Xi_12', Xi[:p_theta, p_theta:])
+        Xi22 = picos.Constant('Xi_22', Xi[p_theta:, p_theta:])
+        problem_a.add_constraint(picos.block([
+            [P - C.T*Xi11*C, -C.T*Xi12, A.T*P],
+            [-Xi12.T*C, -Xi22, B.T*P],
+            [P*A, P*B, P],
+        ]) >> self.picos_eps)
+        return problem_a
+
+    def _create_problem_b(self, U: np.ndarray) -> picos.Problem:
+        """Create second problem in iteration scheme."""
+        # Create optimization problem
+        problem_b = picos.Problem()
+        # Get needed sizes
+        p_theta, p = U.shape
+        # Create constants
+        U = picos.Constant('U', U)
+        # Get weighted state space matrices
+        A, B, C, D = _create_ss(U, None)
+        # Create variables
+        P = picos.SymmetricVariable('P', A.shape[0])
+        # Add constraints
+        problem_b.add_constraint(P >> self.picos_eps)
+        # Add dissipativity constraint
+        if self.supply_rate is None:
+            n_u = p - p_theta
+            Xi = np.block([
+                [np.eye(p_theta), np.zeros((p_theta, n_u))],
+                [np.zeros((n_u, p_theta)), -np.eye(n_u)],
+            ])
+        else:
+            Xi = self.supply_rate
+        Xi11 = picos.Constant('Xi_11', Xi[:p_theta, :p_theta])
+        Xi12 = picos.Constant('Xi_12', Xi[:p_theta, p_theta:])
+        Xi22 = picos.Constant('Xi_22', Xi[p_theta:, p_theta:])
+        problem_b.add_constraint(P >> self.picos_eps)
+        problem_b.add_constraint(picos.block([
+            [P - C.T*Xi11*C, -C.T*Xi12, A.T*P],
+            [-Xi12.T*C, -Xi22, B.T*P],
+            [P*A, P*B, P],
+        ]) >> self.picos_eps)
         # Set objective
         problem_b.set_objective('find')
         return problem_b

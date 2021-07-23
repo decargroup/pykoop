@@ -12,6 +12,7 @@ from sklearn import preprocessing
     pykoop.lmi_regressors.LmiEdmd(alpha=1, reg_method='nuclear', ratio=1),
     pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr(iter_tol=100),
     pykoop.lmi_regressors.LmiEdmdHinfReg(alpha=1, ratio=1, iter_tol=100),
+    pykoop.lmi_regressors.LmiEdmdDissipativityConstr(iter_tol=100),
     pykoop.lmi_regressors.LmiDmdc(alpha=0),
     pykoop.lmi_regressors.LmiDmdc(alpha=1),
     pykoop.lmi_regressors.LmiDmdc(alpha=1, reg_method='twonorm', ratio=1),
