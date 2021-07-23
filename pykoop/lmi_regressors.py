@@ -460,25 +460,24 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
         q, p = X_unshifted.shape
         p_theta = X_shifted.shape[1]
         # Compute SVDs
-        Q_tld, sigma_tld, Zh_tld = linalg.svd(X_unshifted.T,
-                                              full_matrices=False)
-        Q_hat, sigma_hat, Zh_hat = linalg.svd(X_shifted.T, full_matrices=False)
+        Q_tld, sig_tld, Zh_tld = linalg.svd(X_unshifted.T, full_matrices=False)
+        Q_hat, sig_hat, Zh_hat = linalg.svd(X_shifted.T, full_matrices=False)
         # Transpose notation to make checking math easier
         Z_tld = Zh_tld.T
         Z_hat = Zh_hat.T
         # Truncate SVD
         if ((self.tsvd_method == 'economy')
                 or (self.tsvd_method[0] == 'economy')):
-            r_tld = sigma_tld.shape[0]
-            r_hat = sigma_hat.shape[0]
+            r_tld = sig_tld.shape[0]
+            r_hat = sig_hat.shape[0]
         elif ((self.tsvd_method == 'unknown_noise')
               or (self.tsvd_method[0] == 'unknown_noise')):
-            r_tld = optht.optht(X_unshifted.T, sigma_tld)
-            r_hat = optht.optht(X_shifted.T, sigma_hat)
+            r_tld = optht.optht(X_unshifted.T, sig_tld)
+            r_hat = optht.optht(X_shifted.T, sig_hat)
         elif self.tsvd_method[0] == 'known_noise':
             variance = self.tsvd_method[1]
-            r_tld = optht.optht(X_unshifted.T, sigma_tld, variance)
-            r_hat = optht.optht(X_shifted.T, sigma_hat, variance)
+            r_tld = optht.optht(X_unshifted.T, sig_tld, variance)
+            r_hat = optht.optht(X_shifted.T, sig_hat, variance)
         elif self.tsvd_method[0] == 'manual':
             r_tld = self.tsvd_method[1]
             r_hat = self.tsvd_method[2]
@@ -486,14 +485,14 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
             # Already checked
             assert False
         Q_tld = Q_tld[:, :r_tld]
-        sigma_tld = sigma_tld[:r_tld]
+        sig_tld = sig_tld[:r_tld]
         Z_tld = Z_tld[:, :r_tld]
         Q_hat = Q_hat[:, :r_hat]
-        sigma_hat = sigma_hat[:r_hat]
+        sig_hat = sig_hat[:r_hat]
         Z_hat = Z_hat[:, :r_hat]
         # Form optimization problem
-        problem = self._create_base_problem(Q_tld, sigma_tld, Z_tld, Q_hat,
-                                            sigma_hat, Z_hat,
+        problem = self._create_base_problem(Q_tld, sig_tld, Z_tld, Q_hat,
+                                            sig_hat, Z_hat,
                                             self.alpha_tikhonov_,
                                             self.picos_eps)
         if self.reg_method == 'twonorm':
@@ -533,10 +532,10 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
     @staticmethod
     def _create_base_problem(
         Q_tld: np.ndarray,
-        sigma_tld: np.ndarray,
+        sig_tld: np.ndarray,
         Z_tld: np.ndarray,
         Q_hat: np.ndarray,
-        sigma_hat: np.ndarray,
+        sig_hat: np.ndarray,
         Z_hat: np.ndarray,
         alpha_tikhonov: float,
         picos_eps: float,
@@ -551,10 +550,10 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
         # Create optimization problem
         problem = picos.Problem()
         # Constants
-        Sigma_hat_sq = picos.Constant('Sigma_hat^2', np.diag(sigma_hat**2))
-        Sigma_hat = np.diag(sigma_hat)
+        Sigma_hat_sq = picos.Constant('Sigma_hat^2', np.diag(sig_hat**2))
+        Sigma_hat = np.diag(sig_hat)
         # Add regularizer to ``Sigma_tld``
-        Sigma_tld = np.diag(np.sqrt(sigma_tld**2 + alpha_tikhonov))
+        Sigma_tld = np.diag(np.sqrt(sig_tld**2 + alpha_tikhonov))
         big_constant = picos.Constant(
             'Q_bar Sigma_tld Z_tld.T Z_hat Sigma_Hat',
             Q_bar @ Sigma_tld @ Z_tld.T @ Z_hat @ Sigma_hat,
@@ -847,6 +846,285 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
             picos.block([
                 [rho_bar_sq * P, U[:, :p_theta].T * Gamma],
                 [Gamma.T * U[:, :p_theta], Gamma + Gamma.T - P],
+            ]) >> self.picos_eps)
+        # Set objective
+        problem_b.set_objective('find')
+        return problem_b
+
+
+class LmiDmdcSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
+    """LMI-based Dmdc with spectral radius constraint.
+
+    Optionally supports Tikhonov regularization.
+
+    Attributes
+    ----------
+    objective_log_ : list[float]
+        Objective function history.
+    stop_reason_ : str
+        Reason iteration stopped.
+    n_iter_ : int
+        Number of iterations
+    Gamma_ : np.ndarray
+        ``Gamma`` matrix, for debugging.
+    P_ : np.ndarray
+        ``P`` matrix, for debugging.
+    solver_params_ : dict[str, Any]
+        Solver parameters used (defaults merged with constructor input).
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+    """
+
+    # Default solver parameters
+    _default_solver_params: dict[str, Any] = {
+        'primals': None,
+        'duals': None,
+        'dualize': True,
+        'abs_bnb_opt_tol': None,
+        'abs_dual_fsb_tol': None,
+        'abs_ipm_opt_tol': None,
+        'abs_prim_fsb_tol': None,
+        'integrality_tol': None,
+        'markowitz_tol': None,
+        'rel_bnb_opt_tol': None,
+        'rel_dual_fsb_tol': None,
+        'rel_ipm_opt_tol': None,
+        'rel_prim_fsb_tol': None,
+    }
+
+    # Override since PICOS only works with ``float64``.
+    _check_X_y_params: dict[str, Any] = {
+        'multi_output': True,
+        'y_numeric': True,
+        'dtype': 'float64',
+    }
+
+    def __init__(self,
+                 spectral_radius: float = 1.0,
+                 max_iter: int = 100,
+                 iter_tol: float = 1e-6,
+                 alpha: float = 0,
+                 tsvd_method: Union[str, tuple[str, ...]] = 'economy',
+                 picos_eps: float = 0,
+                 solver_params: dict[str, Any] = None) -> None:
+        """Instantiate :class:`LmiDmdcSpectralRadiusConstr`.
+
+        To disable regularization, use ``alpha=0``.
+
+        Parameters
+        ----------
+        spectral_radius : float
+            Maximum spectral radius.
+
+        max_iter : int
+            Maximum number of solver iterations.
+
+        iter_tol : float
+            Absolute tolerance for change in objective function value. When the
+            change in objective function is less than ``iter_tol``, the
+            iteration will stop.
+
+        alpha : float
+            Tikhonov regularization coefficient.
+
+         tsvd_method : Union[str, tuple[str, ...]]
+            Singular value truncation method used to change basis. Possible
+            values are
+
+            - ``'economy'`` or ``('economy', )`` -- use economy SVD without
+              truncating singular values
+            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- use optimal
+              hard truncation [optht]_ with unknown noise to truncate,
+            - ``('known_noise', sigma)`` -- use optimal hard truncation
+              [optht]_ with known noise ``sigma`` to truncate, or
+            - ``('manual', rank_unshifted, rank_shifted)`` -- manually truncate
+              SVDs of ``X_unshifted`` and ``X_shifted``.
+
+        picos_eps : float
+            Tolerance used for strict LMIs. If nonzero, should be larger than
+            solver tolerance.
+
+        solver_params : dict[str, Any]
+            Parameters passed to PICOS :func:`picos.Problem.solve()`. By
+            default, allows chosen solver to select its own tolerances.
+        """
+        self.spectral_radius = spectral_radius
+        self.max_iter = max_iter
+        self.iter_tol = iter_tol
+        self.alpha = alpha
+        self.tsvd_method = tsvd_method
+        self.picos_eps = picos_eps
+        self.solver_params = solver_params
+
+    def _fit_regressor(self, X_unshifted: np.ndarray,
+                       X_shifted: np.ndarray) -> np.ndarray:
+        # Set solver parameters
+        self.solver_params_ = self._default_solver_params.copy()
+        if self.solver_params is not None:
+            self.solver_params_.update(self.solver_params)
+        # Get needed sizes
+        p = X_unshifted.shape[1]
+        p_theta = X_shifted.shape[1]
+        # Compute SVDs
+        Q_tld, sig_tld, Zh_tld = linalg.svd(X_unshifted.T, full_matrices=False)
+        Q_hat, sig_hat, Zh_hat = linalg.svd(X_shifted.T, full_matrices=False)
+        # Transpose notation to make checking math easier
+        Z_tld = Zh_tld.T
+        Z_hat = Zh_hat.T
+        # Truncate SVD
+        if ((self.tsvd_method == 'economy')
+                or (self.tsvd_method[0] == 'economy')):
+            r_tld = sig_tld.shape[0]
+            r_hat = sig_hat.shape[0]
+        elif ((self.tsvd_method == 'unknown_noise')
+              or (self.tsvd_method[0] == 'unknown_noise')):
+            r_tld = optht.optht(X_unshifted.T, sig_tld)
+            r_hat = optht.optht(X_shifted.T, sig_hat)
+        elif self.tsvd_method[0] == 'known_noise':
+            variance = self.tsvd_method[1]
+            r_tld = optht.optht(X_unshifted.T, sig_tld, variance)
+            r_hat = optht.optht(X_shifted.T, sig_hat, variance)
+        elif self.tsvd_method[0] == 'manual':
+            r_tld = self.tsvd_method[1]
+            r_hat = self.tsvd_method[2]
+        else:
+            # Already checked
+            assert False
+        Q_tld = Q_tld[:, :r_tld]
+        sig_tld = sig_tld[:r_tld]
+        Z_tld = Z_tld[:, :r_tld]
+        Q_hat = Q_hat[:, :r_hat]
+        sig_hat = sig_hat[:r_hat]
+        Z_hat = Z_hat[:, :r_hat]
+        # Make initial guesses and iterate
+        Gamma = np.eye(p_theta)
+        # Set scope of other variables
+        U = np.zeros((p_theta, p))
+        P = np.zeros((p_theta, p_theta))
+        self.objective_log_ = []
+        for k in range(self.max_iter):
+            # Formulate Problem A
+            problem_a = self._create_problem_a(Q_tld, sig_tld, Z_tld, Q_hat,
+                                               sig_hat, Z_hat, Gamma)
+            # Solve Problem A
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem A{k}')
+            problem_a.solve(**self.solver_params_)
+            solution_status_a = problem_a.last_solution.claimedStatus
+            if solution_status_a != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_a`. Used last valid `U_hat`. '
+                    f'Solution status: `{solution_status_a}`.')
+                log.warn(self.stop_reason_)
+                break
+            U_hat = np.array(problem_a.get_valued_variable('U_hat'), ndmin=2)
+            P = np.array(problem_a.get_valued_variable('P'), ndmin=2)
+            # Check stopping condition
+            self.objective_log_.append(problem_a.value)
+            if len(self.objective_log_) > 1:
+                diff = np.absolute(self.objective_log_[-2]
+                                   - self.objective_log_[-1])
+                if (diff < self.iter_tol):
+                    self.stop_reason_ = f'Reached tolerance {diff}'
+                    break
+            # Formulate Problem B
+            problem_b = self._create_problem_b(U_hat, P)
+            # Solve Problem B
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem B{k}')
+            problem_b.solve(**self.solver_params_)
+            solution_status_b = problem_b.last_solution.claimedStatus
+            if solution_status_b != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_b`. Used last valid `U_hat`. '
+                    f'Solution status: `{solution_status_b}`.')
+                log.warn(self.stop_reason_)
+                break
+            Gamma = np.array(problem_b.get_valued_variable('Gamma'), ndmin=2)
+        else:
+            self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
+            log.warn(self.stop_reason_)
+        self.n_iter_ = k + 1
+        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p - p_theta)).T
+        coef = U.T
+        # Only useful for debugging
+        self.Gamma_ = Gamma
+        self.P_ = P
+        return coef
+
+    def _validate_parameters(self) -> None:
+        # Check problem creation parameters
+        LmiDmdc._validate_problem_parameters(self.alpha, self.picos_eps)
+        # Check spectral radius
+        if self.spectral_radius <= 0:
+            raise ValueError('`spectral_radius` must be positive.')
+        if self.max_iter <= 0:
+            raise ValueError('`max_iter` must be positive.')
+        if self.iter_tol <= 0:
+            raise ValueError('`iter_tol` must be positive.')
+
+    def _create_problem_a(
+        self,
+        Q_tld: np.ndarray,
+        sig_tld: np.ndarray,
+        Z_tld: np.ndarray,
+        Q_hat: np.ndarray,
+        sig_hat: np.ndarray,
+        Z_hat: np.ndarray,
+        Gamma: np.ndarray,
+    ) -> picos.Problem:
+        """Create first problem in iteration scheme."""
+        problem_a = LmiDmdc._create_base_problem(Q_tld, sig_tld, Z_tld, Q_hat,
+                                                 sig_hat, Z_hat, self.alpha,
+                                                 self.picos_eps)
+        # Extract information from problem
+        U_hat = problem_a.variables['U_hat']
+        # Get needed sizes
+        p_theta = U_hat.shape[0]
+        # Add new constraints
+        rho_bar_sq = picos.Constant('rho_bar^2', self.spectral_radius**2)
+        Gamma = picos.Constant('Gamma', Gamma)
+        P = picos.SymmetricVariable('P', p_theta)
+        problem_a.add_constraint(P >> self.picos_eps)
+        problem_a.add_constraint(
+            picos.block([
+                [rho_bar_sq * P, U_hat[:, :p_theta].T * Gamma],
+                [Gamma.T * U_hat[:, :p_theta], Gamma + Gamma.T - P],
+            ]) >> self.picos_eps)
+        return problem_a
+
+    def _create_problem_b(self, U_hat: np.ndarray,
+                          P: np.ndarray) -> picos.Problem:
+        """Create second problem in iteration scheme."""
+        # Create optimization problem
+        problem_b = picos.Problem()
+        # Get needed sizes
+        p_theta = U_hat.shape[0]
+        # Create constants
+        rho_bar_sq = picos.Constant('rho_bar^2', self.spectral_radius**2)
+        U = picos.Constant('U', U_hat)
+        P = picos.Constant('P', P)
+        # Create variables
+        Gamma = picos.RealVariable('Gamma', P.shape)
+        # Add constraints
+        problem_b.add_constraint(
+            picos.block([
+                [rho_bar_sq * P, U_hat[:, :p_theta].T * Gamma],
+                [Gamma.T * U_hat[:, :p_theta], Gamma + Gamma.T - P],
             ]) >> self.picos_eps)
         # Set objective
         problem_b.set_objective('find')

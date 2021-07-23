@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import integrate, linalg
-from pykoop import lmi
+from pykoop import lmi_regressors
 from dynamics import mass_spring_damper
 from matplotlib import pyplot as plt
 import logging
@@ -32,33 +32,41 @@ def main():
     Xp = sol.y[:, 1:]
 
     # Regressor with no constraint
-    reg_no_const = lmi.LmiEdmdTikhonovReg(alpha=0)
+    reg_no_const = lmi_regressors.LmiEdmd(alpha=0)
 
     sp = {
         'dualize': False,
+    }
+
+    # Regressor = lmi_regressors.LmiEdmdSpectralRadiusConstr
+    Regressor = lmi_regressors.LmiDmdcSpectralRadiusConstr
+    kwargs = {
+        'tsvd_method': ('manual', 1, 2),
     }
 
     reg_no_const.fit(X.T, Xp.T)
     U_no_const = reg_no_const.coef_.T
     # Regressor with constraint larger than actual spectral radius.
     # Should not have any effect on the problem.
-    reg_big_const = lmi.LmiEdmdSpectralRadiusConstr(
-        rho_bar=1.1,
+    reg_big_const = Regressor(
+        spectral_radius=1.1,
         max_iter=100,
-        tol=1e-3,
+        iter_tol=1e-3,
         picos_eps=0,
         solver_params=sp,
+        **kwargs,
     )
     reg_big_const.fit(X.T, Xp.T)
     U_big_const = reg_big_const.coef_.T
     # Regressor with significant constraint on spectral radius.
     # Will push eigenvalues toward centre of unit circle.
-    reg_small_const = lmi.LmiEdmdSpectralRadiusConstr(
-        rho_bar=0.8,
+    reg_small_const = Regressor(
+        spectral_radius=0.8,
         max_iter=100,
-        tol=1e-3,
+        iter_tol=1e-3,
         picos_eps=0,
         solver_params=sp,
+        **kwargs,
     )
     reg_small_const.fit(X.T, Xp.T)
     U_small_const = reg_small_const.coef_.T
@@ -74,11 +82,11 @@ def main():
     ax.set_rmax(1.1)
     ax.legend()
 
-    fig, ax = plt.subplots(2, 1)
-    ax[0].plot(np.array(reg_big_const.objective_log_))
-    ax[0].plot(np.array(reg_small_const.objective_log_))
-    ax[1].plot(np.diff(np.array(reg_big_const.objective_log_)))
-    ax[1].plot(np.diff(np.array(reg_small_const.objective_log_)))
+    # fig, ax = plt.subplots(2, 1)
+    # ax[0].plot(np.array(reg_big_const.objective_log_))
+    # ax[0].plot(np.array(reg_small_const.objective_log_))
+    # ax[1].plot(np.diff(np.array(reg_big_const.objective_log_)))
+    # ax[1].plot(np.diff(np.array(reg_small_const.objective_log_)))
     plt.show()
 
 
