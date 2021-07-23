@@ -460,36 +460,12 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
         q, p = X_unshifted.shape
         p_theta = X_shifted.shape[1]
         # Compute SVDs
-        Q_tld, sig_tld, Zh_tld = linalg.svd(X_unshifted.T, full_matrices=False)
-        Q_hat, sig_hat, Zh_hat = linalg.svd(X_shifted.T, full_matrices=False)
-        # Transpose notation to make checking math easier
-        Z_tld = Zh_tld.T
-        Z_hat = Zh_hat.T
-        # Truncate SVD
-        if ((self.tsvd_method == 'economy')
-                or (self.tsvd_method[0] == 'economy')):
-            r_tld = sig_tld.shape[0]
-            r_hat = sig_hat.shape[0]
-        elif ((self.tsvd_method == 'unknown_noise')
-              or (self.tsvd_method[0] == 'unknown_noise')):
-            r_tld = optht.optht(X_unshifted.T, sig_tld)
-            r_hat = optht.optht(X_shifted.T, sig_hat)
-        elif self.tsvd_method[0] == 'known_noise':
-            variance = self.tsvd_method[1]
-            r_tld = optht.optht(X_unshifted.T, sig_tld, variance)
-            r_hat = optht.optht(X_shifted.T, sig_hat, variance)
-        elif self.tsvd_method[0] == 'manual':
-            r_tld = self.tsvd_method[1]
-            r_hat = self.tsvd_method[2]
-        else:
-            # Already checked
-            assert False
-        Q_tld = Q_tld[:, :r_tld]
-        sig_tld = sig_tld[:r_tld]
-        Z_tld = Z_tld[:, :r_tld]
-        Q_hat = Q_hat[:, :r_hat]
-        sig_hat = sig_hat[:r_hat]
-        Z_hat = Z_hat[:, :r_hat]
+        Q_tld, sig_tld, Z_tld = _tsvd(X_unshifted.T,
+                                      self.tsvd_method,
+                                      matrix_type='unshifted')
+        Q_hat, sig_hat, Z_hat = _tsvd(X_shifted.T,
+                                      self.tsvd_method,
+                                      matrix_type='shifted')
         # Form optimization problem
         problem = self._create_base_problem(Q_tld, sig_tld, Z_tld, Q_hat,
                                             sig_hat, Z_hat,
@@ -974,36 +950,12 @@ class LmiDmdcSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
         p = X_unshifted.shape[1]
         p_theta = X_shifted.shape[1]
         # Compute SVDs
-        Q_tld, sig_tld, Zh_tld = linalg.svd(X_unshifted.T, full_matrices=False)
-        Q_hat, sig_hat, Zh_hat = linalg.svd(X_shifted.T, full_matrices=False)
-        # Transpose notation to make checking math easier
-        Z_tld = Zh_tld.T
-        Z_hat = Zh_hat.T
-        # Truncate SVD
-        if ((self.tsvd_method == 'economy')
-                or (self.tsvd_method[0] == 'economy')):
-            r_tld = sig_tld.shape[0]
-            r_hat = sig_hat.shape[0]
-        elif ((self.tsvd_method == 'unknown_noise')
-              or (self.tsvd_method[0] == 'unknown_noise')):
-            r_tld = optht.optht(X_unshifted.T, sig_tld)
-            r_hat = optht.optht(X_shifted.T, sig_hat)
-        elif self.tsvd_method[0] == 'known_noise':
-            variance = self.tsvd_method[1]
-            r_tld = optht.optht(X_unshifted.T, sig_tld, variance)
-            r_hat = optht.optht(X_shifted.T, sig_hat, variance)
-        elif self.tsvd_method[0] == 'manual':
-            r_tld = self.tsvd_method[1]
-            r_hat = self.tsvd_method[2]
-        else:
-            # Already checked
-            assert False
-        Q_tld = Q_tld[:, :r_tld]
-        sig_tld = sig_tld[:r_tld]
-        Z_tld = Z_tld[:, :r_tld]
-        Q_hat = Q_hat[:, :r_hat]
-        sig_hat = sig_hat[:r_hat]
-        Z_hat = Z_hat[:, :r_hat]
+        Q_tld, sig_tld, Z_tld = _tsvd(X_unshifted.T,
+                                      self.tsvd_method,
+                                      matrix_type='unshifted')
+        Q_hat, sig_hat, Z_hat = _tsvd(X_shifted.T,
+                                      self.tsvd_method,
+                                      matrix_type='shifted')
         # Make initial guesses and iterate
         Gamma = np.eye(p_theta)
         # Set scope of other variables
@@ -1182,17 +1134,19 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         'dtype': 'float64',
     }
 
-    def __init__(self,
-                 alpha: float = 1,
-                 ratio: float = 1,
-                 weight: tuple[str, np.ndarray, np.ndarray, np.ndarray,
-                               np.ndarray] = None,
-                 max_iter: int = 100,
-                 iter_tol: float = 1e-6,
-                 inv_method: str = 'svd',
-                 tsvd_method: Union[str, tuple[str, ...]] = 'economy',
-                 picos_eps: float = 0,
-                 solver_params: dict[str, Any] = None,) -> None:
+    def __init__(
+        self,
+        alpha: float = 1,
+        ratio: float = 1,
+        weight: tuple[str, np.ndarray, np.ndarray, np.ndarray,
+                      np.ndarray] = None,
+        max_iter: int = 100,
+        iter_tol: float = 1e-6,
+        inv_method: str = 'svd',
+        tsvd_method: Union[str, tuple[str, ...]] = 'economy',
+        picos_eps: float = 0,
+        solver_params: dict[str, Any] = None,
+    ) -> None:
         """Instantiate :class:`LmiEdmdHinfReg`.
 
         Supports cascading the plant with an LTI weighting function.
@@ -1594,6 +1548,57 @@ def _add_nuclear(problem: picos.Problem, U: picos.RealVariable,
     return problem
 
 
+def _tsvd(
+    X: np.ndarray,
+    tsvd_method: Union[str, tuple[str, ...]],
+    matrix_type: str = 'unshifted',
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Compute truncated SVD according to ``tsvd_method``.
+
+    Parameters
+    ----------
+    tsvd_method : Union[str, tuple[str, ...]]
+        Singular value truncation method.
+    matrix_type : str
+        Type of matrix, ``'unshifted'`` or ``'shifted'``. Determines which
+        rank to take if ``tsvd_method='manual'``.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray]
+        Left singular vectors ``Q``, singular values ``sig``, and right
+        singular vectors ``Z`` (not transposed).
+    """
+    # Compute SVDs
+    Q, sig, Zh = linalg.svd(X, full_matrices=False)
+    # Transpose notation to make checking math easier
+    Z = Zh.T
+    # Truncate SVD
+    if (tsvd_method == 'economy') or (tsvd_method[0] == 'economy'):
+        r = sig.shape[0]
+    elif ((tsvd_method == 'unknown_noise')
+          or (tsvd_method[0] == 'unknown_noise')):
+        r = optht.optht(X.T, sig)
+    elif tsvd_method[0] == 'known_noise':
+        variance = tsvd_method[1]
+        r = optht.optht(X.T, sig, variance)
+    elif tsvd_method[0] == 'manual':
+        if matrix_type == 'unshifted':
+            pass
+        elif matrix_type == 'shifted':
+            pass
+        else:
+            raise ValueError()
+        r = tsvd_method[1 if matrix_type == 'unshifted' else 2]
+    else:
+        # Already checked
+        assert False
+    Q = Q[:, :r]
+    sig = sig[:r]
+    Z = Z[:, :r]
+    return (Q, sig, Z)
+
+
 def _validate_tsvd_method(tsvd_method: Union[str, tuple[str, ...]],
                           manual_len: int) -> None:
     """Validate ``tsvd_method``.
@@ -1601,7 +1606,7 @@ def _validate_tsvd_method(tsvd_method: Union[str, tuple[str, ...]],
     Parameters
     ----------
     tsvd_method : Union[str, tuple[str, ...]]
-        Singular value truncation method if ``inv_method='svd'``.
+        Singular value truncation method.
     manual_len : int
         Number of ranks that need to be specified in the ``'manual'`` tuple.
     """
@@ -1787,24 +1792,7 @@ def _calc_QSig(X: np.ndarray, alpha: float,
         Split ``H`` matrix.
     """
     # SVD
-    Q, s, _ = linalg.svd(X.T, full_matrices=False)
-    # Compute truncation rank
-    if ((tsvd_method == 'economy') or (tsvd_method[0] == 'economy')):
-        r = s.shape[0]
-    elif ((tsvd_method == 'unknown_noise')
-          or (tsvd_method[0] == 'unknown_noise')):
-        r = optht.optht(X.T, s)
-    elif tsvd_method[0] == 'known_noise':
-        variance = tsvd_method[1]
-        r = optht.optht(X.T, s, variance)
-    elif tsvd_method[0] == 'manual':
-        r = tsvd_method[1]
-    else:
-        # Already checked
-        assert False
-    # Truncate
-    Qr = Q[:, :r]
-    sr = s[:r]
+    Qr, sr, _ = _tsvd(X.T, tsvd_method, matrix_type='unshifted')
     # Regularize
     q = X.shape[0]
     # ``alpha`` is already divided by ``q`` to be consistent with ``G`` and
@@ -1813,6 +1801,4 @@ def _calc_QSig(X: np.ndarray, alpha: float,
     Sr_reg = np.diag(sr_reg)
     # Multiply with Q and return
     QSig = Qr @ Sr_reg
-    log.info(f'_calc_QSig() stats: r={r}, alpha={alpha}, len(s)={len(s)}, '
-             f's[0]={s[0]}, s[-1]={s[-1]}')
     return QSig
