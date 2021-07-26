@@ -3,6 +3,7 @@ scipy
 scikit-learn>=0.24.1
 PICOS>=2.2.0
 Mosek>=9.2.37
+pandas
 optht
 
 pytest
