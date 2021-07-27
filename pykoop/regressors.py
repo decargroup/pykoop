@@ -12,6 +12,30 @@ from scipy import linalg
 from . import koopman_pipeline
 
 
+class Dmd(koopman_pipeline.KoopmanRegressor):
+    """Dynamic Mode Decomposition.
+
+    Attributes
+    ----------
+    eigenvalues_ : np.ndarray
+        DMD eigenvalues.
+    modes_ : np.ndarray
+        DMD modes (exact or projected depending on constructor params).
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+    """
+
+    pass
+
+
 class Edmd(koopman_pipeline.KoopmanRegressor):
     """Extended Dynamic Mode Decomposition with Tikhonov regularization.
 
