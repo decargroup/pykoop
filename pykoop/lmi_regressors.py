@@ -548,11 +548,9 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
     def _get_tsvd_methods(
             tsvd_method: Union[str, tuple]) -> tuple[tuple, tuple]:
         """Format truncated SVD methods for ``_tsvd``."""
-        # TODO TYPE CHECK HERE
         # Convert string if needed
-        if type(tsvd_method) is str:
+        if type(tsvd_method) is not tuple:
             tsvd_method = (tsvd_method, )
-        assert type(tsvd_method) is tuple
         # Form tuples
         if len(tsvd_method) == 1:
             tms = (tsvd_method, tsvd_method)
@@ -1225,10 +1223,10 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         if p_theta == p:
             # If you remove the ``{p} features(s)`` part of this message,
             # the scikit-learn estimator_checks will fail!
-            raise ValueError('LmiEdmdHinfReg() requires an input to function.'
-                             '`X` and `y` must therefore have different '
-                             'numbers of features. `X and y` both have '
-                             f'{p} feature(s).')
+            raise ValueError('`LmiEdmdHinfReg()` requires an input to '
+                             'function. `X` and `y` must therefore have '
+                             'different numbers of features. `X` and `y` both '
+                             f'have {p} feature(s).')
         # Set up weights
         if self.weight is None:
             P = np.eye(p_theta)
@@ -1517,10 +1515,10 @@ class LmiDmdcHinfReg(koopman_pipeline.KoopmanRegressor):
         if p_theta == p:
             # If you remove the ``{p} features(s)`` part of this message,
             # the scikit-learn estimator_checks will fail!
-            raise ValueError('LmiDmdcHinfReg() requires an input to function.'
-                             '`X` and `y` must therefore have different '
-                             'numbers of features. `X and y` both have '
-                             f'{p} feature(s).')
+            raise ValueError('`LmiDmdcHinfReg()` requires an input to '
+                             'function. `X` and `y` must therefore have '
+                             'different numbers of features. `X` and `y` both '
+                             f'have {p} feature(s).')
         # Compute SVDs
         tsvd_method_tld, tsvd_method_hat = LmiDmdc._get_tsvd_methods(
             self.tsvd_method)
@@ -1834,10 +1832,10 @@ class LmiEdmdDissipativityConstr(koopman_pipeline.KoopmanRegressor):
         if p_theta == p:
             # If you remove the ``{p} features(s)`` part of this message,
             # the scikit-learn estimator_checks will fail!
-            raise ValueError('LmiEdmdDissipativityConstr() requires an input '
-                             'to function. `X` and `y` must therefore have '
-                             'different numbers of features. `X and y` both '
-                             f'have {p} feature(s).')
+            raise ValueError('`LmiEdmdDissipativityConstr()` requires an '
+                             'input to function. `X` and `y` must therefore '
+                             'have different numbers of features. `X` and `y` '
+                             f'both have {p} feature(s).')
         # Initialize ``P``
         P = np.eye(p_theta)
         # Solve optimization problem iteratively
@@ -2285,7 +2283,7 @@ def _calc_QSig(X: np.ndarray, alpha: float,
         Split ``H`` matrix.
     """
     # SVD
-    if type(tsvd_method) is str:
+    if type(tsvd_method) is not tuple:
         tsvd_method = (tsvd_method, )
     Qr, sr, _ = _tsvd._tsvd(X.T, *tsvd_method)
     # Regularize

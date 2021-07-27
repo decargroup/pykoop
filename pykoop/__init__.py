@@ -7,5 +7,5 @@ from .koopman_pipeline import (EpisodeDependentLiftingFn,
 from .lifting_functions import (AnglePreprocessor, BilinearInputLiftingFn,
                                 DelayLiftingFn, PolynomialLiftingFn,
                                 SkLearnLiftingFn)
-from .regressors import Edmd
+from .regressors import Edmd, Dmd
 from .util import random_input, random_state
