@@ -12,6 +12,7 @@ from sklearn import linear_model
 @pytest.fixture(
     params=[
         (pykoop.Edmd(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
+        (pykoop.Dmdc(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
         (pykoop.Dmd(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
         (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='eig'),
          'msd-no-input', 1e-4, 1e-5, 'exact'),

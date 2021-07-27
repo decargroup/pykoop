@@ -6,6 +6,7 @@ from sklearn import preprocessing
 
 @sklearn.utils.estimator_checks.parametrize_with_checks([
     pykoop.Edmd(),
+    pykoop.Dmdc(),
     pykoop.Dmd(),
     pykoop.lmi_regressors.LmiEdmd(alpha=0),
     pykoop.lmi_regressors.LmiEdmd(alpha=1),

@@ -27,7 +27,7 @@ import numpy as np
 import picos
 from scipy import linalg
 
-from . import _tsvd, koopman_pipeline
+from . import _tsvd, koopman_pipeline, regressors
 
 # Create logger
 log = logging.getLogger(__name__)
@@ -448,7 +448,7 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
         q, p = X_unshifted.shape
         p_theta = X_shifted.shape[1]
         # Compute SVDs
-        tsvd_method_tld, tsvd_method_hat = LmiDmdc._get_tsvd_methods(
+        tsvd_method_tld, tsvd_method_hat = regressors.Dmdc._get_tsvd_methods(
             self.tsvd_method)
         Q_tld, sig_tld, Z_tld = _tsvd._tsvd(X_unshifted.T, *tsvd_method_tld)
         Q_hat, sig_hat, Z_hat = _tsvd._tsvd(X_shifted.T, *tsvd_method_hat)
@@ -543,26 +543,6 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
     def _extract_solution(problem: picos.Problem) -> np.ndarray:
         """Extract solution from an optimization problem."""
         return np.array(problem.get_valued_variable('U_hat'), ndmin=2).T
-
-    @staticmethod
-    def _get_tsvd_methods(
-            tsvd_method: Union[str, tuple]) -> tuple[tuple, tuple]:
-        """Format truncated SVD methods for ``_tsvd``."""
-        # Convert string if needed
-        if type(tsvd_method) is not tuple:
-            tsvd_method = (tsvd_method, )
-        # Form tuples
-        if len(tsvd_method) == 1:
-            tms = (tsvd_method, tsvd_method)
-        else:
-            try:
-                tm_tld = (tsvd_method[0], tsvd_method[1])
-                tm_hat = (tsvd_method[0], tsvd_method[2])
-            except IndexError:
-                raise ValueError('Incorrect number of tuple items in '
-                                 '`tsvd_method`.')
-            tms = (tm_tld, tm_hat)
-        return tms
 
 
 class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
@@ -944,7 +924,7 @@ class LmiDmdcSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
         p = X_unshifted.shape[1]
         p_theta = X_shifted.shape[1]
         # Compute SVDs
-        tsvd_method_tld, tsvd_method_hat = LmiDmdc._get_tsvd_methods(
+        tsvd_method_tld, tsvd_method_hat = regressors.Dmdc._get_tsvd_methods(
             self.tsvd_method)
         Q_tld, sig_tld, Z_tld = _tsvd._tsvd(X_unshifted.T, *tsvd_method_tld)
         Q_hat, sig_hat, Z_hat = _tsvd._tsvd(X_shifted.T, *tsvd_method_hat)
@@ -1520,7 +1500,7 @@ class LmiDmdcHinfReg(koopman_pipeline.KoopmanRegressor):
                              'different numbers of features. `X` and `y` both '
                              f'have {p} feature(s).')
         # Compute SVDs
-        tsvd_method_tld, tsvd_method_hat = LmiDmdc._get_tsvd_methods(
+        tsvd_method_tld, tsvd_method_hat = regressors.Dmdc._get_tsvd_methods(
             self.tsvd_method)
         Q_tld, sig_tld, Z_tld = _tsvd._tsvd(X_unshifted.T, *tsvd_method_tld)
         Q_hat, sig_hat, Z_hat = _tsvd._tsvd(X_shifted.T, *tsvd_method_hat)

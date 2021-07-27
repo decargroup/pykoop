@@ -12,6 +12,23 @@ from pykoop import lmi_regressors
         (pykoop.Edmd, {
             'alpha': -1
         }),
+        # Dmdc
+        (pykoop.Dmdc, {
+            'mode_type': 'blah'
+        }),
+        (pykoop.Dmdc, {
+            'tsvd_method': ('known_noise', )
+        }),
+        (pykoop.Dmdc, {
+            'tsvd_method': ('known_noise', 1)
+        }),
+        # Dmd
+        (pykoop.Dmd, {
+            'mode_type': 'blah'
+        }),
+        (pykoop.Dmd, {
+            'tsvd_method': ('known_noise', )
+        }),
         # LmiEdmd
         (lmi_regressors.LmiEdmd, {
             'alpha': -1
