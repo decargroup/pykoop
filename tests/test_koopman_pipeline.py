@@ -1,8 +1,9 @@
-import numpy as np
-import pykoop
-import pytest
 import mass_spring_damper
+import numpy as np
+import pytest
 from scipy import integrate, linalg
+
+import pykoop
 
 
 def test_kp_transform_no_lf():
@@ -697,3 +698,19 @@ def test_split_lifting_fn_inverse_transform(lf, X, Xt_exp, n_inputs,
     Xt = lf.transform(X)
     Xi = lf.inverse_transform(Xt)
     np.testing.assert_allclose(Xi, X)
+
+
+def test_strip_initial_conditons():
+    X1 = np.array([
+        [0, 0, 1, 1, 1, 2, 2, 2],
+        [1, 2, 3, 4, 5, 6, 7, 8],
+        [2, 3, 4, 5, 6, 7, 8, 9],
+    ]).T
+    X2 = np.array([
+        [0, 0, 1, 1, 1, 2, 2, 2],
+        [-1, 2, -1, 4, 5, -1, 7, 8],
+        [-1, 3, -1, 5, 6, -1, 8, 9],
+    ]).T
+    X1s = pykoop.koopman_pipeline._strip_initial_conditions(X1, 1, True)
+    X2s = pykoop.koopman_pipeline._strip_initial_conditions(X2, 1, True)
+    np.testing.assert_allclose(X1s, X2s)

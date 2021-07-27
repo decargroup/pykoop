@@ -102,7 +102,7 @@ episode feature.
 
 import abc
 from collections.abc import Callable
-from typing import Optional, Any
+from typing import Any, Optional
 
 import numpy as np
 import pandas
@@ -1557,13 +1557,16 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
             else:
                 X_predicted = estimator.predict(X_unshifted)
             # Strip episode feature and initial conditions
-            # TODO THIS IS WRONG IF THERE ARE MANY EPISODES??? UH OH
+            X_shifted = _strip_initial_conditions(X_shifted,
+                                                  estimator.min_samples_,
+                                                  estimator.episode_feature_)
+            X_predicted = _strip_initial_conditions(X_predicted,
+                                                    estimator.min_samples_,
+                                                    estimator.episode_feature_)
+            # Strip episode feature if present
             if estimator.episode_feature_:
-                X_shifted = X_shifted[estimator.min_samples_:, 1:]
-                X_predicted = X_predicted[estimator.min_samples_:, 1:]
-            else:
-                X_shifted = X_shifted[estimator.min_samples_:, :]
-                X_predicted = X_predicted[estimator.min_samples_:, :]
+                X_shifted = X_shifted[:, 1:]
+                X_predicted = X_predicted[:, 1:]
             # Compute weights
             weights: Optional[np.ndarray]
             if multistep:
@@ -1592,6 +1595,32 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
             return score
 
         return koopman_pipeline_scorer
+
+
+def _strip_initial_conditions(X: np.ndarray,
+                              min_samples: int = 1,
+                              episode_feature: bool = False) -> np.ndarray:
+    """Strip initial conditions from each episode.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Data matrix.
+    min_samples : int
+        Number of samples in initial condition.
+    episode_feature : bool
+        True if first feature indicates which episode a timestep is from.
+    """
+    episodes = _split_episodes(X, episode_feature=episode_feature)
+    # Strip each episode
+    stripped_episodes = []
+    for (i, X_i) in episodes:
+        stripped_episode = X_i[min_samples:, :]
+        stripped_episodes.append((i, stripped_episode))
+    # Concatenate the stripped episodes
+    Xs = _combine_episodes(stripped_episodes,
+                           episode_feature=episode_feature)
+    return Xs
 
 
 def _shift_episodes(
