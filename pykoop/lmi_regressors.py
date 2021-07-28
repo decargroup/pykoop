@@ -138,6 +138,7 @@ class LmiEdmd(LmiRegressor):
                  reg_method: str = 'tikhonov',
                  inv_method: str = 'svd',
                  tsvd_method: Union[str, tuple] = 'economy',
+                 square_norm: bool = False,
                  picos_eps: float = 0,
                  solver_params: dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiEdmd`.
@@ -192,6 +193,11 @@ class LmiEdmd(LmiRegressor):
               cutoff, or
             - ``('rank', rank)`` -- truncate singular values to a fixed rank.
 
+        square_norm : bool
+            Square norm in matrix two-norm or nuclear norm regularizer.
+            Enabling may increase computation time. Frobenius norm used in
+            Tikhonov regularizer is always squared.
+
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
@@ -205,6 +211,7 @@ class LmiEdmd(LmiRegressor):
         self.reg_method = reg_method
         self.inv_method = inv_method
         self.tsvd_method = tsvd_method
+        self.square_norm = square_norm
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
@@ -230,10 +237,12 @@ class LmiEdmd(LmiRegressor):
                                             self.picos_eps)
         if self.reg_method == 'twonorm':
             problem = _add_twonorm(problem, problem.variables['U'],
-                                   self.alpha_other_ / q, self.picos_eps)
+                                   self.alpha_other_ / q, self.square_norm,
+                                   self.picos_eps)
         elif self.reg_method == 'nuclear':
             problem = _add_nuclear(problem, problem.variables['U'],
-                                   self.alpha_other_ / q, self.picos_eps)
+                                   self.alpha_other_ / q, self.square_norm,
+                                   self.picos_eps)
         # Solve optimization problem
         problem.solve(**self.solver_params_)
         # Save solution status
@@ -382,6 +391,7 @@ class LmiDmdc(LmiRegressor):
                  ratio: float = 1,
                  tsvd_method: Union[str, tuple] = 'economy',
                  reg_method: str = 'tikhonov',
+                 square_norm: bool = False,
                  picos_eps: float = 0,
                  solver_params: dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiDmdc`.
@@ -423,6 +433,11 @@ class LmiDmdc(LmiRegressor):
             - ``'nuclear'`` -- nuclear norm regularization mixed with Tikhonov
               regularization.
 
+        square_norm : bool
+            Square norm in matrix two-norm or nuclear norm regularizer.
+            Enabling may increase computation time. Frobenius norm used in
+            Tikhonov regularizer is always squared.
+
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
@@ -435,6 +450,7 @@ class LmiDmdc(LmiRegressor):
         self.ratio = ratio
         self.tsvd_method = tsvd_method
         self.reg_method = reg_method
+        self.square_norm = square_norm
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
@@ -466,10 +482,12 @@ class LmiDmdc(LmiRegressor):
                                             self.picos_eps)
         if self.reg_method == 'twonorm':
             problem = _add_twonorm(problem, problem.variables['U_hat'],
-                                   self.alpha_other_, self.picos_eps)
+                                   self.alpha_other_, self.square_norm,
+                                   self.picos_eps)
         elif self.reg_method == 'nuclear':
             problem = _add_nuclear(problem, problem.variables['U_hat'],
-                                   self.alpha_other_, self.picos_eps)
+                                   self.alpha_other_, self.square_norm,
+                                   self.picos_eps)
         # Solve optimization problem
         problem.solve(**self.solver_params_)
         # Save solution status
@@ -1049,6 +1067,7 @@ class LmiEdmdHinfReg(LmiRegressor):
         iter_tol: float = 1e-6,
         inv_method: str = 'svd',
         tsvd_method: Union[str, tuple] = 'economy',
+        square_norm: bool = False,
         picos_eps: float = 0,
         solver_params: dict[str, Any] = None,
     ) -> None:
@@ -1104,6 +1123,11 @@ class LmiEdmdHinfReg(LmiRegressor):
               cutoff, or
             - ``('rank', rank)`` -- truncate singular values to a fixed rank.
 
+        square_norm : bool
+            Square norm H-infinity norm in regularizer. Enabling may increase
+            computation time. Frobenius norm used in Tikhonov regularizer is
+            always squared.
+
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
@@ -1119,6 +1143,7 @@ class LmiEdmdHinfReg(LmiRegressor):
         self.iter_tol = iter_tol
         self.inv_method = inv_method
         self.tsvd_method = tsvd_method
+        self.square_norm = square_norm
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
@@ -1258,7 +1283,10 @@ class LmiEdmdHinfReg(LmiRegressor):
             raise ValueError('`alpha_other_` must be positive.')
         alpha_scaled = picos.Constant('alpha_scaled_inf',
                                       self.alpha_other_ / q)
-        objective += alpha_scaled * gamma
+        if self.square_norm:
+            objective += alpha_scaled * gamma**2
+        else:
+            objective += alpha_scaled * gamma
         problem_a.set_objective(direction, objective)
         return problem_a
 
@@ -1328,6 +1356,7 @@ class LmiDmdcHinfReg(LmiRegressor):
         max_iter: int = 100,
         iter_tol: float = 1e-6,
         tsvd_method: Union[str, tuple] = 'economy',
+        square_norm: bool = False,
         picos_eps: float = 0,
         solver_params: dict[str, Any] = None,
     ) -> None:
@@ -1373,6 +1402,11 @@ class LmiDmdcHinfReg(LmiRegressor):
             - ``('rank', rank_unshifted, rank_shifted)`` -- truncate singular
               values to a fixed rank.
 
+        square_norm : bool
+            Square norm H-infinity norm in regularizer. Enabling may increase
+            computation time. Frobenius norm used in Tikhonov regularizer is
+            always squared.
+
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
@@ -1387,6 +1421,7 @@ class LmiDmdcHinfReg(LmiRegressor):
         self.max_iter = max_iter
         self.iter_tol = iter_tol
         self.tsvd_method = tsvd_method
+        self.square_norm = square_norm
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
@@ -1540,7 +1575,10 @@ class LmiDmdcHinfReg(LmiRegressor):
         if self.alpha_other_ <= 0:
             raise ValueError('`alpha_other_` must be positive.')
         alpha_scaled = picos.Constant('alpha_scaled_inf', self.alpha_other_)
-        objective += alpha_scaled * gamma
+        if self.square_norm:
+            objective += alpha_scaled * gamma**2
+        else:
+            objective += alpha_scaled * gamma
         problem_a.set_objective(direction, objective)
         return problem_a
 
@@ -1926,7 +1964,8 @@ def _create_ss(
 
 
 def _add_twonorm(problem: picos.Problem, U: picos.RealVariable,
-                 alpha_other: float, picos_eps: float) -> picos.Problem:
+                 alpha_other: float, square_norm: bool,
+                 picos_eps: float) -> picos.Problem:
     """Add matrix two norm regularizer to an optimization problem.
 
     Parameters
@@ -1937,6 +1976,8 @@ def _add_twonorm(problem: picos.Problem, U: picos.RealVariable,
         Koopman matrix variable.
     alpha_other : float
         Regularization coefficient (already divided by ``q`` if applicable).
+    square_norm : bool
+        Square matrix two-norm.
     picos_eps : float
         Tolerance used for strict LMIs.
 
@@ -1960,13 +2001,17 @@ def _add_twonorm(problem: picos.Problem, U: picos.RealVariable,
                      [U, picos.diag(gamma, p_theta)]]) >> 0)
     # Add term to cost function
     alpha_scaled = picos.Constant('alpha_scaled_2', alpha_other)
-    objective += alpha_scaled * gamma
+    if square_norm:
+        objective += alpha_scaled * gamma**2
+    else:
+        objective += alpha_scaled * gamma
     problem.set_objective(direction, objective)
     return problem
 
 
 def _add_nuclear(problem: picos.Problem, U: picos.RealVariable,
-                 alpha_other: float, picos_eps: float) -> picos.Problem:
+                 alpha_other: float, square_norm: bool,
+                 picos_eps: float) -> picos.Problem:
     """Add nuclear norm regularizer to an optimization problem.
 
     Parameters
@@ -1977,6 +2022,8 @@ def _add_nuclear(problem: picos.Problem, U: picos.RealVariable,
         Koopman matrix variable.
     alpha_other : float
         Regularization coefficient (already divided by ``q`` if applicable).
+    square_norm : bool
+        Square nuclear norm.
     picos_eps : float
         Tolerance used for strict LMIs.
 
@@ -2001,7 +2048,10 @@ def _add_nuclear(problem: picos.Problem, U: picos.RealVariable,
     problem.add_constraint(picos.block([[W_1, U], [U.T, W_2]]) >> 0)
     # Add term to cost function
     alpha_scaled = picos.Constant('alpha_scaled_*', alpha_other)
-    objective += alpha_scaled * gamma
+    if square_norm:
+        objective += alpha_scaled * gamma**2
+    else:
+        objective += alpha_scaled * gamma
     problem.set_objective(direction, objective)
     return problem
 
