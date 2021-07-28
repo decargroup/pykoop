@@ -1,10 +1,11 @@
 import mass_spring_damper
 import numpy as np
-import pykoop
-import pykoop.lmi_regressors
 import pytest
 from scipy import integrate, linalg
 from sklearn import linear_model
+
+import pykoop
+import pykoop.lmi_regressors
 
 # TODO This file is a nightmare
 
@@ -14,6 +15,10 @@ from sklearn import linear_model
         (pykoop.Edmd(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
         (pykoop.Dmdc(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
         (pykoop.Dmd(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
+        (pykoop.Dmdc(tsvd_method=('known_noise', 1, 1)), 'msd-no-input', None,
+         None, 'exact'),
+        (pykoop.Dmd(tsvd_method=('known_noise', 1)), 'msd-no-input', None,
+         None, 'exact'),
         (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='eig'),
          'msd-no-input', 1e-4, 1e-5, 'exact'),
         (pykoop.lmi_regressors.LmiEdmd(
@@ -227,10 +232,10 @@ def test_scenario_data(scenario):
 
 
 def test_fit(scenario):
-    if scenario['fit_tol'] is None:
-        pytest.skip()
     # Fit regressor
     scenario['regressor'].fit(scenario['X_train'].T, scenario['Xp_train'].T)
+    if scenario['fit_tol'] is None:
+        pytest.skip()
     # Test value of Koopman operator
     np.testing.assert_allclose(scenario['regressor'].coef_.T,
                                scenario['U_valid'],
@@ -239,10 +244,10 @@ def test_fit(scenario):
 
 
 def test_predict(scenario):
-    if scenario['predict_tol'] is None:
-        pytest.skip()
     # Fit regressor
     scenario['regressor'].fit(scenario['X_train'].T, scenario['Xp_train'].T)
+    if scenario['predict_tol'] is None:
+        pytest.skip()
     # Test prediction
     np.testing.assert_allclose(scenario['regressor'].predict(
         scenario['X_valid'].T).T,

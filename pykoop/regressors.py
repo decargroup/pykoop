@@ -144,7 +144,8 @@ class Dmdc(koopman_pipeline.KoopmanRegressor):
             assert False
         # Reconstruct ``A`` and form Koopman matrix ``U``.
         Sigma = np.diag(self.eigenvalues_)
-        A_r = np.real(linalg.solve(self.modes_.T, (self.modes_ @ Sigma).T).T)
+        A_r = np.real(
+            linalg.lstsq(self.modes_.T, (self.modes_ @ Sigma).T)[0].T)
         coef = np.hstack((A_r, B)).T
         return coef
 
@@ -264,7 +265,7 @@ class Dmd(koopman_pipeline.KoopmanRegressor):
             assert False
         # Compute Koopman matrix
         Sigma = np.diag(self.eigenvalues_)
-        U = linalg.solve(self.modes_.T, (self.modes_ @ Sigma).T).T
+        U = linalg.lstsq(self.modes_.T, (self.modes_ @ Sigma).T)[0].T
         coef = np.real(U.T)
         return coef
 
