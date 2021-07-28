@@ -69,7 +69,7 @@ def _tsvd(
             rank = np.max(greater_than_cutoff) + 1
         else:
             rank = 0
-    elif method[0] == 'rank':
+    elif method == 'rank':
         rank = param
     else:
         raise ValueError(f'`method` must be one of {valid_methods}.')
