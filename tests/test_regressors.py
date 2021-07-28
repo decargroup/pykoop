@@ -46,7 +46,7 @@ import pykoop.lmi_regressors
                                           inv_method='chol',
                                           solver_params={'dualize': False}),
             'msd-no-input',
-            1e-4,
+            1e-3,
             None,
             # Regression test! Not unit test!
             # If regularizing using the norm squared, use:
@@ -65,7 +65,7 @@ import pykoop.lmi_regressors
                                           inv_method='chol',
                                           solver_params={'dualize': False}),
             'msd-no-input',
-            1e-4,
+            1e-3,
             None,
             # Regression test! Not unit test!
             # If regularizing using the norm squared, use:
@@ -97,7 +97,7 @@ import pykoop.lmi_regressors
                     spectral_radius=0.8,
                     solver_params={'dualize': False}),
                 'msd-no-input',
-                1e-4,
+                1e-3,
                 None,
                 # Regression test generated from this code. Result was manually
                 # checked (eigenvalue magnitudes are less than 0.8) but
@@ -112,12 +112,12 @@ import pykoop.lmi_regressors
                 pykoop.lmi_regressors.LmiEdmdHinfReg(
                     inv_method='eig',
                     max_iter=100,
-                    iter_tol=5e-8,
+                    iter_tol=1e-3,
                     alpha=1,
                     ratio=1,
                     solver_params={'dualize': False}),
                 'msd-sin-input',
-                1e-4,
+                1e-3,
                 None,
                 # Regression test! Not unit test!
                 # If regularizing using the norm squared, use:
@@ -127,8 +127,8 @@ import pykoop.lmi_regressors
                 # ])
                 # If regularizing using the norm alone, use:
                 np.array([
-                    [0.759993, -0.423835, 0.466796],  # noqa: E201
-                    [-0.417579, 0.232879, 0.837136]
+                    [0.509525, -0.279917, 0.471535],
+                    [-0.296477, 0.162875, 0.831542],
                 ])),
             marks=pytest.mark.slow),
     ],

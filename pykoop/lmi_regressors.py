@@ -51,20 +51,13 @@ def _sigint_handler(sig, frame):
 signal.signal(signal.SIGINT, _sigint_handler)
 
 
-class LmiEdmd(koopman_pipeline.KoopmanRegressor):
-    """LMI-based EDMD with regularization.
+class LmiRegressor(koopman_pipeline.KoopmanRegressor):
+    """Base class for LMI regressors.
 
-    Supports Tikhonov regularization, optionally mixed with matrix two-norm
-    regularization or nuclear norm regularization.
+    Mostly used to share common ``scikit-learn`` parameters.
 
     Attributes
     ----------
-    self.alpha_tikhonov_ : float
-        Tikhonov regularization coefficient used.
-    self.alpha_other_ : float
-        Matrix two norm or nuclear norm regularization coefficient used.
-    solver_params_ : dict[str, Any]
-        Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
     n_states_in_ : int
@@ -100,6 +93,44 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         'y_numeric': True,
         'dtype': 'float64',
     }
+
+    def _more_tags(self):
+        reason = ('Hard to guarantee exact idempotence when calling external '
+                  'solver.')
+        return {
+            'multioutput': True,
+            'multioutput_only': True,
+            '_xfail_checks': {
+                'check_fit_idempotent': reason,
+            }
+        }
+
+
+class LmiEdmd(LmiRegressor):
+    """LMI-based EDMD with regularization.
+
+    Supports Tikhonov regularization, optionally mixed with matrix two-norm
+    regularization or nuclear norm regularization.
+
+    Attributes
+    ----------
+    self.alpha_tikhonov_ : float
+        Tikhonov regularization coefficient used.
+    self.alpha_other_ : float
+        Matrix two norm or nuclear norm regularization coefficient used.
+    solver_params_ : dict[str, Any]
+        Solver parameters used (defaults merged with constructor input).
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+    """
 
     def __init__(self,
                  alpha: float = 0,
@@ -320,7 +351,7 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         return np.array(problem.get_valued_variable('U'), ndmin=2).T
 
 
-class LmiDmdc(koopman_pipeline.KoopmanRegressor):
+class LmiDmdc(LmiRegressor):
     """LMI-based DMDc with regularization.
 
     Supports Tikhonov regularization, optionally mixed with matrix two-norm
@@ -345,30 +376,6 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
     coef_ : np.ndarray
         Fit coefficient matrix.
     """
-
-    # Default solver parameters
-    _default_solver_params: dict[str, Any] = {
-        'primals': None,
-        'duals': None,
-        'dualize': True,
-        'abs_bnb_opt_tol': None,
-        'abs_dual_fsb_tol': None,
-        'abs_ipm_opt_tol': None,
-        'abs_prim_fsb_tol': None,
-        'integrality_tol': None,
-        'markowitz_tol': None,
-        'rel_bnb_opt_tol': None,
-        'rel_dual_fsb_tol': None,
-        'rel_ipm_opt_tol': None,
-        'rel_prim_fsb_tol': None,
-    }
-
-    # Override since PICOS only works with ``float64``.
-    _check_X_y_params: dict[str, Any] = {
-        'multi_output': True,
-        'y_numeric': True,
-        'dtype': 'float64',
-    }
 
     def __init__(self,
                  alpha: float = 0,
@@ -545,7 +552,7 @@ class LmiDmdc(koopman_pipeline.KoopmanRegressor):
         return np.array(problem.get_valued_variable('U_hat'), ndmin=2).T
 
 
-class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
+class LmiEdmdSpectralRadiusConstr(LmiRegressor):
     """LMI-based EDMD with spectral radius constraint.
 
     Optionally supports Tikhonov regularization.
@@ -575,30 +582,6 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
     coef_ : np.ndarray
         Fit coefficient matrix.
     """
-
-    # Default solver parameters
-    _default_solver_params: dict[str, Any] = {
-        'primals': None,
-        'duals': None,
-        'dualize': True,
-        'abs_bnb_opt_tol': None,
-        'abs_dual_fsb_tol': None,
-        'abs_ipm_opt_tol': None,
-        'abs_prim_fsb_tol': None,
-        'integrality_tol': None,
-        'markowitz_tol': None,
-        'rel_bnb_opt_tol': None,
-        'rel_dual_fsb_tol': None,
-        'rel_ipm_opt_tol': None,
-        'rel_prim_fsb_tol': None,
-    }
-
-    # Override since PICOS only works with ``float64``.
-    _check_X_y_params: dict[str, Any] = {
-        'multi_output': True,
-        'y_numeric': True,
-        'dtype': 'float64',
-    }
 
     def __init__(self,
                  spectral_radius: float = 1.0,
@@ -799,7 +782,7 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
         return problem_b
 
 
-class LmiDmdcSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
+class LmiDmdcSpectralRadiusConstr(LmiRegressor):
     """LMI-based Dmdc with spectral radius constraint.
 
     Optionally supports Tikhonov regularization.
@@ -829,30 +812,6 @@ class LmiDmdcSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
     coef_ : np.ndarray
         Fit coefficient matrix.
     """
-
-    # Default solver parameters
-    _default_solver_params: dict[str, Any] = {
-        'primals': None,
-        'duals': None,
-        'dualize': True,
-        'abs_bnb_opt_tol': None,
-        'abs_dual_fsb_tol': None,
-        'abs_ipm_opt_tol': None,
-        'abs_prim_fsb_tol': None,
-        'integrality_tol': None,
-        'markowitz_tol': None,
-        'rel_bnb_opt_tol': None,
-        'rel_dual_fsb_tol': None,
-        'rel_ipm_opt_tol': None,
-        'rel_prim_fsb_tol': None,
-    }
-
-    # Override since PICOS only works with ``float64``.
-    _check_X_y_params: dict[str, Any] = {
-        'multi_output': True,
-        'y_numeric': True,
-        'dtype': 'float64',
-    }
 
     def __init__(self,
                  spectral_radius: float = 1.0,
@@ -1053,7 +1012,7 @@ class LmiDmdcSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
         return problem_b
 
 
-class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
+class LmiEdmdHinfReg(LmiRegressor):
     """LMI-based EDMD with H-infinity norm regularization.
 
     Optionally supports additional Tikhonov regularization.
@@ -1079,30 +1038,6 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
     coef_ : np.ndarray
         Fit coefficient matrix.
     """
-
-    # Default solver parameters
-    _default_solver_params: dict[str, Any] = {
-        'primals': None,
-        'duals': None,
-        'dualize': True,
-        'abs_bnb_opt_tol': None,
-        'abs_dual_fsb_tol': None,
-        'abs_ipm_opt_tol': None,
-        'abs_prim_fsb_tol': None,
-        'integrality_tol': None,
-        'markowitz_tol': None,
-        'rel_bnb_opt_tol': None,
-        'rel_dual_fsb_tol': None,
-        'rel_ipm_opt_tol': None,
-        'rel_prim_fsb_tol': None,
-    }
-
-    # Override since PICOS only works with ``float64``.
-    _check_X_y_params: dict[str, Any] = {
-        'multi_output': True,
-        'y_numeric': True,
-        'dtype': 'float64',
-    }
 
     def __init__(
         self,
@@ -1357,7 +1292,7 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         return problem_b
 
 
-class LmiDmdcHinfReg(koopman_pipeline.KoopmanRegressor):
+class LmiDmdcHinfReg(LmiRegressor):
     """LMI-based DMDc with H-infinity norm regularization.
 
     Optionally supports additional Tikhonov regularization.
@@ -1383,30 +1318,6 @@ class LmiDmdcHinfReg(koopman_pipeline.KoopmanRegressor):
     coef_ : np.ndarray
         Fit coefficient matrix.
     """
-
-    # Default solver parameters
-    _default_solver_params: dict[str, Any] = {
-        'primals': None,
-        'duals': None,
-        'dualize': True,
-        'abs_bnb_opt_tol': None,
-        'abs_dual_fsb_tol': None,
-        'abs_ipm_opt_tol': None,
-        'abs_prim_fsb_tol': None,
-        'integrality_tol': None,
-        'markowitz_tol': None,
-        'rel_bnb_opt_tol': None,
-        'rel_dual_fsb_tol': None,
-        'rel_ipm_opt_tol': None,
-        'rel_prim_fsb_tol': None,
-    }
-
-    # Override since PICOS only works with ``float64``.
-    _check_X_y_params: dict[str, Any] = {
-        'multi_output': True,
-        'y_numeric': True,
-        'dtype': 'float64',
-    }
 
     def __init__(
         self,
@@ -1663,7 +1574,7 @@ class LmiDmdcHinfReg(koopman_pipeline.KoopmanRegressor):
         return problem_b
 
 
-class LmiEdmdDissipativityConstr(koopman_pipeline.KoopmanRegressor):
+class LmiEdmdDissipativityConstr(LmiRegressor):
     """LMI-based EDMD with dissipativity constraint.
 
     Optionally supports additional Tikhonov regularization.
@@ -1691,30 +1602,6 @@ class LmiEdmdDissipativityConstr(koopman_pipeline.KoopmanRegressor):
     coef_ : np.ndarray
         Fit coefficient matrix.
     """
-
-    # Default solver parameters
-    _default_solver_params: dict[str, Any] = {
-        'primals': None,
-        'duals': None,
-        'dualize': True,
-        'abs_bnb_opt_tol': None,
-        'abs_dual_fsb_tol': None,
-        'abs_ipm_opt_tol': None,
-        'abs_prim_fsb_tol': None,
-        'integrality_tol': None,
-        'markowitz_tol': None,
-        'rel_bnb_opt_tol': None,
-        'rel_dual_fsb_tol': None,
-        'rel_ipm_opt_tol': None,
-        'rel_prim_fsb_tol': None,
-    }
-
-    # Override since PICOS only works with ``float64``.
-    _check_X_y_params: dict[str, Any] = {
-        'multi_output': True,
-        'y_numeric': True,
-        'dtype': 'float64',
-    }
 
     def __init__(
         self,

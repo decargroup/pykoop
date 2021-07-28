@@ -1618,8 +1618,7 @@ def _strip_initial_conditions(X: np.ndarray,
         stripped_episode = X_i[min_samples:, :]
         stripped_episodes.append((i, stripped_episode))
     # Concatenate the stripped episodes
-    Xs = _combine_episodes(stripped_episodes,
-                           episode_feature=episode_feature)
+    Xs = _combine_episodes(stripped_episodes, episode_feature=episode_feature)
     return Xs
 
 

@@ -7,6 +7,7 @@ Koopman operator identification library in Python.
 ### General
 
 - [ ] Examples and doctests
+- [ ] Fix idempotence unit test if possible?
 
 ### Pipeline
 
