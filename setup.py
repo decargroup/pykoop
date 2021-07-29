@@ -14,7 +14,12 @@ setuptools.setup(
     url='https://bitbucket.org/decargroup/pykoop',
     packages=setuptools.find_packages(exclude=('tests', 'examples')),
     install_requires=[
-        'numpy', 'scipy', 'scikit-learn', 'picos', 'pandas', 'optht'
+        'numpy>=1.2.1',
+        'scipy>=1.7.0',
+        'scikit-learn>=0.24.1',
+        'picos>=2.2.52',
+        'pandas>=1.3.1',
+        'optht>=0.2.0',
     ],
-    extra_require={'MOSEK solver': ['mosek']},
+    extra_require={'MOSEK solver': ['mosek>=9.2.49']},
 )
