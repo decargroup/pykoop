@@ -4,11 +4,11 @@ import abc
 from typing import Callable
 
 import numpy as np
-from scipy import integrate, constants
+from scipy import constants, integrate
 
 
 class ContinuousDynamicModel(metaclass=abc.ABCMeta):
-    """Continueous-time dynamic model."""
+    """Continuous-time dynamic model."""
 
     @abc.abstractmethod
     def f(self, t: float, x: np.ndarray, u: np.ndarray) -> np.ndarray:
@@ -178,6 +178,18 @@ class MassSpringDamper(ContinuousDynamicModel):
     """Mass-spring-damper model.
 
     State is ``[position, velocity]``.
+
+    Examples
+    --------
+    >>> msd = pykoop.dynamic_models.MassSpringDamper(0.5, 0.7, 0.6)
+    >>> x0 = msd.x0(np.array([1, 0]))
+    >>> t, x = msd.simulate((0, 1), 1e-3, x0, lambda t: 0)
+    >>> x[:5, :]
+    array([[ 1.        ,  0.        ],
+           [ 0.9999993 , -0.00139916],
+           [ 0.9999972 , -0.00279664],
+           [ 0.99999371, -0.00419244],
+           [ 0.99998882, -0.00558656]])
     """
 
     def __init__(self, mass: float, stiffness: float, damping: float) -> None:
@@ -225,6 +237,18 @@ class Pendulum(ContinuousDynamicModel):
     """Point-mass pendulum with optional damping.
 
     State is ``[angle, angular_velocity]``.
+
+    Examples
+    --------
+    >>> pend = pykoop.dynamic_models.Pendulum(0.5, 1, 0.6)
+    >>> x0 = pend.x0(np.array([np.pi / 2, 0]))
+    >>> t, x = pend.simulate((0, 1), 1e-3, x0, lambda t: 0)
+    >>> x[:5, :]
+    array([[ 1.57079633,  0.        ],
+           [ 1.57079143, -0.00980077],
+           [ 1.57077673, -0.01958978],
+           [ 1.57075225, -0.02936706],
+           [ 1.570718  , -0.03913261]])
     """
 
     def __init__(self, mass, length, damping=0):
