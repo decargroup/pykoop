@@ -1,7 +1,142 @@
-"""Utilities for data generation."""
+"""Utilities for data generation and preprocessing."""
 
 import numpy as np
-from scipy import signal, interpolate
+from scipy import interpolate, signal
+
+from . import koopman_pipeline
+
+
+class AnglePreprocessor(koopman_pipeline.EpisodeIndependentLiftingFn):
+    """Preprocessor used to replace angles with their cosines and sines.
+
+    Even though it inherits from :class:`EpisodeIndependengLiftingFn`, this
+    class is intended as a preprocessor to be applied once to the input, rather
+    than as a lifting function.
+
+    Attributes
+    ----------
+    angles_in_ : np.ndarray
+        Boolean array that indicates which input features are angles.
+    lin_out_ : np.ndarray
+        Boolean array that indicates which output features are linear.
+    cos_out_ : np.ndarray
+        Boolean array that indicates which output features are cosines.
+    sin_out_ : np.ndarray
+        Boolean array that indicates which output features are sines.
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+
+    Warnings
+    --------
+    The inverse of this preprocessor is not the true inverse unless the data is
+    inside ``[-pi, pi]``. Any offsets of ``2pi`` are lost when ``cos`` and
+    ``sin`` are applied to the angles.
+
+    Examples
+    --------
+    Preprocess first feature in pendulum data.
+    >>> angle_pp = pykoop.AnglePreprocessor(angle_features=np.array([0]))
+    >>> angle_pp.fit(X_pend, n_inputs=1, episode_feature=True)
+    AnglePreprocessor(angle_features=array([0]))
+    >>> X_pend_pp = angle_pp.transform(X_pend)
+    >>> X_pend.shape
+    (100, 4)
+    >>> X_pend_pp.shape
+    (100, 5)
+    """
+
+    def __init__(self,
+                 angle_features: np.ndarray = None,
+                 unwrap_inverse: bool = False) -> None:
+        """Instantiate :class:`AnglePreprocessor`.
+
+        Parameters
+        ----------
+        angle_features : np.ndarray
+            Indices of features that are angles.
+        unwrap_inverse : bool
+            Unwrap inverse by replacing absolute jumps greater than ``pi`` by
+            their ``2pi`` complement.
+        """
+        self.angle_features = angle_features
+        self.unwrap_inverse = unwrap_inverse
+
+    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int]:
+        # Compute boolean array with one entry per feature. A ``True`` value
+        # indicates that the feature is an angle.
+        n_states_inputs_in = self.n_states_in_ + self.n_inputs_in_
+        if ((self.angle_features is None)
+                or (self.angle_features.shape[0] == 0)):
+            self.angles_in_ = np.zeros((n_states_inputs_in, ), dtype=bool)
+        else:
+            # Create an array with all ```False``.
+            angles_bool = np.zeros((n_states_inputs_in, ), dtype=bool)
+            # Set indicated entries to ``True``.
+            angles_bool[self.angle_features] = True
+            self.angles_in_ = angles_bool
+        # Figure out how many linear and angular features there are.
+        n_lin_states = np.sum(~self.angles_in_[:self.n_states_in_])
+        n_lin_inputs = np.sum(~self.angles_in_[self.n_states_in_:])
+        n_ang_states = 2 * np.sum(self.angles_in_[:self.n_states_in_])
+        n_ang_inputs = 2 * np.sum(self.angles_in_[self.n_states_in_:])
+        n_states_out = n_lin_states + n_ang_states
+        n_inputs_out = n_lin_inputs + n_ang_inputs
+        # Create array for linear, cosine, and sine feature indices.
+        self.lin_out_ = np.zeros((n_states_out + n_inputs_out, ), dtype=bool)
+        self.cos_out_ = np.zeros((n_states_out + n_inputs_out, ), dtype=bool)
+        self.sin_out_ = np.zeros((n_states_out + n_inputs_out, ), dtype=bool)
+        # Figure out which features are cosines, sines, or linear.
+        i = 0
+        for j in range(n_states_inputs_in):
+            if self.angles_in_[j]:
+                self.cos_out_[i] = True
+                self.sin_out_[i + 1] = True
+                i += 2
+            else:
+                self.lin_out_[i] = True
+                i += 1
+        return (n_states_out, n_inputs_out)
+
+    def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        # Create blank array
+        n_states_inputs_out = self.n_states_out_ + self.n_inputs_out_
+        Xt = np.zeros((X.shape[0], n_states_inputs_out))
+        # Apply cos and sin to appropriate features.
+        Xt[:, self.lin_out_] = X[:, ~self.angles_in_]
+        Xt[:, self.cos_out_] = np.cos(X[:, self.angles_in_])
+        Xt[:, self.sin_out_] = np.sin(X[:, self.angles_in_])
+        return Xt
+
+    def _inverse_transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        # Create blank array
+        n_states_inputs_in = self.n_states_in_ + self.n_inputs_in_
+        Xt = np.zeros((X.shape[0], n_states_inputs_in))
+        # Put linear features back where they belong
+        Xt[:, ~self.angles_in_] = X[:, self.lin_out_]
+        # Invert transform for angles. Unwrap if necessary.
+        angle_values = np.arctan2(X[:, self.sin_out_], X[:, self.cos_out_])
+        if self.unwrap_inverse:
+            Xt[:, self.angles_in_] = np.unwrap(angle_values, axis=0)
+        else:
+            Xt[:, self.angles_in_] = angle_values
+        return Xt
+
+    def _validate_parameters(self) -> None:
+        pass  # No constructor parameters need validation.
 
 
 def random_state(low, high, rng=None):
@@ -39,7 +174,13 @@ def random_state(low, high, rng=None):
     return x_rand
 
 
-def random_input(t_range, t_step, low, high, cutoff, order=2, rng=None,
+def random_input(t_range,
+                 t_step,
+                 low,
+                 high,
+                 cutoff,
+                 order=2,
+                 rng=None,
                  output='function'):
     """Generate a smooth random input.
 
@@ -88,12 +229,12 @@ def random_input(t_range, t_step, low, high, cutoff, order=2, rng=None,
     >>> t, x = msd.simulate(t_range, t_step, x0, u)
     """
     t = np.arange(*t_range, t_step)
-    size = np.shape(low) + (t.shape[-1],)  # Concatenate tuples
+    size = np.shape(low) + (t.shape[-1], )  # Concatenate tuples
     if rng is None:
         rng = np.random.default_rng()
-    u_rough = rng.uniform(np.reshape(low, size[:-1] + (1,)),
-                          np.reshape(high, size[:-1] + (1,)), size)
-    sos = signal.butter(order, cutoff, output='sos', fs=1/t_step)
+    u_rough = rng.uniform(np.reshape(low, size[:-1] + (1, )),
+                          np.reshape(high, size[:-1] + (1, )), size)
+    sos = signal.butter(order, cutoff, output='sos', fs=1 / t_step)
     u_smooth = signal.sosfilt(sos, u_rough)
     if output == 'array':
         return u_smooth

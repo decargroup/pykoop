@@ -82,16 +82,6 @@ State 0 State 1 State 2
 In the above case, each timestep is assumed to belong to the same
 episode.
 
-All Koopman lifting functions and preprocessors are ancestors of
-:class:`KoopmanLiftingFn`. However, they differ slightly in their indended
-usage.  When predicting using a Koopman pipeline, lifting functions are applied
-and inverted. Preprocessors are applied at the beginning of the pipeline but
-never inverted.
-
-For example, preprocessing angles by replacing them with ``cos`` and ``sin`` of
-their values is typically not inverted, since it's more convenient to work with
-``cos`` and ``sin`` when scoring and cross-validating.
-
 Koopman regressors, which implement the interface defined in
 :class:`KoopmanRegressor` are distinct from ``scikit-learn`` regressors in that
 they support the episode feature and state tracking attributes used by the
@@ -1101,22 +1091,14 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
 
     Attributes
     ----------
-    preprocessors_ : list[KoopmanLiftingFn]
-        Fit preprocessors.
     liting_functions_ : list[KoopmanLiftingFn]
         Fit lifting functions.
     regressor_ : KoopmanRegressor
         Fit regressor.
     transformers_fit_ : bool
-        True if preprocessors and lifting functions have been fit.
+        True if lifting functions have been fit.
     regressor_fit_ : bool
         True if regressor has been fit.
-    n_features_pp_ : int
-        Number of features after preprocessing, including episode feature.
-    n_states_pp_ : int
-        Number of states after preprocessing.
-    n_inputs_pp_ : int
-        Number of inputs after preprocessing.
     n_features_in_ : int
         Number of features before transformation, including episode feature.
     n_states_in_ : int
@@ -1186,12 +1168,8 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
            [-4.83016720e-04, -2.35659680e-02, -4.14525944e-04,
             -1.17553076e-02,  3.35385463e-02]])
 
-    Apply bilinear Koopman pipeline with non-inverted preprocessing step to
-    pendulum data
+    Apply bilinear Koopman pipeline to mass-spring-damper data
     >>> kp = KoopmanPipeline(
-    ...     preprocessors=[
-    ...         pykoop.AnglePreprocessor(angle_features=np.array([0])),
-    ...     ],
     ...     lifting_functions=[
     ...         pykoop.SkLearnLiftingFn(sklearn.preprocessing.MaxAbsScaler()),
     ...         pykoop.SplitPipeline(
@@ -1205,23 +1183,35 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
     ...     ],
     ...     regressor=pykoop.Edmd(),
     ... )
-    >>> kp.fit(X_pend, n_inputs=1, episode_feature=True)
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(lifting_functions=[SkLearnLiftingFn(transformer=MaxAbsScaler()),
                                        SplitPipeline(lifting_functions_state=[PolynomialLiftingFn(order=2)]),
                                        BilinearInputLiftingFn(),
                                        SkLearnLiftingFn(transformer=StandardScaler())],
-                    preprocessors=[AnglePreprocessor(angle_features=array([0]))],
                     regressor=Edmd())
-    >>> X_pend[:4, :]  # ep, ang, vel, torque
-    array([[0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00],
-           [0.00000000e+00, 3.21833650e-05, 9.52597353e-04, 9.98334166e-03],
-           [0.00000000e+00, 2.46109143e-04, 3.56838833e-03, 1.98669331e-02],
-           [0.00000000e+00, 7.86190491e-04, 7.39145362e-03, 2.95520207e-02]])
-    >>> kp.predict(X_pend[:4, :])  # ep, cos(ang), sin(ang), vel
-    array([[0.00000000e+00, 1.00000040e+00, 1.08835227e-04, 9.22159434e-04],
-           [0.00000000e+00, 1.00000040e+00, 3.36925143e-04, 3.66846017e-03],
-           [0.00000000e+00, 1.00000016e+00, 8.87060555e-04, 7.60896829e-03],
-           [0.00000000e+00, 9.99998962e-01, 1.85058228e-03, 1.21511251e-02]])
+    >>> kp.regressor_.coef_
+    array([[ 9.88147137e-01, -1.48305891e-01, -5.74172953e-03,
+             4.41837885e-03, -8.41669438e-03],
+           [ 7.32374325e-02,  8.85387135e-01, -1.58466120e-02,
+             1.27780976e-02, -2.37537818e-02],
+           [ 1.52111475e-03, -2.07940938e-03,  9.88123014e-01,
+            -1.57505174e-01,  2.78863290e-02],
+           [ 2.14710690e-03,  5.00385138e-03,  1.64455340e-01,
+             8.63305628e-01, -2.19719838e-01],
+           [-1.06499771e-02,  1.57358163e-02, -4.50017699e-03,
+             1.01780749e-01,  7.29758492e-01],
+           [-5.23269190e-03, -4.47638148e-05,  5.16853032e-03,
+             1.29943696e-01, -5.22642323e-02],
+           [ 1.01804730e-02, -1.76122815e-02,  1.34034261e-02,
+             7.23793192e-03,  2.76879647e-01],
+           [ 6.46327993e-03, -5.42082737e-03,  7.50801933e-03,
+            -9.01906029e-03,  7.04744464e-03],
+           [-8.98470779e-04,  1.00686043e-03, -1.04502867e-03,
+             1.38522804e-03, -1.58786857e-03],
+           [ 1.02355699e-02, -8.72966063e-03,  1.18878841e-02,
+            -1.44132548e-02,  1.12011886e-02],
+           [ 7.72929639e-03,  1.46077487e-01,  1.50876630e-03,
+             5.62787265e-03,  1.26978623e-02]])
     """
 
     # Array check parameters for :func:`predict` and :func:`fit` when only
@@ -1232,27 +1222,18 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
 
     def __init__(
         self,
-        preprocessors: list[KoopmanLiftingFn] = None,
         lifting_functions: list[KoopmanLiftingFn] = None,
         regressor: KoopmanRegressor = None,
     ) -> None:
         """Instantiate for :class:`KoopmanPipeline`.
 
-        While both ``preprocessors`` and ``lifting_functions`` contain
-        :class:`KoopmanLiftingFn` objects, their purposes differ. Lifting
-        functions are inverted in :func:`inverse_transform`, while
-        preprocessors are applied once and not inverted.
-
         Parameters
         ----------
-        preprocessors : list[KoopmanLiftingFn]
-            List of preprocessor objects.
         lifting_functions : list[KoopmanLiftingFn]
             List of lifting function objects.
         regressor : KoopmanRegressor
             Koopman regressor.
         """
-        self.preprocessors = preprocessors
         self.lifting_functions = lifting_functions
         self.regressor = regressor
 
@@ -1313,7 +1294,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
                          y: np.ndarray = None,
                          n_inputs: int = 0,
                          episode_feature: bool = False) -> 'KoopmanPipeline':
-        """Fit only the preprocessors and lifting functions in the pipeline.
+        """Fit only the lifting functions in the pipeline.
 
         Parameters
         ----------
@@ -1344,46 +1325,22 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
         self.n_states_in_ = (X.shape[1] - n_inputs -
                              (1 if episode_feature else 0))
         self.n_inputs_in_ = n_inputs
-        # Clone preprocessors and lifting functions
-        self.preprocessors_ = []
-        if self.preprocessors is not None:
-            for pp in self.preprocessors:
-                self.preprocessors_.append(sklearn.base.clone(pp))
         self.lifting_functions_ = []
         if self.lifting_functions is not None:
             for lf in self.lifting_functions:
                 self.lifting_functions_.append(sklearn.base.clone(lf))
-        # Fit and transform preprocessors
+        # Fit and transform lifting functions
         X_out = X
         n_inputs_out = n_inputs
-        for pp in self.preprocessors_:
-            X_out = pp.fit_transform(X_out,
-                                     n_inputs=n_inputs_out,
-                                     episode_feature=episode_feature)
-            n_inputs_out = pp.n_inputs_out_
-        # Save dimensions of preprocessed features
-        if len(self.preprocessors_) > 0:
-            # Find the last preprocessor and use it to get output dimensions
-            last_pp = self.preprocessors_[-1]
-            self.n_features_pp_ = last_pp.n_features_out_
-            self.n_states_pp_ = last_pp.n_states_out_
-            self.n_inputs_pp_ = last_pp.n_inputs_out_
-        else:
-            # Fall back on input dimensions
-            self.n_features_pp_ = self.n_features_in_
-            self.n_states_pp_ = self.n_states_in_
-            self.n_inputs_pp_ = self.n_inputs_in_
-        # Fit and transform lifting functions
         for lf in self.lifting_functions_:
             X_out = lf.fit_transform(X_out,
                                      n_inputs=n_inputs_out,
                                      episode_feature=episode_feature)
             n_inputs_out = lf.n_inputs_out_
         # Set output dimensions
-        tfs = (self.preprocessors_ + self.lifting_functions_)
-        if len(tfs) > 0:
+        if len(self.lifting_functions_) > 0:
             # Find the last transformer and use it to get output dimensions
-            last_pp = tfs[-1]
+            last_pp = self.lifting_functions_[-1]
             self.n_features_out_ = last_pp.n_features_out_
             self.n_states_out_ = last_pp.n_states_out_
             self.n_inputs_out_ = last_pp.n_inputs_out_
@@ -1393,7 +1350,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
             # sample at the output, we work backwards to figure out how many
             # samples we need at the beginning of the pipeline.
             n_samples_out = 1
-            for tf in tfs[::-1]:
+            for tf in self.lifting_functions_[::-1]:
                 n_samples_out = tf.n_samples_in(n_samples_out)
             self.min_samples_ = n_samples_out
         else:
@@ -1426,10 +1383,8 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
                              f'with {self.n_features_in_} features, but '
                              f'`transform()` called with {X.shape[1]} '
                              'features.')
-        # Apply preprocessing transforms, then lifting functions
+        # Apply lifting functions
         X_out = X
-        for pp in self.preprocessors_:
-            X_out = pp.transform(X_out)
         for lf in self.lifting_functions_:
             X_out = lf.transform(X_out)
         return X_out
@@ -1459,7 +1414,6 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
         X_out = X
         for lf in self.lifting_functions_[::-1]:
             X_out = lf.inverse_transform(X_out)
-        # Don't invert preprocessors
         return X_out
 
     def predict(self, X: np.ndarray) -> np.ndarray:
@@ -1495,9 +1449,9 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
         # Invert lifting functions
         X_pred_pad_inv = self.inverse_transform(X_pred_pad)
         # Strip zero inputs
-        if self.n_inputs_pp_ != 0:
-            X_pred_inv = X_pred_pad_inv[:, :(self.n_features_pp_
-                                             - self.n_inputs_pp_)]
+        if self.n_inputs_in_ != 0:
+            X_pred_inv = X_pred_pad_inv[:, :(self.n_features_in_
+                                             - self.n_inputs_in_)]
         else:
             X_pred_inv = X_pred_pad_inv
         return X_pred_inv
@@ -1565,7 +1519,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
             x0 = X_i[:self.min_samples_, :self.n_states_in_]
             u = X_i[:, self.n_states_in_:]
             # Create array to hold predicted states
-            X_pred_i = np.zeros((X_i.shape[0], self.n_states_pp_))
+            X_pred_i = np.zeros((X_i.shape[0], self.n_states_in_))
             # Set the initial condition
             X_pred_i[:self.min_samples_, :] = x0
             # Predict all time steps

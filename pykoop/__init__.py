@@ -4,8 +4,7 @@ from .koopman_pipeline import (EpisodeDependentLiftingFn,
                                EpisodeIndependentLiftingFn, KoopmanLiftingFn,
                                KoopmanPipeline, KoopmanRegressor,
                                SplitPipeline)
-from .lifting_functions import (AnglePreprocessor, BilinearInputLiftingFn,
-                                DelayLiftingFn, PolynomialLiftingFn,
-                                SkLearnLiftingFn)
-from .regressors import Edmd, Dmdc, Dmd
-from .util import random_input, random_state
+from .lifting_functions import (BilinearInputLiftingFn, DelayLiftingFn,
+                                PolynomialLiftingFn, SkLearnLiftingFn)
+from .regressors import Dmd, Dmdc, Edmd
+from .util import AnglePreprocessor, random_input, random_state

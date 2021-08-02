@@ -16,7 +16,6 @@ def test_kp_transform_no_lf():
     ]).T
     # Create basic pipeline
     kp = pykoop.KoopmanPipeline(
-        preprocessors=None,
         lifting_functions=None,
         regressor=None,
     )
@@ -37,43 +36,6 @@ def test_kp_transform_no_lf():
     np.testing.assert_allclose(Xi, X)
 
 
-def test_kp_transform_angle_pp():
-    """Test Koopman pipeline transformer angle preprocessor."""
-    # Create test matrix
-    X = np.array([
-        [1, 2, 3, 4, 5, 6],
-        [0, (np.pi / 2), (np.pi / 3), (np.pi / 2), 0, (-np.pi / 2)],
-        [2, 4, 6, 8, 10, 12],
-    ]).T
-    Xt_exp = np.array([
-        [1, 2, 3, 4, 5, 6],
-        [1, 0, 0.5, 0, 1, 0],
-        [0, 1, (np.sqrt(3) / 2), 1, 0, -1],
-        [2, 4, 6, 8, 10, 12],
-    ]).T
-    # Create basic pipeline
-    kp = pykoop.KoopmanPipeline(
-        preprocessors=[pykoop.AnglePreprocessor(angle_features=np.array([1]))],
-        lifting_functions=None,
-        regressor=None,
-    )
-    # Fit pipeline
-    kp.fit_transformers(X, n_inputs=1)
-    # Check dimensions
-    assert kp.n_features_in_ == 3
-    assert kp.n_states_in_ == 2
-    assert kp.n_inputs_in_ == 1
-    assert kp.n_features_out_ == 4
-    assert kp.n_states_out_ == 3
-    assert kp.n_inputs_out_ == 1
-    # Transform
-    Xt = kp.transform(X)
-    np.testing.assert_allclose(Xt, Xt_exp, atol=1e-16)
-    # Inverse (preprocessor is not inverted)
-    Xi = kp.inverse_transform(Xt)
-    np.testing.assert_allclose(Xi, Xt_exp, atol=1e-16)
-
-
 def test_kp_transform_delay_lf():
     """Test Koopman pipeline transformer with delay lifting function."""
     # Create test matrix
@@ -92,39 +54,30 @@ def test_kp_transform_delay_lf():
         [4, 6, 8, 10, 12],
         [2, 4, 6, 8, 10],
     ]).T
-    # Create basic pipeline. Loop to test cases where preprocessor is ``None``,
-    # and where preprocessor is a passthrough (``AnglePreprocessor`` with no
-    # angles).
-    preprocessors = [
-        None,
-        [pykoop.AnglePreprocessor(angle_features=None)],
-    ]
-    for pp in preprocessors:
-        kp = pykoop.KoopmanPipeline(
-            preprocessors=pp,
-            lifting_functions=[
-                pykoop.DelayLiftingFn(
-                    n_delays_state=1,
-                    n_delays_input=1,
-                )
-            ],
-            regressor=None,
-        )
-        # Fit pipeline
-        kp.fit_transformers(X, n_inputs=1)
-        # Check dimensions
-        assert kp.n_features_in_ == 3
-        assert kp.n_states_in_ == 2
-        assert kp.n_inputs_in_ == 1
-        assert kp.n_features_out_ == 6
-        assert kp.n_states_out_ == 4
-        assert kp.n_inputs_out_ == 2
-        # Transform
-        Xt = kp.transform(X)
-        np.testing.assert_allclose(Xt, Xt_exp)
-        # Inverse
-        Xi = kp.inverse_transform(Xt)
-        np.testing.assert_allclose(Xi, X)
+    kp = pykoop.KoopmanPipeline(
+        lifting_functions=[
+            pykoop.DelayLiftingFn(
+                n_delays_state=1,
+                n_delays_input=1,
+            )
+        ],
+        regressor=None,
+    )
+    # Fit pipeline
+    kp.fit_transformers(X, n_inputs=1)
+    # Check dimensions
+    assert kp.n_features_in_ == 3
+    assert kp.n_states_in_ == 2
+    assert kp.n_inputs_in_ == 1
+    assert kp.n_features_out_ == 6
+    assert kp.n_states_out_ == 4
+    assert kp.n_inputs_out_ == 2
+    # Transform
+    Xt = kp.transform(X)
+    np.testing.assert_allclose(Xt, Xt_exp)
+    # Inverse
+    Xi = kp.inverse_transform(Xt)
+    np.testing.assert_allclose(Xi, X)
 
 
 def test_kp_fit():
@@ -146,7 +99,6 @@ def test_kp_fit():
         np.reshape(u(t), (-1, 1)),
     ))
     kp = pykoop.KoopmanPipeline(
-        preprocessors=[pykoop.AnglePreprocessor(angle_features=None)],
         lifting_functions=[
             pykoop.DelayLiftingFn(
                 n_delays_state=0,
@@ -372,14 +324,12 @@ def test_combine_episodes(X, episodes, episode_feature):
 
 @pytest.mark.parametrize('kp', [
     pykoop.KoopmanPipeline(
-        preprocessors=None,
         lifting_functions=[
             pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1)
         ],
         regressor=pykoop.Edmd(),
     ),
     pykoop.KoopmanPipeline(
-        preprocessors=None,
         lifting_functions=[
             pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2),
             pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2),
@@ -387,7 +337,6 @@ def test_combine_episodes(X, episodes, episode_feature):
         regressor=pykoop.Edmd(),
     ),
     pykoop.KoopmanPipeline(
-        preprocessors=None,
         lifting_functions=[
             pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=1),
             pykoop.PolynomialLiftingFn(order=2),
@@ -396,7 +345,6 @@ def test_combine_episodes(X, episodes, episode_feature):
         regressor=pykoop.Edmd(),
     ),
     pykoop.KoopmanPipeline(
-        preprocessors=None,
         lifting_functions=[
             pykoop.SplitPipeline(
                 lifting_functions_state=[
@@ -409,7 +357,6 @@ def test_combine_episodes(X, episodes, episode_feature):
         regressor=pykoop.Edmd(),
     ),
     pykoop.KoopmanPipeline(
-        preprocessors=None,
         lifting_functions=[
             pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1),
             pykoop.SplitPipeline(
