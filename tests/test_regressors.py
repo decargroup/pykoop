@@ -1,11 +1,10 @@
-import mass_spring_damper
 import numpy as np
+import pykoop
+import pykoop.dynamic_models
+import pykoop.lmi_regressors
 import pytest
 from scipy import integrate, linalg
 from sklearn import linear_model
-
-import pykoop
-import pykoop.lmi_regressors
 
 # TODO This file is a nightmare
 
@@ -143,18 +142,20 @@ def scenario(request):
         # Set up problem
         t_range = (0, 10)
         t_step = 0.1
-        msd = mass_spring_damper.MassSpringDamper(0.5, 0.7, 0.6)
+        msd = pykoop.dynamic_models.MassSpringDamper(0.5, 0.7, 0.6)
         # Solve ODE for training data
         x0 = np.array([1, 0])
-        sol = integrate.solve_ivp(lambda t, x: msd.f(t, x, 0),
-                                  t_range,
-                                  x0,
-                                  t_eval=np.arange(*t_range, t_step),
-                                  rtol=1e-8,
-                                  atol=1e-8)
-        A = msd._A
+        t, x = msd.simulate(
+            t_range,
+            t_step,
+            x0,
+            lambda t, x: 0,
+            rtol=1e-8,
+            atol=1e-8,
+        )
+        A = msd.A
         # Split the data
-        y_train, y_valid = np.split(sol.y, 2, axis=1)
+        y_train, y_valid = np.split(x.T, 2, axis=1)
         X_train = y_train[:, :-1]
         Xp_train = y_train[:, 1:]
         X_valid = y_valid[:, :-1]
@@ -163,26 +164,25 @@ def scenario(request):
         # Set up problem
         t_range = (0, 10)
         t_step = 0.1
-        msd = mass_spring_damper.MassSpringDamper(0.5, 0.7, 0.6)
+        msd = pykoop.dynamic_models.MassSpringDamper(0.5, 0.7, 0.6)
 
-        def u(t):
+        def u(t, x=None):
             return 0.1 * np.sin(t)
-
-        def ivp(t, x):
-            return msd.f(t, x, u(t))
 
         # Solve ODE for training data
         x0 = np.array([0, 0])
-        sol = integrate.solve_ivp(ivp,
-                                  t_range,
-                                  x0,
-                                  t_eval=np.arange(*t_range, t_step),
-                                  rtol=1e-8,
-                                  atol=1e-8)
-        A = msd._A
+        t, x = msd.simulate(
+            t_range,
+            t_step,
+            x0,
+            u,
+            rtol=1e-8,
+            atol=1e-8,
+        )
+        A = msd.A
         # Split the data
-        y_train, y_valid = np.split(sol.y, 2, axis=1)
-        u_train, u_valid = np.split(np.reshape(u(sol.t), (1, -1)), 2, axis=1)
+        y_train, y_valid = np.split(x.T, 2, axis=1)
+        u_train, u_valid = np.split(np.reshape(u(t), (1, -1)), 2, axis=1)
         X_train = np.vstack((y_train[:, :-1], u_train[:, :-1]))
         Xp_train = y_train[:, 1:]
         X_valid = np.vstack((y_valid[:, :-1], u_valid[:, :-1]))

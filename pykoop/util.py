@@ -1,3 +1,5 @@
+"""Utilities for data generation."""
+
 import numpy as np
 from scipy import signal, interpolate
 

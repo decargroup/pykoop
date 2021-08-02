@@ -1,9 +1,9 @@
-import mass_spring_damper
 import numpy as np
 import pytest
 from scipy import integrate, linalg
 
 import pykoop
+import pykoop.dynamic_models
 
 
 def test_kp_transform_no_lf():
@@ -131,28 +131,20 @@ def test_kp_fit():
     """Test Koopman pipeline fit on a mass-spring-damper."""
     t_range = (0, 10)
     t_step = 0.1
-    msd = mass_spring_damper.MassSpringDamper(0.5, 0.7, 0.6)
+    msd = pykoop.dynamic_models.MassSpringDamper(0.5, 0.7, 0.6)
 
-    def u(t):
+    def u(t, x=None):
         return 0.1 * np.sin(t)
 
-    def ivp(t, x):
-        return msd.f(t, x, u(t))
-
     # Solve ODE for training data
-    x0 = np.array([0, 0])
-    sol = integrate.solve_ivp(ivp,
-                              t_range,
-                              x0,
-                              t_eval=np.arange(*t_range, t_step),
-                              rtol=1e-8,
-                              atol=1e-8)
+    x0 = msd.x0(np.array([0, 0]))
+    t, x = msd.simulate(t_range, t_step, x0, u, rtol=1e-8, atol=1e-8)
     # Split the data
-    X = np.vstack((
-        np.zeros_like(sol.t),
-        sol.y,
-        u(sol.t),
-    )).T
+    X = np.hstack((
+        np.zeros((t.shape[0], 1)),
+        x,
+        np.reshape(u(t), (-1, 1)),
+    ))
     kp = pykoop.KoopmanPipeline(
         preprocessors=[pykoop.AnglePreprocessor(angle_features=None)],
         lifting_functions=[
@@ -165,12 +157,12 @@ def test_kp_fit():
     )
     kp.fit(X, n_inputs=1, episode_feature=True)
     # Compute discrete-time A and B matrices
-    Ad = linalg.expm(msd._A * t_step)
+    Ad = linalg.expm(msd.A * t_step)
 
     def integrand(s):
-        return linalg.expm(msd._A * (t_step - s)).ravel()
+        return linalg.expm(msd.A * (t_step - s)).ravel()
 
-    Bd = integrate.quad_vec(integrand, 0, t_step)[0].reshape((2, 2)) @ msd._B
+    Bd = integrate.quad_vec(integrand, 0, t_step)[0].reshape((2, 2)) @ msd.B
     U_exp = np.hstack((Ad, Bd)).T
     np.testing.assert_allclose(kp.regressor_.coef_, U_exp, atol=0.1)
 
@@ -438,58 +430,48 @@ def test_multistep_prediction(kp):
     # Set up problem
     t_range = (0, 5)
     t_step = 0.1
-    msd = mass_spring_damper.MassSpringDamper(mass=0.5,
-                                              stiffness=0.7,
-                                              damping=0.6)
+    msd = pykoop.dynamic_models.MassSpringDamper(0.5, 0.7, 0.6)
 
-    def u(t):
+    def u(t, x=None):
         return 0.1 * np.sin(t)
-
-    def ivp(t, x):
-        return msd.f(t, x, u(t))
 
     # Solve ODE for training data
     x0 = np.array([0, 0])
-    sol = integrate.solve_ivp(ivp,
-                              t_range,
-                              x0,
-                              t_eval=np.arange(*t_range, t_step),
-                              rtol=1e-8,
-                              atol=1e-8)
+    t, x = msd.simulate(t_range, t_step, x0, u, rtol=1e-8, atol=1e-8)
 
     # Compute input at every training point
-    u_sim = np.reshape(u(sol.t), (1, -1))
+    u_sim = np.reshape(u(t), (-1, 1))
     # Format data
-    X = np.vstack((
-        np.zeros((1, sol.t.shape[0] - 1)),
-        sol.y[:, :-1],
-        u_sim[:, :-1],
+    X = np.hstack((
+        np.zeros((t.shape[0] - 1, 1)),
+        x[:-1, :],
+        u_sim[:-1, :],
     ))
     # Fit estimator
-    kp.fit(X.T, n_inputs=1, episode_feature=True)
+    kp.fit(X, n_inputs=1, episode_feature=True)
     n_samp = kp.min_samples_
 
     # Predict using ``predict_multistep``
-    X_sim = np.empty(sol.y.shape)
-    X_sim[:, :n_samp] = sol.y[:, :n_samp]
-    X_sim = np.vstack((
+    X_sim = np.empty(x.shape)
+    X_sim[:n_samp, :] = x[:n_samp, :]
+    X_sim = np.hstack((
         np.zeros_like(u_sim),
         X_sim,
         u_sim,
     ))
-    X_sim = kp.predict_multistep(X_sim.T).T[1:, :]
+    X_sim = kp.predict_multistep(X_sim)[:, 1:]
 
     # Predict manually
-    X_sim_exp = np.empty(sol.y.shape)
-    X_sim_exp[:, :n_samp] = sol.y[:, :n_samp]
-    for k in range(n_samp, sol.t.shape[0]):
-        X = np.vstack((
-            np.zeros((1, n_samp)),
-            X_sim_exp[:, (k - n_samp):k],
-            u_sim[:, (k - n_samp):k],
+    X_sim_exp = np.empty(x.shape)
+    X_sim_exp[:, :n_samp] = x[:, :n_samp]
+    for k in range(n_samp, t.shape[0]):
+        X = np.hstack((
+            np.zeros((n_samp, 1)),
+            X_sim_exp[(k - n_samp):k, :],
+            u_sim[(k - n_samp):k, :],
         ))
-        Xp = kp.predict(X.T).T
-        X_sim_exp[:, [k]] = Xp[1:, [-1]]
+        Xp = kp.predict(X)
+        X_sim_exp[[k], :] = Xp[[-1], 1:]
 
     np.testing.assert_allclose(X_sim, X_sim_exp)
 
