@@ -1140,9 +1140,8 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(lifting_functions=[SkLearnLiftingFn(transformer=MaxAbsScaler()),
-                                       PolynomialLiftingFn(order=2),
-                                       SkLearnLiftingFn(transformer=StandardScaler())],
-                    regressor=Edmd())
+        PolynomialLiftingFn(order=2),
+        SkLearnLiftingFn(transformer=StandardScaler())], regressor=Edmd())
     >>> kp.transform(X_msd[:2, :])
     array([[ 0.        , -0.26543525, -0.1148414 , -1.24765371, -0.07544031,
             -1.08687174, -0.28080114, -0.56596632, -1.15997052, -1.33111411],
@@ -1185,10 +1184,9 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(lifting_functions=[SkLearnLiftingFn(transformer=MaxAbsScaler()),
-                                       SplitPipeline(lifting_functions_state=[PolynomialLiftingFn(order=2)]),
-                                       BilinearInputLiftingFn(),
-                                       SkLearnLiftingFn(transformer=StandardScaler())],
-                    regressor=Edmd())
+        SplitPipeline(lifting_functions_state=[PolynomialLiftingFn(order=2)]),
+        BilinearInputLiftingFn(),
+        SkLearnLiftingFn(transformer=StandardScaler())], regressor=Edmd())
     >>> kp.regressor_.coef_
     array([[ 9.88147137e-01, -1.48305891e-01, -5.74172953e-03,
              4.41837885e-03, -8.41669438e-03],

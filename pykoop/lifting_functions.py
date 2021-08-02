@@ -2,6 +2,13 @@
 
 All of the lifting functions included in this module adhere to the interface
 defined in :class:`KoopmanLiftingFn`.
+
+References
+----------
+.. [bilinear] Daniel Bruder, Xun Fu, and Ram Vasudevan. "Advantages of bilinear
+   Koopman realizations for the modeling and control of systems with unknown
+   dynamics." arXiv:2010.09961v3 [cs.RO] (2020).
+   https://arxiv.org/abs/2010.09961v3
 """
 
 import numpy as np
@@ -226,7 +233,7 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
 class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     """Lifting function to generate bilinear products of the state and input.
 
-    Given a state ``x`` and input::
+    As proposed in [bilinear]_. Given a state ``x`` and input::
 
         u = np.array([
             [u1],
@@ -234,7 +241,7 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
             [u3],
         ])
 
-    the biliner lifted state has the form::
+    the bilinear lifted state has the form::
 
         psi = np.array([
             [x],

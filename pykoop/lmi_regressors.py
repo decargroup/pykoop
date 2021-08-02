@@ -15,6 +15,9 @@ References
 .. [dissip] Keita Hara, Masaki Inoue, and Noboru Sebe. "Learning Koopman
    operator under dissipativity constraints." arXiv:1911.03884v1 [eess.SY]
    (2019). https://arxiv.org/abs/1911.03884v1
+.. [lmikoop] Steven Dahdah and James Richard Forbes. "Linear matrix inequality
+   approaches to Koopman operator approximation." arXiv:2102.03613 [eess.SY]
+   (2021). https://arxiv.org/abs/2102.03613
 """
 
 import logging
@@ -54,7 +57,9 @@ signal.signal(signal.SIGINT, _sigint_handler)
 class LmiRegressor(koopman_pipeline.KoopmanRegressor):
     """Base class for LMI regressors.
 
-    Mostly used to share common ``scikit-learn`` parameters.
+    For derivations of LMIs, see [lmikoop]_.
+
+    This base class is mostly used to share common ``scikit-learn`` parameters.
 
     Attributes
     ----------
@@ -130,6 +135,46 @@ class LmiEdmd(LmiRegressor):
         Indicates if episode feature was present during :func:`fit`.
     coef_ : np.ndarray
         Fit coefficient matrix.
+
+    Examples
+    --------
+    LMI EDMD without regularization
+    >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.lmi_regressors.LmiEdmd())
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiEdmd())
+
+    LMI EDMD with Tikhonov regularization
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiEdmd(
+    ...         alpha=1,
+    ...         reg_method='tikhonov',
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiEdmd(alpha=1))
+
+    LMI EDMD with matrix two-norm regularization
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiEdmd(
+    ...         alpha=1,
+    ...         reg_method='twonorm',
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiEdmd(alpha=1, reg_method='twonorm'))
+
+    LMI EDMD with mixed Tikhonov and squared-nuclear-norm regularization
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiEdmd(
+    ...         alpha=1,
+    ...         ratio=0.5,
+    ...         reg_method='nuclear',
+    ...         square_norm=True,
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiEdmd(alpha=1, ratio=0.5, reg_method='nuclear',
+                                      square_norm=True))
     """
 
     def __init__(self,
@@ -384,6 +429,45 @@ class LmiDmdc(LmiRegressor):
         Indicates if episode feature was present during :func:`fit`.
     coef_ : np.ndarray
         Fit coefficient matrix.
+
+    Examples
+    --------
+    LMI DMDc without regularization
+    >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.lmi_regressors.LmiDmdc())
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiDmdc())
+
+    LMI DMDc with Tikhonov regularization
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiDmdc(
+    ...         alpha=1,
+    ...         reg_method='tikhonov',
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiDmdc(alpha=1))
+
+    LMI DMDc with matrix two-norm regularization
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiDmdc(
+    ...         alpha=1,
+    ...         reg_method='twonorm',
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiDmdc(alpha=1, reg_method='twonorm'))
+
+    LMI DMDc with nuclear norm regularization and SVD truncation
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiDmdc(
+    ...         alpha=1,
+    ...         reg_method='nuclear',
+    ...         tsvd_method=('known_noise', 0.1, 0.1),
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiDmdc(alpha=1, reg_method='nuclear',
+                                      tsvd_method=('known_noise', 0.1, 0.1)))
     """
 
     def __init__(self,
@@ -599,6 +683,17 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
         Indicates if episode feature was present during :func:`fit`.
     coef_ : np.ndarray
         Fit coefficient matrix.
+
+    Examples
+    --------
+    Apply EDMD spectral radius constraint to mass-spring-damper data
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr(
+    ...         spectral_radius=0.9,
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiEdmdSpectralRadiusConstr(spectral_radius=0.9))
     """
 
     def __init__(self,
@@ -829,6 +924,19 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
         Indicates if episode feature was present during :func:`fit`.
     coef_ : np.ndarray
         Fit coefficient matrix.
+
+    Examples
+    --------
+    Apply DMDc spectral radius constraint to mass-spring-damper data
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiDmdcSpectralRadiusConstr(
+    ...         spectral_radius=0.9,
+    ...         tsvd_method=('cutoff', 1e-6, 1e-6),
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiDmdcSpectralRadiusConstr(spectral_radius=0.9,
+        tsvd_method=('cutoff', 1e-06, 1e-06)))
     """
 
     def __init__(self,
@@ -1055,6 +1163,33 @@ class LmiEdmdHinfReg(LmiRegressor):
         Indicates if episode feature was present during :func:`fit`.
     coef_ : np.ndarray
         Fit coefficient matrix.
+
+    Examples
+    --------
+    Apply EDMD with H-infinity regularization to mass-spring-damper data
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiEdmdHinfReg(
+    ...         alpha=1e-3,
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiEdmdHinfReg(alpha=0.001))
+
+    Apply EDMD with weighted H-infinity regularization to mass-spring-damper
+    data
+    >>> from scipy import signal
+    >>> ss_ct = signal.ZerosPolesGain([0], [-4], [1]).to_ss()
+    >>> ss_dt = ss_ct.to_discrete(dt=0.1, method='bilinear')
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiEdmdHinfReg(
+    ...         alpha=1e-3,
+    ...         weight=('pre', ss_dt.A, ss_dt.B, ss_dt.C, ss_dt.D),
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiEdmdHinfReg(alpha=0.001,
+        weight=('pre', array([[0.66666667]]), array([[0.08333333]]),
+                array([[-3.33333333]]), array([[0.83333333]]))))
     """
 
     def __init__(
@@ -1344,7 +1479,36 @@ class LmiDmdcHinfReg(LmiRegressor):
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
     coef_ : np.ndarray
-        Fit coefficient matrix.
+        Fit coefficient matrix
+
+    Examples
+    --------
+    Apply DMDc with H-infinity regularization to mass-spring-damper data
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiDmdcHinfReg(
+    ...         alpha=1e-3,
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiDmdcHinfReg(alpha=0.001))
+
+    Apply reduced-order DMDc with weighted H-infinity regularization to
+    mass-spring-damper data
+    >>> from scipy import signal
+    >>> ss_ct = signal.ZerosPolesGain([0], [-4], [1]).to_ss()
+    >>> ss_dt = ss_ct.to_discrete(dt=0.1, method='bilinear')
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiDmdcHinfReg(
+    ...         alpha=1e-3,
+    ...         weight=('pre', ss_dt.A, ss_dt.B, ss_dt.C, ss_dt.D),
+    ...         tsvd_method=('cutoff', 1e-3, 1e-3),
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiDmdcHinfReg(alpha=0.001,
+        tsvd_method=('cutoff', 1e-03, 1e-03),
+        weight=('pre', array([[0.66666667]]), array([[0.08333333]]),
+                array([[-3.33333333]]), array([[0.83333333]]))))
     """
 
     def __init__(
@@ -1639,6 +1803,15 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         Indicates if episode feature was present during :func:`fit`.
     coef_ : np.ndarray
         Fit coefficient matrix.
+
+    Examples
+    --------
+    Apply dissipativity-constrainted EDMD to mass-spring-damper data
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiEdmdDissipativityConstr()
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiEdmdDissipativityConstr())
     """
 
     def __init__(
