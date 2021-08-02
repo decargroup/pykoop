@@ -4,7 +4,7 @@ import abc
 from typing import Callable
 
 import numpy as np
-from scipy import integrate
+from scipy import integrate, constants
 
 
 class ContinuousDynamicModel(metaclass=abc.ABCMeta):
@@ -175,7 +175,10 @@ class DiscreteDynamicModel(metaclass=abc.ABCMeta):
 
 
 class MassSpringDamper(ContinuousDynamicModel):
-    """Mass-spring-damper model."""
+    """Mass-spring-damper model.
+
+    State is ``[position, velocity]``.
+    """
 
     def __init__(self, mass: float, stiffness: float, damping: float) -> None:
         """Instantiate :class:`MassSpringDamper`.
@@ -216,3 +219,39 @@ class MassSpringDamper(ContinuousDynamicModel):
         x_dot = (self.A @ np.reshape(x, (-1, 1))
                  + self.B @ np.reshape(u, (-1, 1)))
         return np.ravel(x_dot)
+
+
+class Pendulum(ContinuousDynamicModel):
+    """Point-mass pendulum with optional damping.
+
+    State is ``[angle, angular_velocity]``.
+    """
+
+    def __init__(self, mass, length, damping=0):
+        """Instantiate :class:`Pendulum`.
+
+        Parameters
+        ----------
+        mass : float
+            Mass (kg).
+        length : float
+            Length (m).
+        damping : float
+            Viscous damping (N.m.s/rad).
+        """
+        self.mass = mass
+        self.length = length
+        self.damping = damping
+
+    def f(self, t, x, u):
+        # noqa: D102
+        theta, theta_dot = x
+        x_dot = np.array([
+            theta_dot,
+            (-self.damping / self.mass / self.length**2 * theta_dot
+             - constants.g / self.length * np.sin(theta)),
+        ]) + np.array([
+            0,
+            1 / (self.mass * self.length**2),
+        ]) * u
+        return x_dot
