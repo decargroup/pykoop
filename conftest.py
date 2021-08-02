@@ -18,7 +18,7 @@ def add_pykoop(doctest_namespace):
 
 
 @pytest.fixture(autouse=True)
-def add_X_no_input(doctest_namespace):
+def add_X_msd_no_input(doctest_namespace):
     """Add inputless data to namespace.
 
     Has an episode feature and no input.
@@ -48,11 +48,11 @@ def add_X_no_input(doctest_namespace):
         np.zeros((t.shape[0], 1)),  # episode feature
         x,
     ))
-    doctest_namespace['X_no_input'] = X
+    doctest_namespace['X_msd_no_input'] = X
 
 
 @pytest.fixture(autouse=True)
-def add_X(doctest_namespace):
+def add_X_msd(doctest_namespace):
     """Add X to namespace.
 
     Has an episode feature and one input.
@@ -82,11 +82,11 @@ def add_X(doctest_namespace):
         x,
         np.reshape(u(t), (-1, 1)),
     ))
-    doctest_namespace['X'] = X
+    doctest_namespace['X_msd'] = X
 
 
 @pytest.fixture(autouse=True)
-def add_mass_spring_damper(doctest_namespace):
+def add_msd(doctest_namespace):
     """Add mass-spring-damper object to namespace."""
     # Create object
     msd = pykoop.dynamic_models.MassSpringDamper(
@@ -94,4 +94,4 @@ def add_mass_spring_damper(doctest_namespace):
         stiffness=0.7,
         damping=0.6,
     )
-    doctest_namespace['mass_spring_damper'] = msd
+    doctest_namespace['msd'] = msd
