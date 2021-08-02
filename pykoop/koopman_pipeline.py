@@ -868,11 +868,7 @@ class SplitPipeline(KoopmanLiftingFn):
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     SplitPipeline(lifting_functions_state=[PolynomialLiftingFn(order=2)])
-    >>> kp.transform(X_msd[:2, :])
-    array([[0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00,
-            0.00000000e+00, 0.00000000e+00, 0.00000000e+00],
-           [0.00000000e+00, 3.23182431e-05, 9.59246780e-04, 1.04446884e-09,
-            3.10011706e-08, 9.20154384e-07, 9.98334166e-03]])
+    >>> Xt_msd = kp.transform(X_msd[:2, :])
     """
 
     # Array check parameters for :func:`predict` and :func:`fit` when only
@@ -1124,10 +1120,6 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=Edmd())
-    >>> kp.regressor_.coef_
-    array([[ 0.99297803, -0.14056894],
-           [ 0.09380725,  0.87434794],
-           [ 0.01002705,  0.20060231]])
 
     Apply more sophisticated Koopman pipeline to mass-spring-damper data
     >>> kp = KoopmanPipeline(
@@ -1140,32 +1132,9 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(lifting_functions=[SkLearnLiftingFn(transformer=MaxAbsScaler()),
-        PolynomialLiftingFn(order=2),
-        SkLearnLiftingFn(transformer=StandardScaler())], regressor=Edmd())
-    >>> kp.transform(X_msd[:2, :])
-    array([[ 0.        , -0.26543525, -0.1148414 , -1.24765371, -0.07544031,
-            -1.08687174, -0.28080114, -0.56596632, -1.15997052, -1.33111411],
-           [ 0.        , -0.26510708, -0.10428971, -1.24765358, -0.07543601,
-            -1.0867523 , -0.13046736, -0.56590086, -1.15803989, -1.30322931]])
-    >>> kp.regressor_.coef_
-    array([[ 9.94351561e-01, -1.58307496e-01,  1.49529499e-03,
-            -6.72649188e-03,  4.78991705e-03],
-           [ 9.13299971e-02,  8.56503417e-01,  5.25339393e-03,
-            -1.96051794e-02,  1.46149795e-02],
-           [ 1.25300489e-04,  8.38632298e-04,  9.86490391e-01,
-            -1.54662187e-01,  2.37317019e-02],
-           [ 5.62442798e-04,  8.33364641e-04,  1.62646512e-01,
-             8.62633306e-01, -2.13897175e-01],
-           [-5.95037826e-03, -1.66663840e-02,  1.12955114e-03,
-             8.04185771e-02,  7.76251207e-01],
-           [ 1.74784249e-03,  1.67396630e-01, -5.54135026e-03,
-             2.24009378e-02, -1.63291886e-02],
-           [-1.92232335e-03,  1.70157567e-04,  8.99662095e-03,
-             1.26899225e-01, -5.23525199e-02],
-           [ 5.75465405e-03,  3.68970321e-02,  7.95485191e-03,
-             3.97950081e-02,  1.98963046e-01],
-           [-4.83016720e-04, -2.35659680e-02, -4.14525944e-04,
-            -1.17553076e-02,  3.35385463e-02]])
+    PolynomialLiftingFn(order=2),
+    SkLearnLiftingFn(transformer=StandardScaler())], regressor=Edmd())
+    >>> Xt_msd = kp.transform(X_msd[:2, :])
 
     Apply bilinear Koopman pipeline to mass-spring-damper data
     >>> kp = KoopmanPipeline(
@@ -1184,32 +1153,9 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(lifting_functions=[SkLearnLiftingFn(transformer=MaxAbsScaler()),
-        SplitPipeline(lifting_functions_state=[PolynomialLiftingFn(order=2)]),
-        BilinearInputLiftingFn(),
-        SkLearnLiftingFn(transformer=StandardScaler())], regressor=Edmd())
-    >>> kp.regressor_.coef_
-    array([[ 9.88147137e-01, -1.48305891e-01, -5.74172953e-03,
-             4.41837885e-03, -8.41669438e-03],
-           [ 7.32374325e-02,  8.85387135e-01, -1.58466120e-02,
-             1.27780976e-02, -2.37537818e-02],
-           [ 1.52111475e-03, -2.07940938e-03,  9.88123014e-01,
-            -1.57505174e-01,  2.78863290e-02],
-           [ 2.14710690e-03,  5.00385138e-03,  1.64455340e-01,
-             8.63305628e-01, -2.19719838e-01],
-           [-1.06499771e-02,  1.57358163e-02, -4.50017699e-03,
-             1.01780749e-01,  7.29758492e-01],
-           [-5.23269190e-03, -4.47638148e-05,  5.16853032e-03,
-             1.29943696e-01, -5.22642323e-02],
-           [ 1.01804730e-02, -1.76122815e-02,  1.34034261e-02,
-             7.23793192e-03,  2.76879647e-01],
-           [ 6.46327993e-03, -5.42082737e-03,  7.50801933e-03,
-            -9.01906029e-03,  7.04744464e-03],
-           [-8.98470779e-04,  1.00686043e-03, -1.04502867e-03,
-             1.38522804e-03, -1.58786857e-03],
-           [ 1.02355699e-02, -8.72966063e-03,  1.18878841e-02,
-            -1.44132548e-02,  1.12011886e-02],
-           [ 7.72929639e-03,  1.46077487e-01,  1.50876630e-03,
-             5.62787265e-03,  1.26978623e-02]])
+    SplitPipeline(lifting_functions_state=[PolynomialLiftingFn(order=2)]),
+    BilinearInputLiftingFn(), SkLearnLiftingFn(transformer=StandardScaler())],
+    regressor=Edmd())
     """
 
     # Array check parameters for :func:`predict` and :func:`fit` when only

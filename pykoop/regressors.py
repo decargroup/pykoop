@@ -36,19 +36,11 @@ class Edmd(koopman_pipeline.KoopmanRegressor):
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.Edmd())
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=Edmd())
-    >>> kp.regressor_.coef_
-    array([[ 0.99297803, -0.14056894],
-           [ 0.09380725,  0.87434794],
-           [ 0.01002705,  0.20060231]])
 
     EDMD with Tikhonov regularization on mass-spring-damper data
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.Edmd(alpha=1))
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=Edmd(alpha=1))
-    >>> kp.regressor_.coef_
-    array([[ 0.48871764, -0.06044793],
-           [ 0.02421013,  0.37978785],
-           [ 0.12733831,  0.24040185]])
     """
 
     def __init__(self, alpha: float = 0) -> None:
@@ -106,28 +98,12 @@ class Dmdc(koopman_pipeline.KoopmanRegressor):
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.Dmdc())
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=Dmdc())
-    >>> kp.regressor_.coef_
-    array([[ 0.99297803, -0.14056894],
-           [ 0.09380725,  0.87434794],
-           [ 0.01002705,  0.20060231]])
-    >>> kp.regressor_.eigenvalues_
-    array([0.93366299+0.09832656j, 0.93366299-0.09832656j])
-    >>> kp.regressor_.modes_
-    array([[-0.4084    -0.48316837j, -0.4084    +0.48316837j],
-           [ 0.76468018-0.12256422j,  0.76468018+0.12256422j]])
-    >>> kp.regressor_.B_tilde_
-    array([[-0.05904335],
-           [ 0.19197841]])
 
     DMDc with singular value truncation on mass-spring-damper data
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.Dmdc(
     ...     tsvd_method=('rank', 1, 2)))
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=Dmdc(tsvd_method=('rank', 1, 2)))
-    >>> kp.regressor_.coef_
-    array([[0.33214705, 0.31786214],
-           [0.37941716, 0.36309927],
-           [0.33840953, 0.32385529]])
     """
 
     def __init__(self,
@@ -250,23 +226,12 @@ class Dmd(koopman_pipeline.KoopmanRegressor):
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.Dmd())
     >>> kp.fit(X_msd_no_input, n_inputs=0, episode_feature=True)
     KoopmanPipeline(regressor=Dmd())
-    >>> kp.regressor_.coef_
-    array([[ 0.99327958, -0.13161862],
-           [ 0.0940133 ,  0.88046362]])
-    >>> kp.regressor_.eigenvalues_
-    array([0.9368716+0.09587513j, 0.9368716-0.09587513j])
-    >>> kp.regressor_.modes_
-    array([[-0.49335923-0.41624912j, -0.49335923+0.41624912j],
-           [ 0.72050802-0.2533802j ,  0.72050802+0.2533802j ]])
 
     DMD with singular value truncation on inputless mass-spring-damper data
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.Dmd(
     ...     tsvd_method=('known_noise', 1)))
     >>> kp.fit(X_msd_no_input, n_inputs=0, episode_feature=True)
     KoopmanPipeline(regressor=Dmd(tsvd_method=('known_noise', 1)))
-    >>> kp.regressor_.coef_
-    array([[ 0.25080613, -0.41202048],
-           [-0.41202048,  0.67686096]])
     """
 
     # Override check parameters to skip ``check_fit2d_1sample`` sklearn test.

@@ -174,7 +174,7 @@ class LmiEdmd(LmiRegressor):
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=LmiEdmd(alpha=1, ratio=0.5, reg_method='nuclear',
-                                      square_norm=True))
+    square_norm=True))
     """
 
     def __init__(self,
@@ -467,7 +467,7 @@ class LmiDmdc(LmiRegressor):
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=LmiDmdc(alpha=1, reg_method='nuclear',
-                                      tsvd_method=('known_noise', 0.1, 0.1)))
+    tsvd_method=('known_noise', 0.1, 0.1)))
     """
 
     def __init__(self,
@@ -936,7 +936,7 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=LmiDmdcSpectralRadiusConstr(spectral_radius=0.9,
-        tsvd_method=('cutoff', 1e-06, 1e-06)))
+    tsvd_method=('cutoff', 1e-06, 1e-06)))
     """
 
     def __init__(self,
@@ -1188,8 +1188,8 @@ class LmiEdmdHinfReg(LmiRegressor):
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=LmiEdmdHinfReg(alpha=0.001,
-        weight=('pre', array([[0.66666667]]), array([[0.08333333]]),
-                array([[-3.33333333]]), array([[0.83333333]]))))
+    weight=('pre', array([[0.66666667]]), array([[0.08333333]]),
+    array([[-3.33333333]]), array([[0.83333333]]))))
     """
 
     def __init__(
@@ -1506,9 +1506,9 @@ class LmiDmdcHinfReg(LmiRegressor):
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=LmiDmdcHinfReg(alpha=0.001,
-        tsvd_method=('cutoff', 1e-03, 1e-03),
-        weight=('pre', array([[0.66666667]]), array([[0.08333333]]),
-                array([[-3.33333333]]), array([[0.83333333]]))))
+    tsvd_method=('cutoff', 1e-03, 1e-03), weight=('pre',
+    array([[0.66666667]]), array([[0.08333333]]), array([[-3.33333333]]),
+    array([[0.83333333]]))))
     """
 
     def __init__(

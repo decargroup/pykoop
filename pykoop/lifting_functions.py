@@ -136,13 +136,7 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     >>> poly = pykoop.PolynomialLiftingFn(order=2)
     >>> poly.fit(X_msd, n_inputs=1, episode_feature=True)
     PolynomialLiftingFn(order=2)
-    >>> poly.transform(X_msd[:2, :])
-    array([[0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00,
-            0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00,
-            0.00000000e+00, 0.00000000e+00],
-           [0.00000000e+00, 3.23182431e-05, 9.59246780e-04, 1.04446884e-09,
-            3.10011706e-08, 9.20154384e-07, 9.98334166e-03, 3.22644063e-07,
-            9.57648834e-06, 9.96671108e-05]])
+    >>> Xt_msd = poly.transform(X_msd[:2, :])
     """
 
     def __init__(self, order: int = 1, interaction_only: bool = False) -> None:
@@ -278,11 +272,7 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     >>> bilin = pykoop.BilinearInputLiftingFn()
     >>> bilin.fit(X_msd, n_inputs=1, episode_feature=True)
     BilinearInputLiftingFn()
-    >>> bilin.transform(X_msd[:2, :])
-    array([[0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00,
-            0.00000000e+00, 0.00000000e+00],
-           [0.00000000e+00, 3.23182431e-05, 9.59246780e-04, 3.22644063e-07,
-            9.57648834e-06, 9.98334166e-03]])
+    >>> Xt_msd = bilin.transform(X_msd[:2, :])
     """
 
     def __init__(self) -> None:
@@ -355,11 +345,7 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
     >>> delay = pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1)
     >>> delay.fit(X_msd, n_inputs=1, episode_feature=True)
     DelayLiftingFn(n_delays_input=1, n_delays_state=1)
-    >>> delay.transform(X_msd[:3, :])
-    array([[0.00000000e+00, 3.23182431e-05, 9.59246780e-04, 0.00000000e+00,
-            0.00000000e+00, 9.98334166e-03, 0.00000000e+00],
-           [0.00000000e+00, 2.50204900e-04, 3.66869059e-03, 3.23182431e-05,
-            9.59246780e-04, 1.98669331e-02, 9.98334166e-03]])
+    >>> Xt_msd = delay.transform(X_msd[:3, :])
     """
 
     def __init__(self,
