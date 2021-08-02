@@ -133,7 +133,7 @@ def test_kp_fit():
     t_step = 0.1
     msd = pykoop.dynamic_models.MassSpringDamper(0.5, 0.7, 0.6)
 
-    def u(t, x=None):
+    def u(t):
         return 0.1 * np.sin(t)
 
     # Solve ODE for training data
@@ -432,7 +432,7 @@ def test_multistep_prediction(kp):
     t_step = 0.1
     msd = pykoop.dynamic_models.MassSpringDamper(0.5, 0.7, 0.6)
 
-    def u(t, x=None):
+    def u(t):
         return 0.1 * np.sin(t)
 
     # Solve ODE for training data

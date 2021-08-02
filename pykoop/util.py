@@ -26,6 +26,11 @@ def random_state(low, high, rng=None):
     np.ndarray:
         Random initial state.
 
+    Examples
+    --------
+    >>> x_max = np.array([1, 1])
+    >>> x0 = mass_spring_damper.x0(pykoop.random_state(-x_max, x_max))
+    >>> t, x = mass_spring_damper.simulate((0, 1), 1e-3, x0, lambda t: 0)
     """
     if rng is None:
         rng = np.random.default_rng()
@@ -70,6 +75,16 @@ def random_input(t_range, t_step, low, high, cutoff, order=2, rng=None,
         linearly-interpolated lowpass-filtered uniformly-random data. If
         `output` is 'array', returns an array containing lowpass-filtered
         uniformly-random data. Units are same as `low` and `high`.
+
+    Examples
+    --------
+    >>> t_range = (0, 1)
+    >>> t_step = 1e-3
+    >>> x_max = np.array([1, 1])
+    >>> x0 = mass_spring_damper.x0(pykoop.random_state(-x_max, x_max))
+    >>> u_max = np.array([1])
+    >>> u = pykoop.random_input(t_range, t_step, -u_max, u_max, cutoff=0.01)
+    >>> t, x = mass_spring_damper.simulate(t_range, t_step, x0, u)
     """
     t = np.arange(*t_range, t_step)
     size = np.shape(low) + (t.shape[-1],)  # Concatenate tuples

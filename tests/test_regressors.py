@@ -149,7 +149,7 @@ def scenario(request):
             t_range,
             t_step,
             x0,
-            lambda t, x: 0,
+            lambda t: 0,
             rtol=1e-8,
             atol=1e-8,
         )
@@ -166,7 +166,7 @@ def scenario(request):
         t_step = 0.1
         msd = pykoop.dynamic_models.MassSpringDamper(0.5, 0.7, 0.6)
 
-        def u(t, x=None):
+        def u(t):
             return 0.1 * np.sin(t)
 
         # Solve ODE for training data

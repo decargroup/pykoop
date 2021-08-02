@@ -76,7 +76,7 @@ class ContinuousDynamicModel(metaclass=abc.ABCMeta):
         t_range: tuple[float, float],
         t_step: float,
         x0: np.ndarray,
-        u: Callable[[float, np.ndarray], np.ndarray],
+        u: Callable[[float], np.ndarray],
         **kwargs,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Simulate the model using numerical integration.
@@ -89,8 +89,8 @@ class ContinuousDynamicModel(metaclass=abc.ABCMeta):
             Timestep of output data.
         x0 : np.ndarray
             Initial condition, shape (n, ).
-        u : Callable[[float, np.ndarray], np.ndarray]
-            Input function. Function of ``t`` and ``x``. Returns an input.
+        u : Callable[[float], np.ndarray]
+            Input function of time.
         **kwargs : dict
             Keyword arguments for :func:`integrate.solve_ivp`.
 
@@ -100,7 +100,7 @@ class ContinuousDynamicModel(metaclass=abc.ABCMeta):
             Time and state at every timestep. Each timestep is one row.
         """
         sol = integrate.solve_ivp(
-            lambda t, x: self.f(t, x, u(t, x)),
+            lambda t, x: self.f(t, x, u(t)),
             t_range,
             x0,
             t_eval=np.arange(*t_range, t_step),
