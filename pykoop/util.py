@@ -49,14 +49,11 @@ class AnglePreprocessor(koopman_pipeline.EpisodeIndependentLiftingFn):
     Examples
     --------
     Preprocess first feature in pendulum data.
+
     >>> angle_pp = pykoop.AnglePreprocessor(angle_features=np.array([0]))
     >>> angle_pp.fit(X_pend, n_inputs=1, episode_feature=True)
     AnglePreprocessor(angle_features=array([0]))
     >>> X_pend_pp = angle_pp.transform(X_pend)
-    >>> X_pend.shape
-    (100, 4)
-    >>> X_pend_pp.shape
-    (100, 5)
     """
 
     def __init__(self,
@@ -164,6 +161,7 @@ def random_state(low, high, rng=None):
     Examples
     --------
     Simulate a mass-spring-damper with random initial condition
+
     >>> x_max = np.array([1, 1])
     >>> x0 = msd.x0(pykoop.random_state(-x_max, x_max))
     >>> t, x = msd.simulate((0, 1), 1e-3, x0, lambda t: 0)
@@ -221,6 +219,7 @@ def random_input(t_range,
     Examples
     --------
     Simulate a mass-spring-damper with random input
+
     >>> t_range = (0, 1)
     >>> t_step = 1e-3
     >>> x0 = msd.x0(np.array([0, 0]))

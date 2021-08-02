@@ -860,6 +860,7 @@ class SplitPipeline(KoopmanLiftingFn):
     Examples
     --------
     Apply split pipeline to mass-spring-damper data
+
     >>> kp = pykoop.SplitPipeline(
     ...     lifting_functions_state=[
     ...         pykoop.PolynomialLiftingFn(order=2)
@@ -1115,6 +1116,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
     Examples
     --------
     Apply a basic Koopman pipeline to mass-spring-damper data
+
     >>> kp = pykoop.KoopmanPipeline(
     ...     regressor=pykoop.Edmd(),
     ... )
@@ -1122,6 +1124,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
     KoopmanPipeline(regressor=Edmd())
 
     Apply more sophisticated Koopman pipeline to mass-spring-damper data
+
     >>> kp = KoopmanPipeline(
     ...     lifting_functions=[
     ...         pykoop.SkLearnLiftingFn(sklearn.preprocessing.MaxAbsScaler()),
@@ -1137,6 +1140,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
     >>> Xt_msd = kp.transform(X_msd[:2, :])
 
     Apply bilinear Koopman pipeline to mass-spring-damper data
+
     >>> kp = KoopmanPipeline(
     ...     lifting_functions=[
     ...         pykoop.SkLearnLiftingFn(sklearn.preprocessing.MaxAbsScaler()),

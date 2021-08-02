@@ -33,11 +33,13 @@ class Edmd(koopman_pipeline.KoopmanRegressor):
     Examples
     --------
     EDMD without regularization on mass-spring-damper data
+
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.Edmd())
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=Edmd())
 
     EDMD with Tikhonov regularization on mass-spring-damper data
+
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.Edmd(alpha=1))
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=Edmd(alpha=1))
@@ -95,11 +97,13 @@ class Dmdc(koopman_pipeline.KoopmanRegressor):
     Examples
     --------
     DMDc without singular value truncation on mass-spring-damper data
+
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.Dmdc())
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=Dmdc())
 
     DMDc with singular value truncation on mass-spring-damper data
+
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.Dmdc(
     ...     tsvd_method=('rank', 1, 2)))
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
@@ -223,11 +227,13 @@ class Dmd(koopman_pipeline.KoopmanRegressor):
     Examples
     --------
     DMD without singular value truncation on inputless mass-spring-damper data
+
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.Dmd())
     >>> kp.fit(X_msd_no_input, n_inputs=0, episode_feature=True)
     KoopmanPipeline(regressor=Dmd())
 
     DMD with singular value truncation on inputless mass-spring-damper data
+
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.Dmd(
     ...     tsvd_method=('known_noise', 1)))
     >>> kp.fit(X_msd_no_input, n_inputs=0, episode_feature=True)

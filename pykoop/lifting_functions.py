@@ -59,6 +59,7 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     Examples
     --------
     Preprocess mass-spring-damper data to have zero mean and unit variance
+
     >>> std_scaler = pykoop.SkLearnLiftingFn(
     ...     sklearn.preprocessing.StandardScaler())
     >>> std_scaler.fit(X_msd, n_inputs=1, episode_feature=True)
@@ -133,6 +134,7 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     Examples
     --------
     Apply polynomial features to mass-spring-damper data
+
     >>> poly = pykoop.PolynomialLiftingFn(order=2)
     >>> poly.fit(X_msd, n_inputs=1, episode_feature=True)
     PolynomialLiftingFn(order=2)
@@ -269,6 +271,7 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     Examples
     --------
     Apply bilinear input features to mass-spring-damper data
+
     >>> bilin = pykoop.BilinearInputLiftingFn()
     >>> bilin.fit(X_msd, n_inputs=1, episode_feature=True)
     BilinearInputLiftingFn()
@@ -342,6 +345,7 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
     Examples
     --------
     Apply delay lifting function to mass-spring-damper data
+
     >>> delay = pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1)
     >>> delay.fit(X_msd, n_inputs=1, episode_feature=True)
     DelayLiftingFn(n_delays_input=1, n_delays_state=1)

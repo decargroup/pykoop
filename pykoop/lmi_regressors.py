@@ -139,11 +139,13 @@ class LmiEdmd(LmiRegressor):
     Examples
     --------
     LMI EDMD without regularization
+
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.lmi_regressors.LmiEdmd())
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=LmiEdmd())
 
     LMI EDMD with Tikhonov regularization
+
     >>> kp = pykoop.KoopmanPipeline(
     ...     regressor=pykoop.lmi_regressors.LmiEdmd(
     ...         alpha=1,
@@ -154,6 +156,7 @@ class LmiEdmd(LmiRegressor):
     KoopmanPipeline(regressor=LmiEdmd(alpha=1))
 
     LMI EDMD with matrix two-norm regularization
+
     >>> kp = pykoop.KoopmanPipeline(
     ...     regressor=pykoop.lmi_regressors.LmiEdmd(
     ...         alpha=1,
@@ -164,6 +167,7 @@ class LmiEdmd(LmiRegressor):
     KoopmanPipeline(regressor=LmiEdmd(alpha=1, reg_method='twonorm'))
 
     LMI EDMD with mixed Tikhonov and squared-nuclear-norm regularization
+
     >>> kp = pykoop.KoopmanPipeline(
     ...     regressor=pykoop.lmi_regressors.LmiEdmd(
     ...         alpha=1,
@@ -433,11 +437,13 @@ class LmiDmdc(LmiRegressor):
     Examples
     --------
     LMI DMDc without regularization
+
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.lmi_regressors.LmiDmdc())
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=LmiDmdc())
 
     LMI DMDc with Tikhonov regularization
+
     >>> kp = pykoop.KoopmanPipeline(
     ...     regressor=pykoop.lmi_regressors.LmiDmdc(
     ...         alpha=1,
@@ -448,6 +454,7 @@ class LmiDmdc(LmiRegressor):
     KoopmanPipeline(regressor=LmiDmdc(alpha=1))
 
     LMI DMDc with matrix two-norm regularization
+
     >>> kp = pykoop.KoopmanPipeline(
     ...     regressor=pykoop.lmi_regressors.LmiDmdc(
     ...         alpha=1,
@@ -458,6 +465,7 @@ class LmiDmdc(LmiRegressor):
     KoopmanPipeline(regressor=LmiDmdc(alpha=1, reg_method='twonorm'))
 
     LMI DMDc with nuclear norm regularization and SVD truncation
+
     >>> kp = pykoop.KoopmanPipeline(
     ...     regressor=pykoop.lmi_regressors.LmiDmdc(
     ...         alpha=1,
@@ -687,6 +695,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
     Examples
     --------
     Apply EDMD spectral radius constraint to mass-spring-damper data
+
     >>> kp = pykoop.KoopmanPipeline(
     ...     regressor=pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr(
     ...         spectral_radius=0.9,
@@ -928,6 +937,7 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
     Examples
     --------
     Apply DMDc spectral radius constraint to mass-spring-damper data
+
     >>> kp = pykoop.KoopmanPipeline(
     ...     regressor=pykoop.lmi_regressors.LmiDmdcSpectralRadiusConstr(
     ...         spectral_radius=0.9,
@@ -1167,6 +1177,7 @@ class LmiEdmdHinfReg(LmiRegressor):
     Examples
     --------
     Apply EDMD with H-infinity regularization to mass-spring-damper data
+
     >>> kp = pykoop.KoopmanPipeline(
     ...     regressor=pykoop.lmi_regressors.LmiEdmdHinfReg(
     ...         alpha=1e-3,
@@ -1177,6 +1188,7 @@ class LmiEdmdHinfReg(LmiRegressor):
 
     Apply EDMD with weighted H-infinity regularization to mass-spring-damper
     data
+
     >>> from scipy import signal
     >>> ss_ct = signal.ZerosPolesGain([0], [-4], [1]).to_ss()
     >>> ss_dt = ss_ct.to_discrete(dt=0.1, method='bilinear')
@@ -1484,6 +1496,7 @@ class LmiDmdcHinfReg(LmiRegressor):
     Examples
     --------
     Apply DMDc with H-infinity regularization to mass-spring-damper data
+
     >>> kp = pykoop.KoopmanPipeline(
     ...     regressor=pykoop.lmi_regressors.LmiDmdcHinfReg(
     ...         alpha=1e-3,
@@ -1494,6 +1507,7 @@ class LmiDmdcHinfReg(LmiRegressor):
 
     Apply reduced-order DMDc with weighted H-infinity regularization to
     mass-spring-damper data
+
     >>> from scipy import signal
     >>> ss_ct = signal.ZerosPolesGain([0], [-4], [1]).to_ss()
     >>> ss_dt = ss_ct.to_discrete(dt=0.1, method='bilinear')
@@ -1807,6 +1821,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
     Examples
     --------
     Apply dissipativity-constrainted EDMD to mass-spring-damper data
+
     >>> kp = pykoop.KoopmanPipeline(
     ...     regressor=pykoop.lmi_regressors.LmiEdmdDissipativityConstr()
     ... )

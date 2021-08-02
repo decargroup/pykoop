@@ -28,3 +28,9 @@ Utilities
 
 .. automodule:: pykoop.util
    :members:
+
+Dynamic models
+---------
+
+.. automodule:: pykoop.dynamic_models
+   :members:

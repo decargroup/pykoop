@@ -181,6 +181,8 @@ class MassSpringDamper(ContinuousDynamicModel):
 
     Examples
     --------
+    Simulate a mass-spring-damper
+
     >>> msd = pykoop.dynamic_models.MassSpringDamper(0.5, 0.7, 0.6)
     >>> x0 = msd.x0(np.array([1, 0]))
     >>> t, x = msd.simulate((0, 1), 1e-3, x0, lambda t: 0)
@@ -234,6 +236,8 @@ class Pendulum(ContinuousDynamicModel):
 
     Examples
     --------
+    Simulate a pendulum
+
     >>> pend = pykoop.dynamic_models.Pendulum(0.5, 1, 0.6)
     >>> x0 = pend.x0(np.array([np.pi / 2, 0]))
     >>> t, x = pend.simulate((0, 1), 1e-3, x0, lambda t: 0)
