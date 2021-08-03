@@ -1,4 +1,4 @@
-"""Collection of experimental LMI-based Koopman regressors.
+"""Collection of experimental LMI-based Koopman regressors from [lmikoop]_.
 
 Warning
 -------
@@ -11,14 +11,14 @@ that long regressions can be stopped politely.
 import logging
 import signal
 import tempfile
-from typing import Any
+from typing import Any, Optional, Union
 
 import joblib
 import numpy as np
 import picos
 from scipy import linalg
 
-from . import koopman_pipeline
+from . import _tsvd, koopman_pipeline, regressors
 
 # Create logger
 log = logging.getLogger(__name__)
@@ -42,20 +42,15 @@ def _sigint_handler(sig, frame):
 signal.signal(signal.SIGINT, _sigint_handler)
 
 
-class LmiEdmd(koopman_pipeline.KoopmanRegressor):
-    """LMI-based EDMD with regularization.
+class LmiRegressor(koopman_pipeline.KoopmanRegressor):
+    """Base class for LMI regressors.
 
-    Supports Tikhonov regularization, optionally mixed with matrix two-norm
-    regularization or nuclear norm regularization.
+    For derivations of LMIs, see [lmikoop]_.
+
+    This base class is mostly used to share common ``scikit-learn`` parameters.
 
     Attributes
     ----------
-    self.alpha_tikhonov_ : float
-        Tikhonov regularization coefficient used.
-    self.alpha_other_ : float
-        Matrix two norm or nuclear norm regularization coefficient used.
-    solver_params_ : dict[str, Any]
-        Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
     n_states_in_ : int
@@ -92,11 +87,95 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         'dtype': 'float64',
     }
 
+    def _more_tags(self):
+        reason = ('Hard to guarantee exact idempotence when calling external '
+                  'solver.')
+        return {
+            'multioutput': True,
+            'multioutput_only': True,
+            '_xfail_checks': {
+                'check_fit_idempotent': reason,
+            }
+        }
+
+
+class LmiEdmd(LmiRegressor):
+    """LMI-based EDMD with regularization.
+
+    Supports Tikhonov regularization, optionally mixed with matrix two-norm
+    regularization or nuclear norm regularization.
+
+    Attributes
+    ----------
+    self.alpha_tikhonov_ : float
+        Tikhonov regularization coefficient used.
+    self.alpha_other_ : float
+        Matrix two norm or nuclear norm regularization coefficient used.
+    solver_params_ : dict[str, Any]
+        Solver parameters used (defaults merged with constructor input).
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+
+    Examples
+    --------
+    LMI EDMD without regularization
+
+    >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.lmi_regressors.LmiEdmd())
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiEdmd())
+
+    LMI EDMD with Tikhonov regularization
+
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiEdmd(
+    ...         alpha=1,
+    ...         reg_method='tikhonov',
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiEdmd(alpha=1))
+
+    LMI EDMD with matrix two-norm regularization
+
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiEdmd(
+    ...         alpha=1,
+    ...         reg_method='twonorm',
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiEdmd(alpha=1, reg_method='twonorm'))
+
+    LMI EDMD with mixed Tikhonov and squared-nuclear-norm regularization
+
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiEdmd(
+    ...         alpha=1,
+    ...         ratio=0.5,
+    ...         reg_method='nuclear',
+    ...         square_norm=True,
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiEdmd(alpha=1, ratio=0.5, reg_method='nuclear',
+    square_norm=True))
+    """
+
     def __init__(self,
                  alpha: float = 0,
                  ratio: float = 1,
                  reg_method: str = 'tikhonov',
                  inv_method: str = 'svd',
+                 tsvd_method: Union[str, tuple] = 'economy',
+                 square_norm: bool = False,
                  picos_eps: float = 0,
                  solver_params: dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiEdmd`.
@@ -137,6 +216,25 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
             - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
             - ``'svd'`` -- split ``H`` using a singular value decomposition.
 
+         tsvd_method : Union[str, tuple]
+            Singular value truncation method if ``inv_method='svd'``. Very
+            experimental. Possible values are
+
+            - ``'economy'`` or ``('economy', )`` -- do not truncate (use
+              economy SVD),
+            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- truncate using
+              optimal hard truncation [optht]_ with unknown noise,
+            - ``('known_noise', sigma)`` -- truncate using optimal hard
+              truncation [optht]_ with known noise,
+            - ``('cutoff', cutoff)`` -- truncate singular values smaller than a
+              cutoff, or
+            - ``('rank', rank)`` -- truncate singular values to a fixed rank.
+
+        square_norm : bool
+            Square norm in matrix two-norm or nuclear norm regularizer.
+            Enabling may increase computation time. Frobenius norm used in
+            Tikhonov regularizer is always squared.
+
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
@@ -149,6 +247,8 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         self.ratio = ratio
         self.reg_method = reg_method
         self.inv_method = inv_method
+        self.tsvd_method = tsvd_method
+        self.square_norm = square_norm
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
@@ -165,17 +265,22 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         else:
             self.alpha_tikhonov_ = self.alpha * (1.0 - self.ratio)
             self.alpha_other_ = self.alpha * self.ratio
-        # Form optimization problem
+        # Form optimization problem. Regularization coefficients must be scaled
+        # because of how G and H are defined.
+        q = X_unshifted.shape[0]
         problem = self._create_base_problem(X_unshifted, X_shifted,
-                                            self.alpha_tikhonov_,
-                                            self.inv_method, self.picos_eps)
+                                            self.alpha_tikhonov_ / q,
+                                            self.inv_method, self.tsvd_method,
+                                            self.picos_eps)
         if self.reg_method == 'twonorm':
-            problem = self._add_twonorm(problem, X_unshifted.shape[0],
-                                        self.alpha_other_, self.picos_eps)
+            problem = _add_twonorm(problem, problem.variables['U'],
+                                   self.alpha_other_ / q, self.square_norm,
+                                   self.picos_eps)
         elif self.reg_method == 'nuclear':
-            problem = self._add_nuclear(problem, X_unshifted.shape[0],
-                                        self.alpha_other_, self.picos_eps)
-        # Solve optimiztion problem
+            problem = _add_nuclear(problem, problem.variables['U'],
+                                   self.alpha_other_ / q, self.square_norm,
+                                   self.picos_eps)
+        # Solve optimization problem
         problem.solve(**self.solver_params_)
         # Save solution status
         self.solution_status_ = problem.last_solution.claimedStatus
@@ -184,9 +289,6 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         return coef
 
     def _validate_parameters(self) -> None:
-        # Check problem creation parameters
-        self._validate_problem_parameters(self.alpha, self.inv_method,
-                                          self.picos_eps)
         # Check regularization methods
         valid_reg_methods = ['tikhonov', 'twonorm', 'nuclear']
         if self.reg_method not in valid_reg_methods:
@@ -195,11 +297,6 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         # Check ratio
         if (self.ratio <= 0) or (self.ratio > 1):
             raise ValueError('`ratio` must be positive and less than one.')
-        # Check regularization method
-        if self.reg_method != 'tikhonov' and self.alpha == 0:
-            raise ValueError(
-                "`alpha` cannot be zero if `reg_method='twonorm'` or "
-                "`reg_method='nuclear'`.")
 
     @staticmethod
     def _create_base_problem(
@@ -207,32 +304,25 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
         X_shifted: np.ndarray,
         alpha_tikhonov: float,
         inv_method: str,
+        tsvd_method: Union[str, tuple],
         picos_eps: float,
     ) -> picos.Problem:
-        """Create optimization problem.
-
-        Parameters
-        ----------
-        X_unshifted : np.ndarray
-            Unshifted data matrix.
-        X_shifted : np.ndarray
-            Shifted data matrix.
-        alpha_tikhonov : float
-            Tikhonov regularization coefficient.
-        inv_method : str
-            Method to handle or avoid inversion of the ``H`` matrix when
-            forming the LMI problem.
-        picos_eps : float
-            Tolerance used for strict LMIs. If nonzero, should be larger than
-            solver tolerance.
-
-        Returns
-        -------
-        picos.Problem
-            Optimization problem.
-        """
-        LmiEdmd._validate_problem_parameters(alpha_tikhonov, inv_method,
-                                             picos_eps)
+        """Create optimization problem."""
+        # Validate ``alpha``
+        if alpha_tikhonov < 0:
+            raise ValueError('Parameter `alpha` must be positive or zero.')
+        # Validate ``inv_method``
+        valid_inv_methods = [
+            'inv', 'pinv', 'eig', 'ldl', 'chol', 'sqrt', 'svd'
+        ]
+        if inv_method not in valid_inv_methods:
+            raise ValueError('`inv_method` must be one of '
+                             f'{valid_inv_methods}.')
+        # Validate ``picos_eps``
+        if picos_eps < 0:
+            raise ValueError('Parameter `picos_eps` must be positive or zero.')
+        # Compute ``G`` and ``H``. ``alpha_tikhonov`` must already be scaled
+        # by ``q`` if applicable.
         c, G, H, _ = _calc_c_G_H(X_unshifted, X_shifted, alpha_tikhonov)
         # Optimization problem
         problem = picos.Problem()
@@ -285,8 +375,9 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
                     [sqrtH.T * U.T, 'I'],
                 ]) >> 0)
         elif inv_method == 'svd':
-            QSig = picos.Constant('Q Sigma',
-                                  _calc_QSig(X_unshifted, alpha_tikhonov))
+            QSig = picos.Constant(
+                'Q Sigma', _calc_QSig(X_unshifted, alpha_tikhonov,
+                                      tsvd_method))
             problem.add_constraint(
                 picos.block([
                     [Z, U * QSig],
@@ -302,135 +393,264 @@ class LmiEdmd(koopman_pipeline.KoopmanRegressor):
 
     @staticmethod
     def _extract_solution(problem: picos.Problem) -> np.ndarray:
-        """Extract solution from an optimization problem.
-
-        Parameters
-        ----------
-        problem : picos.Problem
-            Solved optimization problem.
-
-        Returns
-        -------
-        np.ndarray
-            Solution matrix.
-        """
+        """Extract solution from an optimization problem."""
         return np.array(problem.get_valued_variable('U'), ndmin=2).T
 
-    @staticmethod
-    def _add_twonorm(problem: picos.Problem, q: int, alpha_other: float,
-                     picos_eps: float) -> picos.Problem:
-        """Add matrix two norm regularizer to an optimization problem.
 
-        Parameters
-        ----------
-        problem : picos.Problem
-            Optimization problem.
-        q : int
-            Number of timesteps in unshifted data matrix.
-        alpha_other : float
-            Regularization coefficient.
-        picos_eps : float
-            Tolerance used for strict LMIs.
+class LmiDmdc(LmiRegressor):
+    """LMI-based DMDc with regularization.
 
-        Returns
-        -------
-        picos.Problem
-            Optimization problem with regularizer added.
-        """
-        # Extract information from problem
-        U = problem.variables['U']
-        direction = problem.objective.direction
-        objective = problem.objective.function
-        # Get needed sizes
-        p_theta, p = U.shape
-        # Add new constraint
-        gamma = picos.RealVariable('gamma', 1)
-        problem.add_constraint(
-            picos.block([[picos.diag(gamma, p), U.T],
-                         [U, picos.diag(gamma, p_theta)]]) >> 0)
-        # Add term to cost function
-        alpha_scaled = picos.Constant('alpha_2/q', alpha_other / q)
-        objective += alpha_scaled * gamma
-        problem.set_objective(direction, objective)
-        return problem
+    Supports Tikhonov regularization, optionally mixed with matrix two-norm
+    regularization or nuclear norm regularization.
 
-    @staticmethod
-    def _add_nuclear(problem: picos.Problem, q: int, alpha_other: float,
-                     picos_eps: float) -> picos.Problem:
-        """Add nuclear norm regularizer to an optimization problem.
+    Attributes
+    ----------
+    self.alpha_tikhonov_ : float
+        Tikhonov regularization coefficient used.
+    self.alpha_other_ : float
+        Matrix two norm or nuclear norm regularization coefficient used.
+    solver_params_ : dict[str, Any]
+        Solver parameters used (defaults merged with constructor input).
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
 
-        Parameters
-        ----------
-        problem : picos.Problem
-            Optimization problem.
-        q : int
-            Number of timesteps in unshifted data matrix.
-        alpha_other : float
-            Regularization coefficient.
-        picos_eps : float
-            Tolerance used for strict LMIs.
+    Examples
+    --------
+    LMI DMDc without regularization
 
-        Returns
-        -------
-        picos.Problem
-            Optimization problem with regularizer added.
-        """
-        # Extract information from problem
-        U = problem.variables['U']
-        direction = problem.objective.direction
-        objective = problem.objective.function
-        # Get needed sizes
-        p_theta, p = U.shape
-        # Add new constraint
-        gamma = picos.RealVariable('gamma', 1)
-        W_1 = picos.SymmetricVariable('W_1', (p_theta, p_theta))
-        W_2 = picos.SymmetricVariable('W_2', (p, p))
-        problem.add_constraint(
-            picos.trace(W_1) + picos.trace(W_2) <= 2 * gamma)
-        problem.add_constraint(picos.block([[W_1, U], [U.T, W_2]]) >> 0)
-        # Add term to cost function
-        alpha_scaled = picos.Constant('alpha_*/q', alpha_other / q)
-        objective += alpha_scaled * gamma
-        problem.set_objective(direction, objective)
-        return problem
+    >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.lmi_regressors.LmiDmdc())
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiDmdc())
 
-    @staticmethod
-    def _validate_problem_parameters(alpha: float, inv_method: str,
-                                     picos_eps: float) -> None:
-        """Validate parameters involved in problem creation.
+    LMI DMDc with Tikhonov regularization
+
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiDmdc(
+    ...         alpha=1,
+    ...         reg_method='tikhonov',
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiDmdc(alpha=1))
+
+    LMI DMDc with matrix two-norm regularization
+
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiDmdc(
+    ...         alpha=1,
+    ...         reg_method='twonorm',
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiDmdc(alpha=1, reg_method='twonorm'))
+
+    LMI DMDc with nuclear norm regularization and SVD truncation
+
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiDmdc(
+    ...         alpha=1,
+    ...         reg_method='nuclear',
+    ...         tsvd_method=('known_noise', 0.1, 0.1),
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiDmdc(alpha=1, reg_method='nuclear',
+    tsvd_method=('known_noise', 0.1, 0.1)))
+    """
+
+    def __init__(self,
+                 alpha: float = 0,
+                 ratio: float = 1,
+                 tsvd_method: Union[str, tuple] = 'economy',
+                 reg_method: str = 'tikhonov',
+                 square_norm: bool = False,
+                 picos_eps: float = 0,
+                 solver_params: dict[str, Any] = None) -> None:
+        """Instantiate :class:`LmiDmdc`.
 
         Parameters
         ----------
         alpha : float
-            Tikhonov regularization coefficient.
-        inv_method : str
-            Method to handle or avoid inversion of the ``H`` matrix when
-            forming the LMI problem.
+            Regularization coefficient. Can only be zero if
+            ``reg_method='tikhonov'``.
+
+        ratio : float
+            Ratio of matrix two-norm or nuclear norm to use in mixed
+            regularization. If ``ratio=1``, no Tikhonov regularization is
+            used. Cannot be zero. Ignored if ``reg_method='tikhonov'``.
+
+         tsvd_method : Union[str, tuple]
+            Singular value truncation method used to change basis. Parameters
+            for ``X_unshifted`` and ``X_shifted`` are specified independently.
+            Possible values are
+
+            - ``'economy'`` or ``('economy', )`` -- do not truncate (use
+              economy SVD),
+            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- truncate using
+              optimal hard truncation [optht]_ with unknown noise,
+            - ``('known_noise', sigma_unshifted, sigma_shifted)`` -- truncate
+              using optimal hard truncation [optht]_ with known noise,
+            - ``('cutoff', cutoff_unshifted, cutoff_shifted)`` -- truncate
+              singular values smaller than a cutoff, or
+            - ``('rank', rank_unshifted, rank_shifted)`` -- truncate singular
+              values to a fixed rank.
+
+        reg_method : str
+            Regularization method to use. Possible values are
+
+            - ``'tikhonov'`` -- pure Tikhonov regularization (``ratio``
+              is ignored),
+            - ``'twonorm'`` -- matrix two-norm regularization mixed with
+              Tikhonov regularization, or
+            - ``'nuclear'`` -- nuclear norm regularization mixed with Tikhonov
+              regularization.
+
+        square_norm : bool
+            Square norm in matrix two-norm or nuclear norm regularizer.
+            Enabling may increase computation time. Frobenius norm used in
+            Tikhonov regularizer is always squared.
+
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        Raises
-        ------
-        ValueError
-            If any of the parameters are incorrect.
+        solver_params : dict[str, Any]
+            Parameters passed to PICOS :func:`picos.Problem.solve()`. By
+            default, allows chosen solver to select its own tolerances.
         """
+        self.alpha = alpha
+        self.ratio = ratio
+        self.tsvd_method = tsvd_method
+        self.reg_method = reg_method
+        self.square_norm = square_norm
+        self.picos_eps = picos_eps
+        self.solver_params = solver_params
+
+    def _fit_regressor(self, X_unshifted: np.ndarray,
+                       X_shifted: np.ndarray) -> np.ndarray:
+        # Set solver parameters
+        self.solver_params_ = self._default_solver_params.copy()
+        if self.solver_params is not None:
+            self.solver_params_.update(self.solver_params)
+        # Compute regularization coefficients
+        if self.reg_method == 'tikhonov':
+            self.alpha_tikhonov_ = self.alpha
+            self.alpha_other_ = 0.0
+        else:
+            self.alpha_tikhonov_ = self.alpha * (1.0 - self.ratio)
+            self.alpha_other_ = self.alpha * self.ratio
+        # Get needed sizes
+        q, p = X_unshifted.shape
+        p_theta = X_shifted.shape[1]
+        # Compute SVDs
+        tsvd_method_tld, tsvd_method_hat = regressors.Dmdc._get_tsvd_methods(
+            self.tsvd_method)
+        Q_tld, sig_tld, Z_tld = _tsvd._tsvd(X_unshifted.T, *tsvd_method_tld)
+        Q_hat, sig_hat, Z_hat = _tsvd._tsvd(X_shifted.T, *tsvd_method_hat)
+        # Form optimization problem
+        problem = self._create_base_problem(Q_tld, sig_tld, Z_tld, Q_hat,
+                                            sig_hat, Z_hat,
+                                            self.alpha_tikhonov_,
+                                            self.picos_eps)
+        if self.reg_method == 'twonorm':
+            problem = _add_twonorm(problem, problem.variables['U_hat'],
+                                   self.alpha_other_, self.square_norm,
+                                   self.picos_eps)
+        elif self.reg_method == 'nuclear':
+            problem = _add_nuclear(problem, problem.variables['U_hat'],
+                                   self.alpha_other_, self.square_norm,
+                                   self.picos_eps)
+        # Solve optimization problem
+        problem.solve(**self.solver_params_)
+        # Save solution status
+        self.solution_status_ = problem.last_solution.claimedStatus
+        # Extract solution from ``Problem`` object
+        U_hat = self._extract_solution(problem).T
+        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p - p_theta)).T
+        coef = U.T
+        return coef
+
+    def _validate_parameters(self) -> None:
+        # Check regularization methods
+        valid_reg_methods = ['tikhonov', 'twonorm', 'nuclear']
+        if self.reg_method not in valid_reg_methods:
+            raise ValueError('`reg_method` must be one of '
+                             f'{valid_reg_methods}.')
+        # Check ratio
+        if (self.ratio <= 0) or (self.ratio > 1):
+            raise ValueError('`ratio` must be positive and less than one.')
+
+    @staticmethod
+    def _create_base_problem(
+        Q_tld: np.ndarray,
+        sig_tld: np.ndarray,
+        Z_tld: np.ndarray,
+        Q_hat: np.ndarray,
+        sig_hat: np.ndarray,
+        Z_hat: np.ndarray,
+        alpha_tikhonov: float,
+        picos_eps: float,
+    ) -> picos.Problem:
+        """Create optimization problem."""
         # Validate ``alpha``
-        if alpha < 0:
+        if alpha_tikhonov < 0:
             raise ValueError('Parameter `alpha` must be positive or zero.')
-        # Validate ``inv_method``
-        valid_inv_methods = [
-            'inv', 'pinv', 'eig', 'ldl', 'chol', 'sqrt', 'svd'
-        ]
-        if inv_method not in valid_inv_methods:
-            raise ValueError('`inv_method` must be one of '
-                             f'{valid_inv_methods}.')
         # Validate ``picos_eps``
         if picos_eps < 0:
             raise ValueError('Parameter `picos_eps` must be positive or zero.')
+        # Compute needed sizes
+        p, r_tld = Q_tld.shape
+        p_theta, r_hat = Q_hat.shape
+        # Compute Q_hat
+        Q_bar = linalg.block_diag(Q_hat, np.eye(p - p_theta)).T @ Q_tld
+        # Create optimization problem
+        problem = picos.Problem()
+        # Constants
+        Sigma_hat_sq = picos.Constant('Sigma_hat^2', np.diag(sig_hat**2))
+        Sigma_hat = np.diag(sig_hat)
+        # Add regularizer to ``Sigma_tld``
+        Sigma_tld = np.diag(np.sqrt(sig_tld**2 + alpha_tikhonov))
+        big_constant = picos.Constant(
+            'Q_bar Sigma_tld Z_tld.T Z_hat Sigma_Hat',
+            Q_bar @ Sigma_tld @ Z_tld.T @ Z_hat @ Sigma_hat,
+        )
+        Q_bar_Sigma_tld = picos.Constant(
+            'Q_bar Sigma_tld',
+            Q_bar @ Sigma_tld,
+        )
+        m1 = picos.Constant('-1', -1 * np.eye(r_tld))
+        Sigma_hat = picos.Constant('Sigma_hat', Sigma_hat)
+        # Variables
+        U_hat = picos.RealVariable('U_hat', (r_hat, r_hat + p - p_theta))
+        W_hat = picos.SymmetricVariable('W_hat', (r_hat, r_hat))
+        # Constraints
+        problem.add_constraint(W_hat >> picos_eps)
+        problem.add_constraint(
+            picos.block([
+                [
+                    -W_hat + Sigma_hat_sq - U_hat * big_constant
+                    - big_constant.T * U_hat.T, U_hat * Q_bar_Sigma_tld
+                ],
+                [Q_bar_Sigma_tld.T * U_hat.T, m1],
+            ]) << picos_eps)
+        problem.set_objective('min', picos.trace(W_hat))
+        return problem
+
+    @staticmethod
+    def _extract_solution(problem: picos.Problem) -> np.ndarray:
+        """Extract solution from an optimization problem."""
+        return np.array(problem.get_valued_variable('U_hat'), ndmin=2).T
 
 
-class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
+class LmiEdmdSpectralRadiusConstr(LmiRegressor):
     """LMI-based EDMD with spectral radius constraint.
 
     Optionally supports Tikhonov regularization.
@@ -459,31 +679,19 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
         Indicates if episode feature was present during :func:`fit`.
     coef_ : np.ndarray
         Fit coefficient matrix.
+
+    Examples
+    --------
+    Apply EDMD spectral radius constraint to mass-spring-damper data
+
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr(
+    ...         spectral_radius=0.9,
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiEdmdSpectralRadiusConstr(spectral_radius=0.9))
     """
-
-    # Default solver parameters
-    _default_solver_params: dict[str, Any] = {
-        'primals': None,
-        'duals': None,
-        'dualize': True,
-        'abs_bnb_opt_tol': None,
-        'abs_dual_fsb_tol': None,
-        'abs_ipm_opt_tol': None,
-        'abs_prim_fsb_tol': None,
-        'integrality_tol': None,
-        'markowitz_tol': None,
-        'rel_bnb_opt_tol': None,
-        'rel_dual_fsb_tol': None,
-        'rel_ipm_opt_tol': None,
-        'rel_prim_fsb_tol': None,
-    }
-
-    # Override since PICOS only works with ``float64``.
-    _check_X_y_params: dict[str, Any] = {
-        'multi_output': True,
-        'y_numeric': True,
-        'dtype': 'float64',
-    }
 
     def __init__(self,
                  spectral_radius: float = 1.0,
@@ -491,6 +699,7 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
                  iter_tol: float = 1e-6,
                  alpha: float = 0,
                  inv_method: str = 'svd',
+                 tsvd_method: Union[str, tuple] = 'economy',
                  picos_eps: float = 0,
                  solver_params: dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiEdmdSpectralRadiusConstr`.
@@ -526,6 +735,20 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
             - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
             - ``'svd'`` -- split ``H`` using a singular value decomposition.
 
+         tsvd_method : Union[str, tuple]
+            Singular value truncation method if ``inv_method='svd'``. Very
+            experimental. Possible values are
+
+            - ``'economy'`` or ``('economy', )`` -- do not truncate (use
+              economy SVD),
+            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- truncate using
+              optimal hard truncation [optht]_ with unknown noise,
+            - ``('known_noise', sigma)`` -- truncate using optimal hard
+              truncation [optht]_ with known noise,
+            - ``('cutoff', cutoff)`` -- truncate singular values smaller than a
+              cutoff, or
+            - ``('rank', rank)`` -- truncate singular values to a fixed rank.
+
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
@@ -539,6 +762,7 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
         self.iter_tol = iter_tol
         self.alpha = alpha
         self.inv_method = inv_method
+        self.tsvd_method = tsvd_method
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
@@ -581,6 +805,8 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
             if len(self.objective_log_) > 1:
                 diff = np.absolute(self.objective_log_[-2]
                                    - self.objective_log_[-1])
+                log.info(f'Objective: {self.objective_log_[-1]}; '
+                         f'Change: {diff}.')
                 if (diff < self.iter_tol):
                     self.stop_reason_ = f'Reached tolerance {diff}'
                     break
@@ -612,9 +838,6 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
         return coef
 
     def _validate_parameters(self) -> None:
-        # Check problem creation parameters
-        LmiEdmd._validate_problem_parameters(self.alpha, self.inv_method,
-                                             self.picos_eps)
         # Check spectral radius
         if self.spectral_radius <= 0:
             raise ValueError('`spectral_radius` must be positive.')
@@ -626,8 +849,11 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
     def _create_problem_a(self, X_unshifted: np.ndarray, X_shifted: np.ndarray,
                           Gamma: np.ndarray) -> picos.Problem:
         """Create first problem in iteration scheme."""
+        q = X_unshifted.shape[0]
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
-                                                 self.alpha, self.inv_method,
+                                                 self.alpha / q,
+                                                 self.inv_method,
+                                                 self.tsvd_method,
                                                  self.picos_eps)
         # Extract information from problem
         U = problem_a.variables['U']
@@ -668,10 +894,10 @@ class LmiEdmdSpectralRadiusConstr(koopman_pipeline.KoopmanRegressor):
         return problem_b
 
 
-class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
-    """LMI-based EDMD with H-infinity norm regularization.
+class LmiDmdcSpectralRadiusConstr(LmiRegressor):
+    """LMI-based Dmdc with spectral radius constraint.
 
-    Optionally supports additional Tikhonov regularization.
+    Optionally supports Tikhonov regularization.
 
     Attributes
     ----------
@@ -681,7 +907,10 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
-
+    Gamma_ : np.ndarray
+        ``Gamma`` matrix, for debugging.
+    P_ : np.ndarray
+        ``P`` matrix, for debugging.
     solver_params_ : dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
@@ -694,42 +923,293 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         Indicates if episode feature was present during :func:`fit`.
     coef_ : np.ndarray
         Fit coefficient matrix.
+
+    Examples
+    --------
+    Apply DMDc spectral radius constraint to mass-spring-damper data
+
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiDmdcSpectralRadiusConstr(
+    ...         spectral_radius=0.9,
+    ...         tsvd_method=('cutoff', 1e-6, 1e-6),
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiDmdcSpectralRadiusConstr(spectral_radius=0.9,
+    tsvd_method=('cutoff', 1e-06, 1e-06)))
     """
 
-    # Default solver parameters
-    _default_solver_params: dict[str, Any] = {
-        'primals': None,
-        'duals': None,
-        'dualize': True,
-        'abs_bnb_opt_tol': None,
-        'abs_dual_fsb_tol': None,
-        'abs_ipm_opt_tol': None,
-        'abs_prim_fsb_tol': None,
-        'integrality_tol': None,
-        'markowitz_tol': None,
-        'rel_bnb_opt_tol': None,
-        'rel_dual_fsb_tol': None,
-        'rel_ipm_opt_tol': None,
-        'rel_prim_fsb_tol': None,
-    }
-
-    # Override since PICOS only works with ``float64``.
-    _check_X_y_params: dict[str, Any] = {
-        'multi_output': True,
-        'y_numeric': True,
-        'dtype': 'float64',
-    }
-
     def __init__(self,
-                 alpha: float = 1,
-                 ratio: float = 1,
-                 weight: tuple[str, np.ndarray, np.ndarray, np.ndarray,
-                               np.ndarray] = None,
+                 spectral_radius: float = 1.0,
                  max_iter: int = 100,
                  iter_tol: float = 1e-6,
-                 inv_method: str = 'svd',
+                 alpha: float = 0,
+                 tsvd_method: Union[str, tuple] = 'economy',
                  picos_eps: float = 0,
                  solver_params: dict[str, Any] = None) -> None:
+        """Instantiate :class:`LmiDmdcSpectralRadiusConstr`.
+
+        To disable regularization, use ``alpha=0``.
+
+        Parameters
+        ----------
+        spectral_radius : float
+            Maximum spectral radius.
+
+        max_iter : int
+            Maximum number of solver iterations.
+
+        iter_tol : float
+            Absolute tolerance for change in objective function value. When the
+            change in objective function is less than ``iter_tol``, the
+            iteration will stop.
+
+        alpha : float
+            Tikhonov regularization coefficient.
+
+         tsvd_method : Union[str, tuple]
+            Singular value truncation method used to change basis. Parameters
+            for ``X_unshifted`` and ``X_shifted`` are specified independently.
+            Possible values are
+
+            - ``'economy'`` or ``('economy', )`` -- do not truncate (use
+              economy SVD),
+            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- truncate using
+              optimal hard truncation [optht]_ with unknown noise,
+            - ``('known_noise', sigma_unshifted, sigma_shifted)`` -- truncate
+              using optimal hard truncation [optht]_ with known noise,
+            - ``('cutoff', cutoff_unshifted, cutoff_shifted)`` -- truncate
+              singular values smaller than a cutoff, or
+            - ``('rank', rank_unshifted, rank_shifted)`` -- truncate singular
+              values to a fixed rank.
+
+        picos_eps : float
+            Tolerance used for strict LMIs. If nonzero, should be larger than
+            solver tolerance.
+
+        solver_params : dict[str, Any]
+            Parameters passed to PICOS :func:`picos.Problem.solve()`. By
+            default, allows chosen solver to select its own tolerances.
+        """
+        self.spectral_radius = spectral_radius
+        self.max_iter = max_iter
+        self.iter_tol = iter_tol
+        self.alpha = alpha
+        self.tsvd_method = tsvd_method
+        self.picos_eps = picos_eps
+        self.solver_params = solver_params
+
+    def _fit_regressor(self, X_unshifted: np.ndarray,
+                       X_shifted: np.ndarray) -> np.ndarray:
+        # Set solver parameters
+        self.solver_params_ = self._default_solver_params.copy()
+        if self.solver_params is not None:
+            self.solver_params_.update(self.solver_params)
+        # Get needed sizes
+        p = X_unshifted.shape[1]
+        p_theta = X_shifted.shape[1]
+        # Compute SVDs
+        tsvd_method_tld, tsvd_method_hat = regressors.Dmdc._get_tsvd_methods(
+            self.tsvd_method)
+        Q_tld, sig_tld, Z_tld = _tsvd._tsvd(X_unshifted.T, *tsvd_method_tld)
+        Q_hat, sig_hat, Z_hat = _tsvd._tsvd(X_shifted.T, *tsvd_method_hat)
+        # Make initial guesses and iterate
+        Gamma = np.eye(p_theta)
+        # Set scope of other variables
+        U_hat = np.zeros((p_theta, p))
+        P = np.zeros((p_theta, p_theta))
+        self.objective_log_ = []
+        for k in range(self.max_iter):
+            # Formulate Problem A
+            problem_a = self._create_problem_a(Q_tld, sig_tld, Z_tld, Q_hat,
+                                               sig_hat, Z_hat, Gamma)
+            # Solve Problem A
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem A{k}')
+            problem_a.solve(**self.solver_params_)
+            solution_status_a = problem_a.last_solution.claimedStatus
+            if solution_status_a != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_a`. Used last valid `U_hat`. '
+                    f'Solution status: `{solution_status_a}`.')
+                log.warn(self.stop_reason_)
+                break
+            U_hat = np.array(problem_a.get_valued_variable('U_hat'), ndmin=2)
+            P = np.array(problem_a.get_valued_variable('P'), ndmin=2)
+            # Check stopping condition
+            self.objective_log_.append(problem_a.value)
+            if len(self.objective_log_) > 1:
+                diff = np.absolute(self.objective_log_[-2]
+                                   - self.objective_log_[-1])
+                log.info(f'Objective: {self.objective_log_[-1]}; '
+                         f'Change: {diff}.')
+                if (diff < self.iter_tol):
+                    self.stop_reason_ = f'Reached tolerance {diff}'
+                    break
+            # Formulate Problem B
+            problem_b = self._create_problem_b(U_hat, P)
+            # Solve Problem B
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem B{k}')
+            problem_b.solve(**self.solver_params_)
+            solution_status_b = problem_b.last_solution.claimedStatus
+            if solution_status_b != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_b`. Used last valid `U_hat`. '
+                    f'Solution status: `{solution_status_b}`.')
+                log.warn(self.stop_reason_)
+                break
+            Gamma = np.array(problem_b.get_valued_variable('Gamma'), ndmin=2)
+        else:
+            self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
+            log.warn(self.stop_reason_)
+        self.n_iter_ = k + 1
+        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p - p_theta)).T
+        coef = U.T
+        # Only useful for debugging
+        self.Gamma_ = Gamma
+        self.P_ = P
+        return coef
+
+    def _validate_parameters(self) -> None:
+        # Check spectral radius
+        if self.spectral_radius <= 0:
+            raise ValueError('`spectral_radius` must be positive.')
+        if self.max_iter <= 0:
+            raise ValueError('`max_iter` must be positive.')
+        if self.iter_tol <= 0:
+            raise ValueError('`iter_tol` must be positive.')
+
+    def _create_problem_a(
+        self,
+        Q_tld: np.ndarray,
+        sig_tld: np.ndarray,
+        Z_tld: np.ndarray,
+        Q_hat: np.ndarray,
+        sig_hat: np.ndarray,
+        Z_hat: np.ndarray,
+        Gamma: np.ndarray,
+    ) -> picos.Problem:
+        """Create first problem in iteration scheme."""
+        problem_a = LmiDmdc._create_base_problem(Q_tld, sig_tld, Z_tld, Q_hat,
+                                                 sig_hat, Z_hat, self.alpha,
+                                                 self.picos_eps)
+        # Extract information from problem
+        U_hat = problem_a.variables['U_hat']
+        # Get needed sizes
+        p_theta = U_hat.shape[0]
+        # Add new constraints
+        rho_bar_sq = picos.Constant('rho_bar^2', self.spectral_radius**2)
+        Gamma = picos.Constant('Gamma', Gamma)
+        P = picos.SymmetricVariable('P', p_theta)
+        problem_a.add_constraint(P >> self.picos_eps)
+        problem_a.add_constraint(
+            picos.block([
+                [rho_bar_sq * P, U_hat[:, :p_theta].T * Gamma],
+                [Gamma.T * U_hat[:, :p_theta], Gamma + Gamma.T - P],
+            ]) >> self.picos_eps)
+        return problem_a
+
+    def _create_problem_b(self, U_hat: np.ndarray,
+                          P: np.ndarray) -> picos.Problem:
+        """Create second problem in iteration scheme."""
+        # Create optimization problem
+        problem_b = picos.Problem()
+        # Get needed sizes
+        p_theta = U_hat.shape[0]
+        # Create constants
+        rho_bar_sq = picos.Constant('rho_bar^2', self.spectral_radius**2)
+        U = picos.Constant('U', U_hat)
+        P = picos.Constant('P', P)
+        # Create variables
+        Gamma = picos.RealVariable('Gamma', P.shape)
+        # Add constraints
+        problem_b.add_constraint(
+            picos.block([
+                [rho_bar_sq * P, U_hat[:, :p_theta].T * Gamma],
+                [Gamma.T * U_hat[:, :p_theta], Gamma + Gamma.T - P],
+            ]) >> self.picos_eps)
+        # Set objective
+        problem_b.set_objective('find')
+        return problem_b
+
+
+class LmiEdmdHinfReg(LmiRegressor):
+    """LMI-based EDMD with H-infinity norm regularization.
+
+    Optionally supports additional Tikhonov regularization.
+
+    Attributes
+    ----------
+    objective_log_ : list[float]
+        Objective function history.
+    stop_reason_ : str
+        Reason iteration stopped.
+    n_iter_ : int
+        Number of iterations
+    solver_params_ : dict[str, Any]
+        Solver parameters used (defaults merged with constructor input).
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+
+    Examples
+    --------
+    Apply EDMD with H-infinity regularization to mass-spring-damper data
+
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiEdmdHinfReg(
+    ...         alpha=1e-3,
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiEdmdHinfReg(alpha=0.001))
+
+    Apply EDMD with weighted H-infinity regularization to mass-spring-damper
+    data
+
+    >>> from scipy import signal
+    >>> ss_ct = signal.ZerosPolesGain([0], [-4], [1]).to_ss()
+    >>> ss_dt = ss_ct.to_discrete(dt=0.1, method='bilinear')
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiEdmdHinfReg(
+    ...         alpha=1e-3,
+    ...         weight=('pre', ss_dt.A, ss_dt.B, ss_dt.C, ss_dt.D),
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiEdmdHinfReg(alpha=0.001,
+    weight=('pre', array([[0.66666667]]), array([[0.08333333]]),
+    array([[-3.33333333]]), array([[0.83333333]]))))
+    """
+
+    def __init__(
+        self,
+        alpha: float = 1,
+        ratio: float = 1,
+        weight: tuple[str, np.ndarray, np.ndarray, np.ndarray,
+                      np.ndarray] = None,
+        max_iter: int = 100,
+        iter_tol: float = 1e-6,
+        inv_method: str = 'svd',
+        tsvd_method: Union[str, tuple] = 'economy',
+        square_norm: bool = False,
+        picos_eps: float = 0,
+        solver_params: dict[str, Any] = None,
+    ) -> None:
         """Instantiate :class:`LmiEdmdHinfReg`.
 
         Supports cascading the plant with an LTI weighting function.
@@ -768,6 +1248,25 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
             - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
             - ``'svd'`` -- split ``H`` using a singular value decomposition.
 
+         tsvd_method : Union[str, tuple]
+            Singular value truncation method if ``inv_method='svd'``. Very
+            experimental. Possible values are
+
+            - ``'economy'`` or ``('economy', )`` -- do not truncate (use
+              economy SVD),
+            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- truncate using
+              optimal hard truncation [optht]_ with unknown noise,
+            - ``('known_noise', sigma)`` -- truncate using optimal hard
+              truncation [optht]_ with known noise,
+            - ``('cutoff', cutoff)`` -- truncate singular values smaller than a
+              cutoff, or
+            - ``('rank', rank)`` -- truncate singular values to a fixed rank.
+
+        square_norm : bool
+            Square norm H-infinity norm in regularizer. Enabling may increase
+            computation time. Frobenius norm used in Tikhonov regularizer is
+            always squared.
+
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
@@ -782,6 +1281,8 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         self.max_iter = max_iter
         self.iter_tol = iter_tol
         self.inv_method = inv_method
+        self.tsvd_method = tsvd_method
+        self.square_norm = square_norm
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
@@ -799,12 +1300,12 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         p_theta = X_shifted.shape[1]
         # Check that at least one input is present
         if p_theta == p:
-            # If you remove the `{p} features(s)` part of this message,
+            # If you remove the ``{p} features(s)`` part of this message,
             # the scikit-learn estimator_checks will fail!
-            raise ValueError('LmiEdmdHinfReg() requires an input to function.'
-                             '`X` and `y` must therefore have different '
-                             'numbers of features. `X and y` both have '
-                             f'{p} feature(s).')
+            raise ValueError('`LmiEdmdHinfReg()` requires an input to '
+                             'function. `X` and `y` must therefore have '
+                             'different numbers of features. `X` and `y` both '
+                             f'have {p} feature(s).')
         # Set up weights
         if self.weight is None:
             P = np.eye(p_theta)
@@ -844,6 +1345,8 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
             if len(self.objective_log_) > 1:
                 diff = np.absolute(self.objective_log_[-2]
                                    - self.objective_log_[-1])
+                log.info(f'Objective: {self.objective_log_[-1]}; '
+                         f'Change: {diff}.')
                 if (diff < self.iter_tol):
                     self.stop_reason_ = f'Reached tolerance {diff}'
                     break
@@ -875,20 +1378,12 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         return coef
 
     def _validate_parameters(self) -> None:
-        # Check problem creation parameters
-        LmiEdmd._validate_problem_parameters(self.alpha, self.inv_method,
-                                             self.picos_eps)
-        # Check other parameters
-        if self.alpha <= 0:
-            # Check alpha again because ``_validate_problem_parameters`` allows
-            # zero alpha.
-            raise ValueError('`alpha` must be positive.')
         if (self.ratio <= 0) or (self.ratio > 1):
             raise ValueError('`ratio` must be positive and less than one.')
         valid_weight_types = ['pre', 'post']
         if self.weight is not None:
             if self.weight[0] not in valid_weight_types:
-                raise ValueError('First element of the `weight` must be one'
+                raise ValueError('First element of the `weight` must be one '
                                  f'of {valid_weight_types}.')
         if self.max_iter <= 0:
             raise ValueError('`max_iter` must be positive.')
@@ -898,9 +1393,11 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
     def _create_problem_a(self, X_unshifted: np.ndarray, X_shifted: np.ndarray,
                           P: np.ndarray) -> picos.Problem:
         """Create first problem in iteration scheme."""
+        q = X_unshifted.shape[0]
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
-                                                 self.alpha_tikhonov_,
+                                                 self.alpha_tikhonov_ / q,
                                                  self.inv_method,
+                                                 self.tsvd_method,
                                                  self.picos_eps)
         # Extract information from problem
         U = problem_a.variables['U']
@@ -908,12 +1405,11 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         objective = problem_a.objective.function
         # Get needed sizes
         p_theta = U.shape[0]
-        q = X_unshifted.shape[0]
         # Add new constraint
         P = picos.Constant('P', P)
         gamma = picos.RealVariable('gamma', 1)
         # Get weighted state space matrices
-        A, B, C, D = self._create_ss(U)
+        A, B, C, D = _create_ss(U, self.weight)
         gamma_33 = picos.diag(gamma, D.shape[1])
         gamma_44 = picos.diag(gamma, D.shape[0])
         problem_a.add_constraint(
@@ -924,8 +1420,14 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
                 [0,          C * P.T,  D,         gamma_44],
             ]) >> self.picos_eps)  # yapf: disable
         # Add term to cost function
-        alpha_scaled = picos.Constant('alpha_inf/q', self.alpha_other_ / q)
-        objective += alpha_scaled * gamma
+        if self.alpha_other_ <= 0:
+            raise ValueError('`alpha_other_` must be positive.')
+        alpha_scaled = picos.Constant('alpha_scaled_inf',
+                                      self.alpha_other_ / q)
+        if self.square_norm:
+            objective += alpha_scaled * gamma**2
+        else:
+            objective += alpha_scaled * gamma
         problem_a.set_objective(direction, objective)
         return problem_a
 
@@ -940,7 +1442,7 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         U = picos.Constant('U', U)
         gamma = picos.Constant('gamma', gamma)
         # Get weighted state space matrices
-        A, B, C, D = self._create_ss(U)
+        A, B, C, D = _create_ss(U, self.weight)
         # Create variables
         P = picos.SymmetricVariable('P', A.shape[0])
         # Add constraints
@@ -958,81 +1460,786 @@ class LmiEdmdHinfReg(koopman_pipeline.KoopmanRegressor):
         problem_b.set_objective('find')
         return problem_b
 
-    def _create_ss(
-        self, U: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """Augment Koopman system with weight if present.
+
+class LmiDmdcHinfReg(LmiRegressor):
+    """LMI-based DMDc with H-infinity norm regularization.
+
+    Optionally supports additional Tikhonov regularization.
+
+    Attributes
+    ----------
+    objective_log_ : list[float]
+        Objective function history.
+    stop_reason_ : str
+        Reason iteration stopped.
+    n_iter_ : int
+        Number of iterations
+    solver_params_ : dict[str, Any]
+        Solver parameters used (defaults merged with constructor input).
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    coef_ : np.ndarray
+        Fit coefficient matrix
+
+    Examples
+    --------
+    Apply DMDc with H-infinity regularization to mass-spring-damper data
+
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiDmdcHinfReg(
+    ...         alpha=1e-3,
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiDmdcHinfReg(alpha=0.001))
+
+    Apply reduced-order DMDc with weighted H-infinity regularization to
+    mass-spring-damper data
+
+    >>> from scipy import signal
+    >>> ss_ct = signal.ZerosPolesGain([0], [-4], [1]).to_ss()
+    >>> ss_dt = ss_ct.to_discrete(dt=0.1, method='bilinear')
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiDmdcHinfReg(
+    ...         alpha=1e-3,
+    ...         weight=('pre', ss_dt.A, ss_dt.B, ss_dt.C, ss_dt.D),
+    ...         tsvd_method=('cutoff', 1e-3, 1e-3),
+    ...     )
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiDmdcHinfReg(alpha=0.001,
+    tsvd_method=('cutoff', 1e-03, 1e-03), weight=('pre',
+    array([[0.66666667]]), array([[0.08333333]]), array([[-3.33333333]]),
+    array([[0.83333333]]))))
+    """
+
+    def __init__(
+        self,
+        alpha: float = 1,
+        ratio: float = 1,
+        weight: tuple[str, np.ndarray, np.ndarray, np.ndarray,
+                      np.ndarray] = None,
+        max_iter: int = 100,
+        iter_tol: float = 1e-6,
+        tsvd_method: Union[str, tuple] = 'economy',
+        square_norm: bool = False,
+        picos_eps: float = 0,
+        solver_params: dict[str, Any] = None,
+    ) -> None:
+        """Instantiate :class:`LmiDmdcHinfReg`.
+
+        Supports cascading the plant with an LTI weighting function.
 
         Parameters
         ----------
-        U : np.ndarray
-            Koopman matrix containing ``A`` and ``B`` concatenated
-            horizontally.
+        alpha : float
+            Regularization coefficient. Cannot be zero.
 
-        Returns
-        -------
-        tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-            Weighted state space matrices (``A``, ``B``, ``C``, ``D``).
+        ratio : float
+            Ratio of H-infinity norm to use in mixed regularization. If
+            ``ratio=1``, no Tikhonov regularization is used. Cannot be zero.
+
+        weight : tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+            Tuple containing weight type (``'pre'`` or ``'post'``), and the
+            weight state space matrices (``A``, ``B``, ``C``, and ``D``). If
+            ``None``, no weighting is used.
+
+        max_iter : int
+            Maximum number of solver iterations.
+
+        iter_tol : float
+            Absolute tolerance for change in objective function value. When the
+            change in objective function is less than ``iter_tol``, the
+            iteration will stop.
+
+         tsvd_method : Union[str, tuple]
+            Singular value truncation method used to change basis. Parameters
+            for ``X_unshifted`` and ``X_shifted`` are specified independently.
+            Possible values are
+
+            - ``'economy'`` or ``('economy', )`` -- do not truncate (use
+              economy SVD),
+            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- truncate using
+              optimal hard truncation [optht]_ with unknown noise,
+            - ``('known_noise', sigma_unshifted, sigma_shifted)`` -- truncate
+              using optimal hard truncation [optht]_ with known noise,
+            - ``('cutoff', cutoff_unshifted, cutoff_shifted)`` -- truncate
+              singular values smaller than a cutoff, or
+            - ``('rank', rank_unshifted, rank_shifted)`` -- truncate singular
+              values to a fixed rank.
+
+        square_norm : bool
+            Square norm H-infinity norm in regularizer. Enabling may increase
+            computation time. Frobenius norm used in Tikhonov regularizer is
+            always squared.
+
+        picos_eps : float
+            Tolerance used for strict LMIs. If nonzero, should be larger than
+            solver tolerance.
+
+        solver_params : dict[str, Any]
+            Parameters passed to PICOS :func:`picos.Problem.solve()`. By
+            default, allows chosen solver to select its own tolerances.
         """
-        p_theta = U.shape[0]
+        self.alpha = alpha
+        self.ratio = ratio
+        self.weight = weight
+        self.max_iter = max_iter
+        self.iter_tol = iter_tol
+        self.tsvd_method = tsvd_method
+        self.square_norm = square_norm
+        self.picos_eps = picos_eps
+        self.solver_params = solver_params
+
+    def _fit_regressor(self, X_unshifted: np.ndarray,
+                       X_shifted: np.ndarray) -> np.ndarray:
+        # Set solver parameters
+        self.solver_params_ = self._default_solver_params.copy()
+        if self.solver_params is not None:
+            self.solver_params_.update(self.solver_params)
+        # Set regularization coefficients
+        self.alpha_tikhonov_ = self.alpha * (1 - self.ratio)
+        self.alpha_other_ = self.alpha * self.ratio
+        # Get needed sizes
+        p = X_unshifted.shape[1]
+        p_theta = X_shifted.shape[1]
+        # Check that at least one input is present
+        if p_theta == p:
+            # If you remove the ``{p} features(s)`` part of this message,
+            # the scikit-learn estimator_checks will fail!
+            raise ValueError('`LmiDmdcHinfReg()` requires an input to '
+                             'function. `X` and `y` must therefore have '
+                             'different numbers of features. `X` and `y` both '
+                             f'have {p} feature(s).')
+        # Compute SVDs
+        tsvd_method_tld, tsvd_method_hat = regressors.Dmdc._get_tsvd_methods(
+            self.tsvd_method)
+        Q_tld, sig_tld, Z_tld = _tsvd._tsvd(X_unshifted.T, *tsvd_method_tld)
+        Q_hat, sig_hat, Z_hat = _tsvd._tsvd(X_shifted.T, *tsvd_method_hat)
+        r = Q_tld.shape[1]
+        r_theta = Q_hat.shape[1]
+        # Set up weights
         if self.weight is None:
-            A = U[:, :p_theta]
-            B = U[:, p_theta:]
-            C = picos.Constant('C', np.eye(p_theta))
-            D = picos.Constant('D', np.zeros((C.shape[0], B.shape[1])))
+            P = np.eye(r_theta)
+        elif self.weight[0] == 'pre':
+            n_u = r - r_theta
+            P = np.eye(r_theta + n_u * self.weight[1].shape[0])
+        elif self.weight[0] == 'post':
+            n_x = r_theta
+            P = np.eye(r_theta + n_x * self.weight[1].shape[0])
         else:
-            Am = U[:, :p_theta]
-            Bm = U[:, p_theta:]
-            Cm = picos.Constant('Cm', np.eye(p_theta))
-            Dm = picos.Constant('Dm', np.zeros((Cm.shape[0], Bm.shape[1])))
-            if self.weight_type_ == 'pre':
-                n_u = Bm.shape[1]
-                Aw_blk = linalg.block_diag(*([self.weight[1]] * n_u))
-                Bw_blk = linalg.block_diag(*([self.weight[2]] * n_u))
-                Cw_blk = linalg.block_diag(*([self.weight[3]] * n_u))
-                Dw_blk = linalg.block_diag(*([self.weight[4]] * n_u))
-                Aw = picos.Constant('Aw', Aw_blk)
-                Bw = picos.Constant('Bw', Bw_blk)
-                Cw = picos.Constant('Cw', Cw_blk)
-                Dw = picos.Constant('Dw', Dw_blk)
-                A = picos.block([
-                    [Aw, 0],
-                    [Bm * Cw, Am],
-                ])
-                B = picos.block([
-                    [Bw],
-                    [Bm * Dw],
-                ])
-                C = picos.block([
-                    [Dm * Cw, Cm],
-                ])
-                D = Dm * Dw
-            elif self.weight_type_ == 'post':
-                n_x = Bm.shape[0]
-                Aw_blk = linalg.block_diag(*([self.weight[1]] * n_x))
-                Bw_blk = linalg.block_diag(*([self.weight[2]] * n_x))
-                Cw_blk = linalg.block_diag(*([self.weight[3]] * n_x))
-                Dw_blk = linalg.block_diag(*([self.weight[4]] * n_x))
-                Aw = picos.Constant('Aw', Aw_blk)
-                Bw = picos.Constant('Bw', Bw_blk)
-                Cw = picos.Constant('Cw', Cw_blk)
-                Dw = picos.Constant('Dw', Dw_blk)
-                A = picos.block([
-                    [Am, 0],
-                    [Bw * Cm, Aw],
-                ])
-                B = picos.block([
-                    [Bm],
-                    [Bw * Dm],
-                ])
-                C = picos.block([
-                    [Dw * Cm, Cw],
-                ])
-                D = Dw * Dm
-            else:
-                # Already checked, should not get here.
-                assert False
-        return (A, B, C, D)
+            # Already checked. Should never get here.
+            assert False
+        # Solve optimization problem iteratively
+        U_hat = np.zeros((r_theta, r))
+        gamma = np.zeros((1, ))
+        self.objective_log_ = []
+        for k in range(self.max_iter):
+            # Formulate Problem A
+            problem_a = self._create_problem_a(Q_tld, sig_tld, Z_tld, Q_hat,
+                                               sig_hat, Z_hat, P)
+            # Solve Problem A
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem A{k}')
+            problem_a.solve(**self.solver_params_)
+            solution_status_a = problem_a.last_solution.claimedStatus
+            if solution_status_a != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_a`. Used last valid `U_hat`. '
+                    f'Solution status: `{solution_status_a}`.')
+                log.warn(self.stop_reason_)
+                break
+            U_hat = np.array(problem_a.get_valued_variable('U_hat'), ndmin=2)
+            gamma = np.array(problem_a.get_valued_variable('gamma'))
+            self.objective_log_.append(problem_a.value)
+            if len(self.objective_log_) > 1:
+                diff = np.absolute(self.objective_log_[-2]
+                                   - self.objective_log_[-1])
+                log.info(f'Objective: {self.objective_log_[-1]}; '
+                         f'Change: {diff}.')
+                if (diff < self.iter_tol):
+                    self.stop_reason_ = f'Reached tolerance {diff}'
+                    break
+            # Formulate Problem B
+            problem_b = self._create_problem_b(U_hat, gamma)
+            # Solve Problem B
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem B{k}')
+            problem_b.solve(**self.solver_params_)
+            solution_status_b = problem_b.last_solution.claimedStatus
+            if solution_status_b != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_b`. Used last valid `U_hat`. '
+                    'Solution status: f`{solution_status_b}`.')
+                log.warn(self.stop_reason_)
+                break
+            P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
+        else:
+            self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
+            log.warn(self.stop_reason_)
+        self.n_iter_ = k + 1
+        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p - p_theta)).T
+        coef = U.T
+        # Only useful for debugging
+        self.P_ = P
+        self.gamma_ = gamma
+        return coef
+
+    def _validate_parameters(self) -> None:
+        if (self.ratio <= 0) or (self.ratio > 1):
+            raise ValueError('`ratio` must be positive and less than one.')
+        valid_weight_types = ['pre', 'post']
+        if self.weight is not None:
+            if self.weight[0] not in valid_weight_types:
+                raise ValueError('First element of the `weight` must be one'
+                                 f'of {valid_weight_types}.')
+        if self.max_iter <= 0:
+            raise ValueError('`max_iter` must be positive.')
+        if self.iter_tol <= 0:
+            raise ValueError('`iter_tol` must be positive.')
+
+    def _create_problem_a(
+        self,
+        Q_tld: np.ndarray,
+        sig_tld: np.ndarray,
+        Z_tld: np.ndarray,
+        Q_hat: np.ndarray,
+        sig_hat: np.ndarray,
+        Z_hat: np.ndarray,
+        P: np.ndarray,
+    ) -> picos.Problem:
+        """Create first problem in iteration scheme."""
+        problem_a = LmiDmdc._create_base_problem(Q_tld, sig_tld, Z_tld, Q_hat,
+                                                 sig_hat, Z_hat,
+                                                 self.alpha_tikhonov_,
+                                                 self.picos_eps)
+        # Extract information from problem
+        U_hat = problem_a.variables['U_hat']
+        direction = problem_a.objective.direction
+        objective = problem_a.objective.function
+        # Get needed sizes
+        p_theta = U_hat.shape[0]
+        # Add new constraint
+        P = picos.Constant('P', P)
+        gamma = picos.RealVariable('gamma', 1)
+        # Get weighted state space matrices
+        A, B, C, D = _create_ss(U_hat, self.weight)
+        gamma_33 = picos.diag(gamma, D.shape[1])
+        gamma_44 = picos.diag(gamma, D.shape[0])
+        problem_a.add_constraint(
+            picos.block([
+                [P,          A * P,    B,         0],
+                [P.T * A.T,  P,        0,         P * C.T],
+                [B.T,        0,        gamma_33,  D.T],
+                [0,          C * P.T,  D,         gamma_44],
+            ]) >> self.picos_eps)  # yapf: disable
+        # Add term to cost function
+        if self.alpha_other_ <= 0:
+            raise ValueError('`alpha_other_` must be positive.')
+        alpha_scaled = picos.Constant('alpha_scaled_inf', self.alpha_other_)
+        if self.square_norm:
+            objective += alpha_scaled * gamma**2
+        else:
+            objective += alpha_scaled * gamma
+        problem_a.set_objective(direction, objective)
+        return problem_a
+
+    def _create_problem_b(self, U_hat: np.ndarray,
+                          gamma: np.ndarray) -> picos.Problem:
+        """Create second problem in iteration scheme."""
+        # Create optimization problem
+        problem_b = picos.Problem()
+        # Get needed sizes
+        p_theta = U_hat.shape[0]
+        # Create constants
+        U_hat = picos.Constant('U_hat', U_hat)
+        gamma = picos.Constant('gamma', gamma)
+        # Get weighted state space matrices
+        A, B, C, D = _create_ss(U_hat, self.weight)
+        # Create variables
+        P = picos.SymmetricVariable('P', A.shape[0])
+        # Add constraints
+        problem_b.add_constraint(P >> self.picos_eps)
+        gamma_33 = picos.diag(gamma, D.shape[1])
+        gamma_44 = picos.diag(gamma, D.shape[0])
+        problem_b.add_constraint(
+            picos.block([
+                [P,          A * P,    B,         0],
+                [P.T * A.T,  P,        0,         P * C.T],
+                [B.T,        0,        gamma_33,  D.T],
+                [0,          C * P.T,  D,         gamma_44],
+            ]) >> self.picos_eps)  # yapf: disable
+        # Set objective
+        problem_b.set_objective('find')
+        return problem_b
+
+
+class LmiEdmdDissipativityConstr(LmiRegressor):
+    """LMI-based EDMD with dissipativity constraint.
+
+    Optionally supports additional Tikhonov regularization.
+
+    Originally proposed in [dissip]_.
+
+    Attributes
+    ----------
+    objective_log_ : list[float]
+        Objective function history.
+    stop_reason_ : str
+        Reason iteration stopped.
+    n_iter_ : int
+        Number of iterations
+    solver_params_ : dict[str, Any]
+        Solver parameters used (defaults merged with constructor input).
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+
+    Examples
+    --------
+    Apply dissipativity-constrainted EDMD to mass-spring-damper data
+
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.lmi_regressors.LmiEdmdDissipativityConstr()
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=LmiEdmdDissipativityConstr())
+    """
+
+    def __init__(
+        self,
+        alpha: float = 1,
+        supply_rate: np.ndarray = None,
+        max_iter: int = 100,
+        iter_tol: float = 1e-6,
+        inv_method: str = 'svd',
+        tsvd_method: Union[str, tuple] = 'economy',
+        picos_eps: float = 0,
+        solver_params: dict[str, Any] = None,
+    ) -> None:
+        """Instantiate :class:`LmiEdmdDissipativityConstr`.
+
+        The supply rate ``s(u, y)`` is specified by ``Xi``::
+
+            s(u, y) = -[y, u] Xi [y; u]
+
+        Some example supply rate matrices ``Xi`` are::
+
+            Xi = [0, -1; -1, 0] -> passivity,
+            Xi = [1/gamma, 0; 0, -gamma] -> bounded L2 gain of gamma.
+
+        Parameters
+        ----------
+        alpha : float
+            Regularization coefficient. Cannot be zero.
+
+        supply_rate : np.ndarray
+            Supply rate matrix ``Xi``, where ``s(u, y) = -[y, u] Xi [y; u]``.
+            If ``None``, the an L2 gain of ``gamma=1`` is imposed.
+
+        max_iter : int
+            Maximum number of solver iterations.
+
+        iter_tol : float
+            Absolute tolerance for change in objective function value. When the
+            change in objective function is less than ``iter_tol``, the
+            iteration will stop.
+
+        inv_method : str
+            Method to handle or avoid inversion of the ``H`` matrix when
+            forming the LMI problem. Possible values are
+
+            - ``'inv'`` -- invert ``H`` directly,
+            - ``'pinv'`` -- apply the Moore-Penrose pseudoinverse to ``H``,
+            - ``'eig'`` -- split ``H`` using an eigendecomposition,
+            - ``'ldl'`` -- split ``H`` using an LDL decomposition,
+            - ``'chol'`` -- split ``H`` using a Cholesky decomposition,
+            - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
+            - ``'svd'`` -- split ``H`` using a singular value decomposition.
+
+         tsvd_method : Union[str, tuple]
+            Singular value truncation method if ``inv_method='svd'``. Very
+            experimental. Possible values are
+
+            - ``'economy'`` or ``('economy', )`` -- do not truncate (use
+              economy SVD),
+            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- truncate using
+              optimal hard truncation [optht]_ with unknown noise,
+            - ``('known_noise', sigma)`` -- truncate using optimal hard
+              truncation [optht]_ with known noise,
+            - ``('cutoff', cutoff)`` -- truncate singular values smaller than a
+              cutoff, or
+            - ``('rank', rank)`` -- truncate singular values to a fixed rank.
+
+        picos_eps : float
+            Tolerance used for strict LMIs. If nonzero, should be larger than
+            solver tolerance.
+
+        solver_params : dict[str, Any]
+            Parameters passed to PICOS :func:`picos.Problem.solve()`. By
+            default, allows chosen solver to select its own tolerances.
+        """
+        self.alpha = alpha
+        self.supply_rate = supply_rate
+        self.max_iter = max_iter
+        self.iter_tol = iter_tol
+        self.inv_method = inv_method
+        self.tsvd_method = tsvd_method
+        self.picos_eps = picos_eps
+        self.solver_params = solver_params
+
+    def _fit_regressor(self, X_unshifted: np.ndarray,
+                       X_shifted: np.ndarray) -> np.ndarray:
+        # Set solver parameters
+        self.solver_params_ = self._default_solver_params.copy()
+        if self.solver_params is not None:
+            self.solver_params_.update(self.solver_params)
+        # Set regularization coefficients
+        # Get needed sizes
+        p = X_unshifted.shape[1]
+        p_theta = X_shifted.shape[1]
+        # Check that at least one input is present
+        if p_theta == p:
+            # If you remove the ``{p} features(s)`` part of this message,
+            # the scikit-learn estimator_checks will fail!
+            raise ValueError('`LmiEdmdDissipativityConstr()` requires an '
+                             'input to function. `X` and `y` must therefore '
+                             'have different numbers of features. `X` and `y` '
+                             f'both have {p} feature(s).')
+        # Initialize ``P``
+        P = np.eye(p_theta)
+        # Solve optimization problem iteratively
+        U = np.zeros((p_theta, p))
+        self.objective_log_ = []
+        for k in range(self.max_iter):
+            # Formulate Problem A
+            problem_a = self._create_problem_a(X_unshifted, X_shifted, P)
+            # Solve Problem A
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem A{k}')
+            problem_a.solve(**self.solver_params_)
+            solution_status_a = problem_a.last_solution.claimedStatus
+            if solution_status_a != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_a`. Used last valid `U`. '
+                    f'Solution status: `{solution_status_a}`.')
+                log.warn(self.stop_reason_)
+                break
+            U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
+            self.objective_log_.append(problem_a.value)
+            if len(self.objective_log_) > 1:
+                diff = np.absolute(self.objective_log_[-2]
+                                   - self.objective_log_[-1])
+                log.info(f'Objective: {self.objective_log_[-1]}; '
+                         f'Change: {diff}.')
+                if (diff < self.iter_tol):
+                    self.stop_reason_ = f'Reached tolerance {diff}'
+                    break
+            # Formulate Problem B
+            problem_b = self._create_problem_b(U)
+            # Solve Problem B
+            if polite_stop:
+                self.stop_reason_ = 'User requested stop.'
+                log.warn(self.stop_reason_)
+                break
+            log.info(f'Solving problem B{k}')
+            problem_b.solve(**self.solver_params_)
+            solution_status_b = problem_b.last_solution.claimedStatus
+            if solution_status_b != 'optimal':
+                self.stop_reason_ = (
+                    'Unable to solve `problem_b`. Used last valid `U`. '
+                    'Solution status: f`{solution_status_b}`.')
+                log.warn(self.stop_reason_)
+                break
+            P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
+        else:
+            self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
+            log.warn(self.stop_reason_)
+        self.n_iter_ = k + 1
+        coef = U.T
+        # Only useful for debugging
+        self.P_ = P
+        return coef
+
+    def _validate_parameters(self) -> None:
+        # Check other parameters
+        if self.max_iter <= 0:
+            raise ValueError('`max_iter` must be positive.')
+        if self.iter_tol <= 0:
+            raise ValueError('`iter_tol` must be positive.')
+
+    def _create_problem_a(self, X_unshifted: np.ndarray, X_shifted: np.ndarray,
+                          P: np.ndarray) -> picos.Problem:
+        """Create first problem in iteration scheme."""
+        q = X_unshifted.shape[0]
+        problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
+                                                 self.alpha / q,
+                                                 self.inv_method,
+                                                 self.tsvd_method,
+                                                 self.picos_eps)
+        # Extract information from problem
+        U = problem_a.variables['U']
+        # Get needed sizes
+        p_theta, p = U.shape
+        # Add new constraint
+        P = picos.Constant('P', P)
+        # Get weighted state space matrices
+        A, B, C, D = _create_ss(U, None)
+        # Add dissipativity constraint
+        if self.supply_rate is None:
+            n_u = p - p_theta
+            Xi = np.block([
+                [np.eye(p_theta), np.zeros((p_theta, n_u))],
+                [np.zeros((n_u, p_theta)), -np.eye(n_u)],
+            ])
+        else:
+            Xi = self.supply_rate
+        Xi11 = picos.Constant('Xi_11', Xi[:p_theta, :p_theta])
+        Xi12 = picos.Constant('Xi_12', Xi[:p_theta, p_theta:])
+        Xi22 = picos.Constant('Xi_22', Xi[p_theta:, p_theta:])
+        problem_a.add_constraint(
+            picos.block([
+                [P - C.T * Xi11 * C, -C.T * Xi12, A.T * P],
+                [-Xi12.T * C, -Xi22, B.T * P],
+                [P * A, P * B, P],
+            ]) >> self.picos_eps)
+        return problem_a
+
+    def _create_problem_b(self, U: np.ndarray) -> picos.Problem:
+        """Create second problem in iteration scheme."""
+        # Create optimization problem
+        problem_b = picos.Problem()
+        # Get needed sizes
+        p_theta, p = U.shape
+        # Create constants
+        U = picos.Constant('U', U)
+        # Get weighted state space matrices
+        A, B, C, D = _create_ss(U, None)
+        # Create variables
+        P = picos.SymmetricVariable('P', A.shape[0])
+        # Add constraints
+        problem_b.add_constraint(P >> self.picos_eps)
+        # Add dissipativity constraint
+        if self.supply_rate is None:
+            n_u = p - p_theta
+            Xi = np.block([
+                [np.eye(p_theta), np.zeros((p_theta, n_u))],
+                [np.zeros((n_u, p_theta)), -np.eye(n_u)],
+            ])
+        else:
+            Xi = self.supply_rate
+        Xi11 = picos.Constant('Xi_11', Xi[:p_theta, :p_theta])
+        Xi12 = picos.Constant('Xi_12', Xi[:p_theta, p_theta:])
+        Xi22 = picos.Constant('Xi_22', Xi[p_theta:, p_theta:])
+        problem_b.add_constraint(P >> self.picos_eps)
+        problem_b.add_constraint(
+            picos.block([
+                [P - C.T * Xi11 * C, -C.T * Xi12, A.T * P],
+                [-Xi12.T * C, -Xi22, B.T * P],
+                [P * A, P * B, P],
+            ]) >> self.picos_eps)
+        # Set objective
+        problem_b.set_objective('find')
+        return problem_b
+
+
+def _create_ss(
+    U: np.ndarray,
+    weight: Optional[tuple[str, np.ndarray, np.ndarray, np.ndarray,
+                           np.ndarray]],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Augment Koopman system with weight if present.
+
+    Parameters
+    ----------
+    U : np.ndarray
+        Koopman matrix containing ``A`` and ``B`` concatenated
+        horizontally.
+    weight : Optional[tuple[str, np.ndarray, np.ndarray, np.ndarray,
+                            np.ndarray]]
+        Tuple containing weight type (``'pre'`` or ``'post'``), and the
+        weight state space matrices (``A``, ``B``, ``C``, and ``D``). If
+        ``None``, no weighting is used.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        Weighted state space matrices (``A``, ``B``, ``C``, ``D``).
+    """
+    p_theta = U.shape[0]
+    if weight is None:
+        A = U[:, :p_theta]
+        B = U[:, p_theta:]
+        C = picos.Constant('C', np.eye(p_theta))
+        D = picos.Constant('D', np.zeros((C.shape[0], B.shape[1])))
+    else:
+        Am = U[:, :p_theta]
+        Bm = U[:, p_theta:]
+        Cm = picos.Constant('Cm', np.eye(p_theta))
+        Dm = picos.Constant('Dm', np.zeros((Cm.shape[0], Bm.shape[1])))
+        if weight[0] == 'pre':
+            n_u = Bm.shape[1]
+            Aw_blk = linalg.block_diag(*([weight[1]] * n_u))
+            Bw_blk = linalg.block_diag(*([weight[2]] * n_u))
+            Cw_blk = linalg.block_diag(*([weight[3]] * n_u))
+            Dw_blk = linalg.block_diag(*([weight[4]] * n_u))
+            Aw = picos.Constant('Aw', Aw_blk)
+            Bw = picos.Constant('Bw', Bw_blk)
+            Cw = picos.Constant('Cw', Cw_blk)
+            Dw = picos.Constant('Dw', Dw_blk)
+            A = picos.block([
+                [Aw, 0],
+                [Bm * Cw, Am],
+            ])
+            B = picos.block([
+                [Bw],
+                [Bm * Dw],
+            ])
+            C = picos.block([
+                [Dm * Cw, Cm],
+            ])
+            D = Dm * Dw
+        elif weight[0] == 'post':
+            n_x = Bm.shape[0]
+            Aw_blk = linalg.block_diag(*([weight[1]] * n_x))
+            Bw_blk = linalg.block_diag(*([weight[2]] * n_x))
+            Cw_blk = linalg.block_diag(*([weight[3]] * n_x))
+            Dw_blk = linalg.block_diag(*([weight[4]] * n_x))
+            Aw = picos.Constant('Aw', Aw_blk)
+            Bw = picos.Constant('Bw', Bw_blk)
+            Cw = picos.Constant('Cw', Cw_blk)
+            Dw = picos.Constant('Dw', Dw_blk)
+            A = picos.block([
+                [Am, 0],
+                [Bw * Cm, Aw],
+            ])
+            B = picos.block([
+                [Bm],
+                [Bw * Dm],
+            ])
+            C = picos.block([
+                [Dw * Cm, Cw],
+            ])
+            D = Dw * Dm
+        else:
+            # Already checked, should not get here.
+            assert False
+    return (A, B, C, D)
+
+
+def _add_twonorm(problem: picos.Problem, U: picos.RealVariable,
+                 alpha_other: float, square_norm: bool,
+                 picos_eps: float) -> picos.Problem:
+    """Add matrix two norm regularizer to an optimization problem.
+
+    Parameters
+    ----------
+    problem : picos.Problem
+        Optimization problem.
+    U : picos.RealVariable
+        Koopman matrix variable.
+    alpha_other : float
+        Regularization coefficient (already divided by ``q`` if applicable).
+    square_norm : bool
+        Square matrix two-norm.
+    picos_eps : float
+        Tolerance used for strict LMIs.
+
+    Returns
+    -------
+    picos.Problem
+        Optimization problem with regularizer added.
+    """
+    # Validate ``alpha``
+    if alpha_other <= 0:
+        raise ValueError('Parameter `alpha` must be positive.')
+    # Extract information from problem
+    direction = problem.objective.direction
+    objective = problem.objective.function
+    # Get needed sizes
+    p_theta, p = U.shape
+    # Add new constraint
+    gamma = picos.RealVariable('gamma', 1)
+    problem.add_constraint(
+        picos.block([[picos.diag(gamma, p), U.T],
+                     [U, picos.diag(gamma, p_theta)]]) >> 0)
+    # Add term to cost function
+    alpha_scaled = picos.Constant('alpha_scaled_2', alpha_other)
+    if square_norm:
+        objective += alpha_scaled * gamma**2
+    else:
+        objective += alpha_scaled * gamma
+    problem.set_objective(direction, objective)
+    return problem
+
+
+def _add_nuclear(problem: picos.Problem, U: picos.RealVariable,
+                 alpha_other: float, square_norm: bool,
+                 picos_eps: float) -> picos.Problem:
+    """Add nuclear norm regularizer to an optimization problem.
+
+    Parameters
+    ----------
+    problem : picos.Problem
+        Optimization problem.
+    U : picos.RealVariable
+        Koopman matrix variable.
+    alpha_other : float
+        Regularization coefficient (already divided by ``q`` if applicable).
+    square_norm : bool
+        Square nuclear norm.
+    picos_eps : float
+        Tolerance used for strict LMIs.
+
+    Returns
+    -------
+    picos.Problem
+        Optimization problem with regularizer added.
+    """
+    # Validate ``alpha``
+    if alpha_other <= 0:
+        raise ValueError('Parameter `alpha` must be positive.')
+    # Extract information from problem
+    direction = problem.objective.direction
+    objective = problem.objective.function
+    # Get needed sizes
+    p_theta, p = U.shape
+    # Add new constraint
+    gamma = picos.RealVariable('gamma', 1)
+    W_1 = picos.SymmetricVariable('W_1', (p_theta, p_theta))
+    W_2 = picos.SymmetricVariable('W_2', (p, p))
+    problem.add_constraint(picos.trace(W_1) + picos.trace(W_2) <= 2 * gamma)
+    problem.add_constraint(picos.block([[W_1, U], [U.T, W_2]]) >> 0)
+    # Add term to cost function
+    alpha_scaled = picos.Constant('alpha_scaled_*', alpha_other)
+    if square_norm:
+        objective += alpha_scaled * gamma**2
+    else:
+        objective += alpha_scaled * gamma
+    problem.set_objective(direction, objective)
+    return problem
 
 
 @memory.cache
@@ -1050,7 +2257,7 @@ def _calc_c_G_H(
     X_shifted: np.ndarray
         Shifted data matrix.
     alpha: float
-        Tikhonov regularization coefficient.
+        Tikhonov regularization coefficient (divided by ``q``).
 
     Returns
     -------
@@ -1065,7 +2272,9 @@ def _calc_c_G_H(
     # Compute G and Tikhonov-regularized H
     G = (Theta_p @ Psi.T) / q
     H_unreg = (Psi @ Psi.T) / q
-    H_reg = H_unreg + (alpha * np.eye(p)) / q
+    # ``alpha`` is already divided by ``q`` to be consistent with ``G`` and
+    # ``H``
+    H_reg = H_unreg + (alpha * np.eye(p))
     # Compute c
     c = np.trace(Theta_p @ Theta_p.T) / q
     # Check condition number and rank of G and H
@@ -1140,29 +2349,52 @@ def _calc_sqrtH(H: np.ndarray) -> np.ndarray:
 
 
 @memory.cache
-def _calc_QSig(X: np.ndarray, alpha: float, r: int = None) -> np.ndarray:
+def _calc_QSig(X: np.ndarray, alpha: float,
+               tsvd_method: Union[str, tuple]) -> np.ndarray:
     """Split ``H`` using the truncated SVD of ``X``.
+
+    ``H`` is defined as:
+
+        H = 1/q * X_unshifted @ X_unshifted.T
+
+    Consider the SVD::
+
+        X_unshifted = Q @ Sig @ V.T
+
+    Without regularization, ``H`` is then::
+
+        H = 1/q * Q @ Sig**2 @ Q.T
+          = Q @ (Sig**2 / q) @ Q.T
+          = (Q @ sqrt(Sig**2 / q)) @ (sqrt(Sig**2 / q) @ Q.T)
+
+    With regularization::
+
+        H = (Q @ sqrt(Sig**2 / q + alpha)) @ (sqrt(Sig**2 / q + alpha) @ Q.T)
 
     Parameters
     ----------
     X : np.ndarray
-        ``X``, where ``H = X @ X.T``.
+        ``X``, where ``H = 1/q * X @ X.T``.
     alpha : float
-        Tikhonov regularization coefficient.
-    r : int
-        Singular value truncation index.
+        Tikhonov regularization coefficient (divided by ``q``).
+     tsvd_method : Union[str, tuple]
+        Singular value truncation method if ``inv_method='svd'``.
+
+    Returns
+    -------
+    np.ndarray
+        Split ``H`` matrix.
     """
     # SVD
-    Q, s, _ = linalg.svd(X.T, full_matrices=False)
-    # Truncate
-    Qr = Q[:, :r]
-    sr = s[:r]
+    if type(tsvd_method) is not tuple:
+        tsvd_method = (tsvd_method, )
+    Qr, sr, _ = _tsvd._tsvd(X.T, *tsvd_method)
     # Regularize
     q = X.shape[0]
-    sr_reg = np.sqrt((sr**2 + alpha) / q)
+    # ``alpha`` is already divided by ``q`` to be consistent with ``G`` and
+    # ``H``.
+    sr_reg = np.sqrt((sr**2 / q) + alpha)
     Sr_reg = np.diag(sr_reg)
     # Multiply with Q and return
     QSig = Qr @ Sr_reg
-    log.info(f'_calc_QSig() stats: r={r}, alpha={alpha}, len(s)={len(s)}, '
-             f's[0]={s[0]}, s[-1]={s[-1]}')
     return QSig

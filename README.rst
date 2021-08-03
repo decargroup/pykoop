@@ -1,8 +1,3 @@
-.. pykoop documentation master file, created by
-   sphinx-quickstart on Tue Jun 15 16:46:12 2021.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 pykoop
 ======
 
@@ -129,31 +124,6 @@ Library      Unique features
 References
 ==========
 
-.. [optht] Matan Gavish and David L. Donoho. "The optimal hard threshold for
-   singular values is 4/sqrt(3)." IEEE Transactions on Information Theory 60.8
-   (2014): 5040-5053. http://arxiv.org/abs/1305.5870
-.. [dissip] Keita Hara, Masaki Inoue, and Noboru Sebe. "Learning Koopman
-   operator under dissipativity constraints." arXiv:1911.03884v1 [eess.SY]
-   (2019). https://arxiv.org/abs/1911.03884v1
 .. [lmikoop] Steven Dahdah and James Richard Forbes. "Linear matrix inequality
    approaches to Koopman operator approximation." arXiv:2102.03613 [eess.SY]
    (2021). https://arxiv.org/abs/2102.03613
-.. [bilinear] Daniel Bruder, Xun Fu, and Ram Vasudevan. "Advantages of bilinear
-   Koopman realizations for the modeling and control of systems with unknown
-   dynamics." arXiv:2010.09961v3 [cs.RO] (2020).
-   https://arxiv.org/abs/2010.09961v3
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-   pykoop
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-

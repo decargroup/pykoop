@@ -1,7 +1,8 @@
 """Koopman pipeline meta-estimators and related interfaces.
 
 Since the Koopman regression problem operates on timeseries data, it has
-additional requirements that preclude the use of ``scikit-learn`` pipelines:
+additional requirements that preclude the use of ``scikit-learn``
+:class:`Pipeline` objects:
 
 1. The original state must be kept at the beginning of the lifted state.
 2. The input-dependent lifted states must be kept at the end of the lifted
@@ -82,16 +83,6 @@ State 0 State 1 State 2
 In the above case, each timestep is assumed to belong to the same
 episode.
 
-All Koopman lifting functions and preprocessors are ancestors of
-:class:`KoopmanLiftingFn`. However, they differ slightly in their indended
-usage.  When predicting using a Koopman pipeline, lifting functions are applied
-and inverted. Preprocessors are applied at the beginning of the pipeline but
-never inverted.
-
-For example, preprocessing angles by replacing them with ``cos`` and ``sin`` of
-their values is typically not inverted, since it's more convenient to work with
-``cos`` and ``sin`` when scoring and cross-validating.
-
 Koopman regressors, which implement the interface defined in
 :class:`KoopmanRegressor` are distinct from ``scikit-learn`` regressors in that
 they support the episode feature and state tracking attributes used by the
@@ -102,7 +93,7 @@ episode feature.
 
 import abc
 from collections.abc import Callable
-from typing import Optional, Any
+from typing import Any, Optional
 
 import numpy as np
 import pandas
@@ -667,6 +658,176 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
         raise NotImplementedError()
 
 
+class KoopmanRegressor(sklearn.base.BaseEstimator,
+                       sklearn.base.RegressorMixin,
+                       metaclass=abc.ABCMeta):
+    """Base class for Koopman regressors.
+
+    All attributes with a trailing underscore are set by :func:`fit`.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+    """
+
+    # Array check parameters for :func:`fit` when ``X`` and ``y` are given
+    _check_X_y_params: dict[str, Any] = {
+        'multi_output': True,
+        'y_numeric': True,
+    }
+
+    # Array check parameters for :func:`predict` and :func:`fit` when only
+    # ``X`` is given
+    _check_array_params: dict[str, Any] = {
+        'dtype': 'numeric',
+    }
+
+    def fit(self,
+            X: np.ndarray,
+            y: np.ndarray = None,
+            n_inputs: int = 0,
+            episode_feature: bool = False) -> 'KoopmanRegressor':
+        """Fit the regressor.
+
+        If only ``X`` is specified, the regressor will compute its unshifted
+        and shifted versions. If ``X`` and ``y`` are specified, ``X`` is
+        treated as the unshifted data matrix, while ``y`` is treated as the
+        shifted data matrix.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Full data matrix if ``y=None``. Unshifted data matrix if ``y`` is
+            specified.
+        y : np.ndarray
+            Optional shifted data matrix. If ``None``, shifted data matrix is
+            computed using ``X``.
+        n_inputs : int
+            Number of input features at the end of ``X``.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+
+        Returns
+        -------
+        KoopmanRegressor
+            Instance of itself.
+
+        Raises
+        -----
+        ValueError
+            If constructor or fit parameters are incorrect.
+        """
+        # Check ``X`` differently depending on whether ``y`` is given
+        if y is None:
+            X = sklearn.utils.validation.check_array(
+                X, **self._check_array_params)
+        else:
+            X, y = sklearn.utils.validation.check_X_y(X, y,
+                                                      **self._check_X_y_params)
+        # Validate constructor parameters
+        self._validate_parameters()
+        # Compute fit attributes
+        self.n_features_in_ = X.shape[1]
+        self.n_inputs_in_ = n_inputs
+        self.n_states_in_ = (X.shape[1] - n_inputs -
+                             (1 if episode_feature else 0))
+        self.episode_feature_ = episode_feature
+        # Split ``X`` if needed
+        if y is None:
+            X_unshifted, X_shifted = _shift_episodes(
+                X,
+                n_inputs=self.n_inputs_in_,
+                episode_feature=self.episode_feature_)
+        else:
+            X_unshifted = X
+            X_shifted = y
+        # Strip episode feature if present
+        if self.episode_feature_:
+            X_unshifted_noep = X_unshifted[:, 1:]
+            X_shifted_noep = X_shifted[:, 1:]
+        else:
+            X_unshifted_noep = X_unshifted
+            X_shifted_noep = X_shifted
+        # Call fit from subclass
+        self.coef_ = self._fit_regressor(X_unshifted_noep, X_shifted_noep)
+        return self
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Perform a single-step prediction for each state in each episode.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Predicted data matrix.
+        """
+        sklearn.utils.validation.check_is_fitted(self)
+        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
+        # Split episodes
+        episodes = _split_episodes(X, episode_feature=self.episode_feature_)
+        # Predict for each episode
+        predictions = []
+        for (i, X_i) in episodes:
+            predictions.append((i, X_i @ self.coef_))
+        # Combine and return
+        X_pred = _combine_episodes(predictions,
+                                   episode_feature=self.episode_feature_)
+        return X_pred
+
+    @abc.abstractmethod
+    def _fit_regressor(self, X_unshifted: np.ndarray,
+                       X_shifted: np.ndarray) -> np.ndarray:
+        """Fit the regressor using shifted and unshifted data matrices.
+
+        The input data matrices must not have episode features.
+
+        Parameters
+        ----------
+        X_unshifted : np.ndarray
+            Unshifted data matrix without episode feature.
+        X_shifted : np.ndarray
+            Shifted data matrix without episode feature.
+
+        Returns
+        -------
+        np.ndarray
+            Fit coefficient matrix.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def _validate_parameters(self) -> None:
+        """Validate parameters passed in constructor.
+
+        Raises
+        ------
+        ValueError
+            If constructor parameters are incorrect.
+        """
+        raise NotImplementedError()
+
+    # Extra estimator tags
+    # https://scikit-learn.org/stable/developers/develop.html#estimator-tags
+    def _more_tags(self):
+        return {
+            'multioutput': True,
+            'multioutput_only': True,
+        }
+
+
 class SplitPipeline(KoopmanLiftingFn):
     """Meta-estimator for lifting states and inputs separately.
 
@@ -696,6 +857,20 @@ class SplitPipeline(KoopmanLiftingFn):
         Minimum number of samples needed to use the transformer.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+
+    Examples
+    --------
+    Apply split pipeline to mass-spring-damper data
+
+    >>> kp = pykoop.SplitPipeline(
+    ...     lifting_functions_state=[
+    ...         pykoop.PolynomialLiftingFn(order=2)
+    ...     ],
+    ...     lifting_functions_input=None,
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    SplitPipeline(lifting_functions_state=[PolynomialLiftingFn(order=2)])
+    >>> Xt_msd = kp.transform(X_msd[:2, :])
     """
 
     # Array check parameters for :func:`predict` and :func:`fit` when only
@@ -908,188 +1083,18 @@ class SplitPipeline(KoopmanLiftingFn):
         return n_samples_out
 
 
-class KoopmanRegressor(sklearn.base.BaseEstimator,
-                       sklearn.base.RegressorMixin,
-                       metaclass=abc.ABCMeta):
-    """Base class for Koopman regressors.
-
-    All attributes with a trailing underscore are set by :func:`fit`.
-
-    Attributes
-    ----------
-    n_features_in_ : int
-        Number of features input, including episode feature.
-    n_states_in_ : int
-        Number of states input.
-    n_inputs_in_ : int
-        Number of inputs input.
-    episode_feature_ : bool
-        Indicates if episode feature was present during :func:`fit`.
-    coef_ : np.ndarray
-        Fit coefficient matrix.
-    """
-
-    # Array check parameters for :func:`fit` when ``X`` and ``y` are given
-    _check_X_y_params: dict[str, Any] = {
-        'multi_output': True,
-        'y_numeric': True,
-    }
-
-    # Array check parameters for :func:`predict` and :func:`fit` when only
-    # ``X`` is given
-    _check_array_params: dict[str, Any] = {
-        'dtype': 'numeric',
-    }
-
-    def fit(self,
-            X: np.ndarray,
-            y: np.ndarray = None,
-            n_inputs: int = 0,
-            episode_feature: bool = False) -> 'KoopmanRegressor':
-        """Fit the regressor.
-
-        If only ``X`` is specified, the regressor will compute its unshifted
-        and shifted versions. If ``X`` and ``y`` are specified, ``X`` is
-        treated as the unshifted data matrix, while ``y`` is treated as the
-        shifted data matrix.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Full data matrix if ``y=None``. Unshifted data matrix if ``y`` is
-            specified.
-        y : np.ndarray
-            Optional shifted data matrix. If ``None``, shifted data matrix is
-            computed using ``X``.
-        n_inputs : int
-            Number of input features at the end of ``X``.
-        episode_feature : bool
-            True if first feature indicates which episode a timestep is from.
-
-        Returns
-        -------
-        KoopmanRegressor
-            Instance of itself.
-
-        Raises
-        -----
-        ValueError
-            If constructor or fit parameters are incorrect.
-        """
-        # Check ``X`` differently depending on whether ``y`` is given
-        if y is None:
-            X = sklearn.utils.validation.check_array(
-                X, **self._check_array_params)
-        else:
-            X, y = sklearn.utils.validation.check_X_y(X, y,
-                                                      **self._check_X_y_params)
-        # Compute fit attributes
-        self.n_features_in_ = X.shape[1]
-        self.n_inputs_in_ = n_inputs
-        self.n_states_in_ = (X.shape[1] - n_inputs -
-                             (1 if episode_feature else 0))
-        self.episode_feature_ = episode_feature
-        # Split ``X`` if needed
-        if y is None:
-            X_unshifted, X_shifted = _shift_episodes(
-                X,
-                n_inputs=self.n_inputs_in_,
-                episode_feature=self.episode_feature_)
-        else:
-            X_unshifted = X
-            X_shifted = y
-        # Strip episode feature if present
-        if self.episode_feature_:
-            X_unshifted_noep = X_unshifted[:, 1:]
-            X_shifted_noep = X_shifted[:, 1:]
-        else:
-            X_unshifted_noep = X_unshifted
-            X_shifted_noep = X_shifted
-        # Call fit from subclass
-        self.coef_ = self._fit_regressor(X_unshifted_noep, X_shifted_noep)
-        return self
-
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        """Perform a single-step prediction for each state in each episode.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Data matrix.
-
-        Returns
-        -------
-        np.ndarray
-            Predicted data matrix.
-        """
-        sklearn.utils.validation.check_is_fitted(self)
-        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
-        # Split episodes
-        episodes = _split_episodes(X, episode_feature=self.episode_feature_)
-        # Predict for each episode
-        predictions = []
-        for (i, X_i) in episodes:
-            predictions.append((i, X_i @ self.coef_))
-        # Combine and return
-        X_pred = _combine_episodes(predictions,
-                                   episode_feature=self.episode_feature_)
-        return X_pred
-
-    @abc.abstractmethod
-    def _fit_regressor(self, X_unshifted: np.ndarray,
-                       X_shifted: np.ndarray) -> np.ndarray:
-        """Fit the regressor using shifted and unshifted data matrices.
-
-        The input data matrices must not have episode features.
-
-        Parameters
-        ----------
-        X_unshifted : np.ndarray
-            Unshifted data matrix without episode feature.
-        X_shifted : np.ndarray
-            Shifted data matrix without episode feature.
-
-        Returns
-        -------
-        np.ndarray
-            Fit coefficient matrix.
-        """
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def _validate_parameters(self) -> None:
-        """Validate parameters passed in constructor.
-
-        Raises
-        ------
-        ValueError
-            If constructor parameters are incorrect.
-        """
-        raise NotImplementedError()
-
-    # Extra estimator tags
-    # https://scikit-learn.org/stable/developers/develop.html#estimator-tags
-    def _more_tags(self):
-        return {
-            'multioutput': True,
-            'multioutput_only': True,
-        }
-
-
 class KoopmanPipeline(sklearn.base.BaseEstimator,
                       sklearn.base.TransformerMixin):
     """Meta-estimator for chaining lifting functions with an estimator.
 
     Attributes
     ----------
-    preprocessors_ : list[KoopmanLiftingFn]
-        Fit preprocessors.
     liting_functions_ : list[KoopmanLiftingFn]
         Fit lifting functions.
     regressor_ : KoopmanRegressor
         Fit regressor.
     transformers_fit_ : bool
-        True if preprocessors and lifting functions have been fit.
+        True if lifting functions have been fit.
     regressor_fit_ : bool
         True if regressor has been fit.
     n_features_in_ : int
@@ -1108,6 +1113,54 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
         Minimum number of samples needed to use the transformer.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+
+    Examples
+    --------
+    Apply a basic Koopman pipeline to mass-spring-damper data
+
+    >>> kp = pykoop.KoopmanPipeline(
+    ...     regressor=pykoop.Edmd(),
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=Edmd())
+
+    Apply more sophisticated Koopman pipeline to mass-spring-damper data
+
+    >>> kp = KoopmanPipeline(
+    ...     lifting_functions=[
+    ...         pykoop.SkLearnLiftingFn(sklearn.preprocessing.MaxAbsScaler()),
+    ...         pykoop.PolynomialLiftingFn(order=2),
+    ...         pykoop.SkLearnLiftingFn(sklearn.preprocessing.StandardScaler())
+    ...     ],
+    ...     regressor=pykoop.Edmd(),
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(lifting_functions=[SkLearnLiftingFn(transformer=MaxAbsScaler()),
+    PolynomialLiftingFn(order=2),
+    SkLearnLiftingFn(transformer=StandardScaler())], regressor=Edmd())
+    >>> Xt_msd = kp.transform(X_msd[:2, :])
+
+    Apply bilinear Koopman pipeline to mass-spring-damper data
+
+    >>> kp = KoopmanPipeline(
+    ...     lifting_functions=[
+    ...         pykoop.SkLearnLiftingFn(sklearn.preprocessing.MaxAbsScaler()),
+    ...         pykoop.SplitPipeline(
+    ...             lifting_functions_state=[
+    ...                 pykoop.PolynomialLiftingFn(order=2),
+    ...             ],
+    ...             lifting_functions_input=None,
+    ...         ),
+    ...         pykoop.BilinearInputLiftingFn(),
+    ...         pykoop.SkLearnLiftingFn(sklearn.preprocessing.StandardScaler())
+    ...     ],
+    ...     regressor=pykoop.Edmd(),
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(lifting_functions=[SkLearnLiftingFn(transformer=MaxAbsScaler()),
+    SplitPipeline(lifting_functions_state=[PolynomialLiftingFn(order=2)]),
+    BilinearInputLiftingFn(), SkLearnLiftingFn(transformer=StandardScaler())],
+    regressor=Edmd())
     """
 
     # Array check parameters for :func:`predict` and :func:`fit` when only
@@ -1118,27 +1171,18 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
 
     def __init__(
         self,
-        preprocessors: list[KoopmanLiftingFn] = None,
         lifting_functions: list[KoopmanLiftingFn] = None,
         regressor: KoopmanRegressor = None,
     ) -> None:
         """Instantiate for :class:`KoopmanPipeline`.
 
-        While both ``preprocessors`` and ``lifting_functions`` contain
-        :class:`KoopmanLiftingFn` objects, their purposes differ. Lifting
-        functions are inverted in :func:`inverse_transform`, while
-        preprocessors are applied once and not inverted.
-
         Parameters
         ----------
-        preprocessors : list[KoopmanLiftingFn]
-            List of preprocessor objects.
         lifting_functions : list[KoopmanLiftingFn]
             List of lifting function objects.
         regressor : KoopmanRegressor
             Koopman regressor.
         """
-        self.preprocessors = preprocessors
         self.lifting_functions = lifting_functions
         self.regressor = regressor
 
@@ -1199,7 +1243,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
                          y: np.ndarray = None,
                          n_inputs: int = 0,
                          episode_feature: bool = False) -> 'KoopmanPipeline':
-        """Fit only the preprocessors and lifting functions in the pipeline.
+        """Fit only the lifting functions in the pipeline.
 
         Parameters
         ----------
@@ -1230,43 +1274,32 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
         self.n_states_in_ = (X.shape[1] - n_inputs -
                              (1 if episode_feature else 0))
         self.n_inputs_in_ = n_inputs
-        # Clone preprocessors and lifting functions
-        self.preprocessors_ = []
-        if self.preprocessors is not None:
-            for pp in self.preprocessors:
-                self.preprocessors_.append(sklearn.base.clone(pp))
         self.lifting_functions_ = []
         if self.lifting_functions is not None:
             for lf in self.lifting_functions:
                 self.lifting_functions_.append(sklearn.base.clone(lf))
-        # Fit and transform preprocessors and lifting functions
+        # Fit and transform lifting functions
         X_out = X
         n_inputs_out = n_inputs
-        for pp in self.preprocessors_:
-            X_out = pp.fit_transform(X_out,
-                                     n_inputs=n_inputs_out,
-                                     episode_feature=episode_feature)
-            n_inputs_out = pp.n_inputs_out_
         for lf in self.lifting_functions_:
             X_out = lf.fit_transform(X_out,
                                      n_inputs=n_inputs_out,
                                      episode_feature=episode_feature)
             n_inputs_out = lf.n_inputs_out_
         # Set output dimensions
-        tfs = (self.preprocessors_ + self.lifting_functions_)
-        if len(tfs) > 0:
+        if len(self.lifting_functions_) > 0:
             # Find the last transformer and use it to get output dimensions
-            last_tf = tfs[-1]
-            self.n_features_out_ = last_tf.n_features_out_
-            self.n_states_out_ = last_tf.n_states_out_
-            self.n_inputs_out_ = last_tf.n_inputs_out_
+            last_pp = self.lifting_functions_[-1]
+            self.n_features_out_ = last_pp.n_features_out_
+            self.n_states_out_ = last_pp.n_states_out_
+            self.n_inputs_out_ = last_pp.n_inputs_out_
             # Compute minimum number of samples needed by transformer.
             # Each transformer knows how many input samples it needs to produce
             # a given number of output samples.  Knowing we just want one
             # sample at the output, we work backwards to figure out how many
             # samples we need at the beginning of the pipeline.
             n_samples_out = 1
-            for tf in tfs[::-1]:
+            for tf in self.lifting_functions_[::-1]:
                 n_samples_out = tf.n_samples_in(n_samples_out)
             self.min_samples_ = n_samples_out
         else:
@@ -1299,10 +1332,8 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
                              f'with {self.n_features_in_} features, but '
                              f'`transform()` called with {X.shape[1]} '
                              'features.')
-        # Apply preprocessing transforms, then lifting functions
+        # Apply lifting functions
         X_out = X
-        for pp in self.preprocessors_:
-            X_out = pp.transform(X_out)
         for lf in self.lifting_functions_:
             X_out = lf.transform(X_out)
         return X_out
@@ -1555,12 +1586,16 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
             else:
                 X_predicted = estimator.predict(X_unshifted)
             # Strip episode feature and initial conditions
+            X_shifted = _strip_initial_conditions(X_shifted,
+                                                  estimator.min_samples_,
+                                                  estimator.episode_feature_)
+            X_predicted = _strip_initial_conditions(X_predicted,
+                                                    estimator.min_samples_,
+                                                    estimator.episode_feature_)
+            # Strip episode feature if present
             if estimator.episode_feature_:
-                X_shifted = X_shifted[estimator.min_samples_:, 1:]
-                X_predicted = X_predicted[estimator.min_samples_:, 1:]
-            else:
-                X_shifted = X_shifted[estimator.min_samples_:, :]
-                X_predicted = X_predicted[estimator.min_samples_:, :]
+                X_shifted = X_shifted[:, 1:]
+                X_predicted = X_predicted[:, 1:]
             # Compute weights
             weights: Optional[np.ndarray]
             if multistep:
@@ -1589,6 +1624,31 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
             return score
 
         return koopman_pipeline_scorer
+
+
+def _strip_initial_conditions(X: np.ndarray,
+                              min_samples: int = 1,
+                              episode_feature: bool = False) -> np.ndarray:
+    """Strip initial conditions from each episode.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Data matrix.
+    min_samples : int
+        Number of samples in initial condition.
+    episode_feature : bool
+        True if first feature indicates which episode a timestep is from.
+    """
+    episodes = _split_episodes(X, episode_feature=episode_feature)
+    # Strip each episode
+    stripped_episodes = []
+    for (i, X_i) in episodes:
+        stripped_episode = X_i[min_samples:, :]
+        stripped_episodes.append((i, stripped_episode))
+    # Concatenate the stripped episodes
+    Xs = _combine_episodes(stripped_episodes, episode_feature=episode_feature)
+    return Xs
 
 
 def _shift_episodes(

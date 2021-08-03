@@ -12,126 +12,6 @@ import sklearn.utils.validation
 from . import koopman_pipeline
 
 
-class AnglePreprocessor(koopman_pipeline.EpisodeIndependentLiftingFn):
-    """Preprocessor used to replace angles with their cosines and sines.
-
-    Intended as a preprocessor to be applied once to the input, rather than a
-    lifting function that is inverted after prediction.
-
-    Attributes
-    ----------
-    angles_in_ : np.ndarray
-        Boolean array that indicates which input features are angles.
-    lin_out_ : np.ndarray
-        Boolean array that indicates which output features are linear.
-    cos_out_ : np.ndarray
-        Boolean array that indicates which output features are cosines.
-    sin_out_ : np.ndarray
-        Boolean array that indicates which output features are sines.
-    n_features_in_ : int
-        Number of features before transformation, including episode feature.
-    n_states_in_ : int
-        Number of states before transformation.
-    n_inputs_in_ : int
-        Number of inputs before transformation.
-    n_features_out_ : int
-        Number of features after transformation, including episode feature.
-    n_states_out_ : int
-        Number of states after transformation.
-    n_inputs_out_ : int
-        Number of inputs after transformation.
-    min_samples_ : int
-        Minimum number of samples needed to use the transformer.
-    episode_feature_ : bool
-        Indicates if episode feature was present during :func:`fit`.
-
-    Warnings
-    --------
-    The inverse of this preprocessor is not the true inverse unless the data is
-    inside ``[-pi, pi]``. Any offsets of ``2pi`` are lost when ``cos`` and
-    ``sin`` are applied to the angles.
-    """
-
-    def __init__(self,
-                 angle_features: np.ndarray = None,
-                 unwrap_inverse: bool = False) -> None:
-        """Instantiate :class:`AnglePreprocessor`.
-
-        Parameters
-        ----------
-        angle_features : np.ndarray
-            Indices of features that are angles.
-        unwrap_inverse : bool
-            Unwrap inverse by replacing absolute jumps greater than ``pi`` by
-            their ``2pi`` complement.
-        """
-        self.angle_features = angle_features
-        self.unwrap_inverse = unwrap_inverse
-
-    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int]:
-        # Compute boolean array with one entry per feature. A ``True`` value
-        # indicates that the feature is an angle.
-        n_states_inputs_in = self.n_states_in_ + self.n_inputs_in_
-        if ((self.angle_features is None)
-                or (self.angle_features.shape[0] == 0)):
-            self.angles_in_ = np.zeros((n_states_inputs_in, ), dtype=bool)
-        else:
-            # Create an array with all ```False``.
-            angles_bool = np.zeros((n_states_inputs_in, ), dtype=bool)
-            # Set indicated entries to ``True``.
-            angles_bool[self.angle_features] = True
-            self.angles_in_ = angles_bool
-        # Figure out how many linear and angular features there are.
-        n_lin_states = np.sum(~self.angles_in_[:self.n_states_in_])
-        n_lin_inputs = np.sum(~self.angles_in_[self.n_states_in_:])
-        n_ang_states = 2 * np.sum(self.angles_in_[:self.n_states_in_])
-        n_ang_inputs = 2 * np.sum(self.angles_in_[self.n_states_in_:])
-        n_states_out = n_lin_states + n_ang_states
-        n_inputs_out = n_lin_inputs + n_ang_inputs
-        # Create array for linear, cosine, and sine feature indices.
-        self.lin_out_ = np.zeros((n_states_out + n_inputs_out, ), dtype=bool)
-        self.cos_out_ = np.zeros((n_states_out + n_inputs_out, ), dtype=bool)
-        self.sin_out_ = np.zeros((n_states_out + n_inputs_out, ), dtype=bool)
-        # Figure out which features are cosines, sines, or linear.
-        i = 0
-        for j in range(n_states_inputs_in):
-            if self.angles_in_[j]:
-                self.cos_out_[i] = True
-                self.sin_out_[i + 1] = True
-                i += 2
-            else:
-                self.lin_out_[i] = True
-                i += 1
-        return (n_states_out, n_inputs_out)
-
-    def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
-        # Create blank array
-        n_states_inputs_out = self.n_states_out_ + self.n_inputs_out_
-        Xt = np.zeros((X.shape[0], n_states_inputs_out))
-        # Apply cos and sin to appropriate features.
-        Xt[:, self.lin_out_] = X[:, ~self.angles_in_]
-        Xt[:, self.cos_out_] = np.cos(X[:, self.angles_in_])
-        Xt[:, self.sin_out_] = np.sin(X[:, self.angles_in_])
-        return Xt
-
-    def _inverse_transform_one_ep(self, X: np.ndarray) -> np.ndarray:
-        # Create blank array
-        n_states_inputs_in = self.n_states_in_ + self.n_inputs_in_
-        Xt = np.zeros((X.shape[0], n_states_inputs_in))
-        # Put linear features back where they belong
-        Xt[:, ~self.angles_in_] = X[:, self.lin_out_]
-        # Invert transform for angles. Unwrap if necessary.
-        angle_values = np.arctan2(X[:, self.sin_out_], X[:, self.cos_out_])
-        if self.unwrap_inverse:
-            Xt[:, self.angles_in_] = np.unwrap(angle_values, axis=0)
-        else:
-            Xt[:, self.angles_in_] = angle_values
-        return Xt
-
-    def _validate_parameters(self) -> None:
-        pass  # No constructor parameters need validation.
-
-
 class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     """Lifting function that wraps a ``scikit-learn`` transformer.
 
@@ -168,6 +48,20 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     References
     ----------
     .. [transformers] https://scikit-learn.org/stable/modules/classes.html#module-sklearn.preprocessing  # noqa: E501
+
+    Examples
+    --------
+    Preprocess mass-spring-damper data to have zero mean and unit variance
+
+    >>> std_scaler = pykoop.SkLearnLiftingFn(
+    ...     sklearn.preprocessing.StandardScaler())
+    >>> std_scaler.fit(X_msd, n_inputs=1, episode_feature=True)
+    SkLearnLiftingFn(transformer=StandardScaler())
+    >>> X_msd_pp = std_scaler.transform(X_msd)
+    >>> np.mean(X_msd_pp[:, 1:], axis=0)
+    array([ 1.99840144e-17, -3.10862447e-17, -1.55431223e-17])
+    >>> np.std(X_msd_pp[:, 1:], axis=0)
+    array([1., 1., 1.])
     """
 
     def __init__(
@@ -229,6 +123,15 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         Minimum number of samples needed to use the transformer.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+
+    Examples
+    --------
+    Apply polynomial features to mass-spring-damper data
+
+    >>> poly = pykoop.PolynomialLiftingFn(order=2)
+    >>> poly.fit(X_msd, n_inputs=1, episode_feature=True)
+    PolynomialLiftingFn(order=2)
+    >>> Xt_msd = poly.transform(X_msd[:2, :])
     """
 
     def __init__(self, order: int = 1, interaction_only: bool = False) -> None:
@@ -319,7 +222,7 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
 class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     """Lifting function to generate bilinear products of the state and input.
 
-    Given a state ``x`` and input::
+    As proposed in [bilinear]_. Given a state ``x`` and input::
 
         u = np.array([
             [u1],
@@ -327,7 +230,7 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
             [u3],
         ])
 
-    the biliner lifted state has the form::
+    the bilinear lifted state has the form::
 
         psi = np.array([
             [x],
@@ -357,6 +260,15 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         Minimum number of samples needed to use the transformer.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+
+    Examples
+    --------
+    Apply bilinear input features to mass-spring-damper data
+
+    >>> bilin = pykoop.BilinearInputLiftingFn()
+    >>> bilin.fit(X_msd, n_inputs=1, episode_feature=True)
+    BilinearInputLiftingFn()
+    >>> Xt_msd = bilin.transform(X_msd[:2, :])
     """
 
     def __init__(self) -> None:
@@ -422,6 +334,15 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
     samples will be the same, since the ``abs(n_delays_x - n_delays_u)``
     earliest samples will need to be dropped to ensure the output array is
     rectangular.
+
+    Examples
+    --------
+    Apply delay lifting function to mass-spring-damper data
+
+    >>> delay = pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1)
+    >>> delay.fit(X_msd, n_inputs=1, episode_feature=True)
+    DelayLiftingFn(n_delays_input=1, n_delays_state=1)
+    >>> Xt_msd = delay.transform(X_msd[:3, :])
     """
 
     def __init__(self,
