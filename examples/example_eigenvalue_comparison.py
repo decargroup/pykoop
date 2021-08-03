@@ -60,7 +60,6 @@ def main() -> None:
     ax.set_rmax(1.1)
     ax.legend()
     ax.set_title(r'Eigenvalues of $\bf{A}$')
-    plt.show()
 
 
 def plt_eig(A: np.ndarray,
@@ -74,3 +73,4 @@ def plt_eig(A: np.ndarray,
 
 if __name__ == '__main__':
     main()
+    plt.show()
