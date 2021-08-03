@@ -1395,7 +1395,7 @@ class LmiEdmdHinfReg(LmiRegressor):
         valid_weight_types = ['pre', 'post']
         if self.weight is not None:
             if self.weight[0] not in valid_weight_types:
-                raise ValueError('First element of the `weight` must be one'
+                raise ValueError('First element of the `weight` must be one '
                                  f'of {valid_weight_types}.')
         if self.max_iter <= 0:
             raise ValueError('`max_iter` must be positive.')
