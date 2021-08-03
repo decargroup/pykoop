@@ -8,8 +8,11 @@ pykoop Documentation
 
 Koopman operator identification library in Python.
 
-For example, consider Tikhonov-regularized EDMD with polynomial lifting
-functions applied to mass-spring-damper data:
+Example
+=======
+
+Consider Tikhonov-regularized EDMD with polynomial lifting functions applied to
+mass-spring-damper data:
 
 .. include:: ../examples/example_pipeline_simple.py
    :literal:
