@@ -173,6 +173,38 @@ class DiscreteDynamicModel(metaclass=abc.ABCMeta):
         """
         return x
 
+    def simulate(
+        self,
+        t_range: tuple[float, float],
+        t_step: float,
+        x0: np.ndarray,
+        u: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Simulate the model.
+
+        Parameters
+        ----------
+        t_range : tuple[float, float]
+            Start and stop times in a tuple.
+        t_step : float
+            Timestep of output data.
+        x0 : np.ndarray
+            Initial condition, shape (n, ).
+        u : np.ndarray
+            Input array.
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            Time and state at every timestep. Each timestep is one row.
+        """
+        t = np.arange(*t_range, t_step)
+        x = np.empty((t.shape[0], x0.shape[0]))
+        x[0, :] = x0
+        for k in range(1, t.shape[0]):
+            x[k, :] = self.f(t[k - 1], x[k - 1, :], u[k - 1])
+        return (t, x)
+
 
 class MassSpringDamper(ContinuousDynamicModel):
     """Mass-spring-damper model.
@@ -271,3 +303,40 @@ class Pendulum(ContinuousDynamicModel):
             1 / (self.mass * self.length**2),
         ]) * u
         return x_dot
+
+
+class DiscreteVanDerPol(DiscreteDynamicModel):
+    """Van der Pol oscillator.
+
+    Examples
+    --------
+    Simulate Van der Pol oscillator
+
+    >>> t_step = 0.1
+    >>> vdp = pykoop.dynamic_models.DiscreteVanDerPol(t_step, 2)
+    >>> x0 = vdp.x0(np.array([1, 0]))
+    >>> t_range = (0, 10)
+    >>> u = 0.01 * np.cos(np.arange(*t_range, t_step))
+    >>> t, x = vdp.simulate(t_range, t_step, x0, u)
+    """
+
+    def __init__(self, t_step: float, mu: float) -> None:
+        """Instantiate :class:`DiscreteVanDerPol`.
+
+        Parameters
+        ----------
+        t_step : float
+            Timestep (s)
+        mu : float
+            Strength of nonlinearity.
+        """
+        self.t_step = t_step
+        self.mu = mu
+
+    def f(self, t: float, x: np.ndarray, u: np.ndarray) -> np.ndarray:
+        # noqa: D102
+        x_next = x + self.t_step * np.array([
+            x[1],
+            self.mu * (1 - x[0]**2) * x[1] - x[0] + u
+        ])
+        return x_next
