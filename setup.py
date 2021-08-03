@@ -1,6 +1,6 @@
 import setuptools
 
-with open('README.md', 'r') as f:
+with open('README.rst', 'r') as f:
     readme = f.read()
 
 setuptools.setup(

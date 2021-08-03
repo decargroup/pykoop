@@ -21,40 +21,64 @@ Example
 Consider Tikhonov-regularized EDMD with polynomial lifting functions applied to
 mass-spring-damper data. Using ``pykoop``, this can be implemented as:
 
-.. include:: ../examples/example_pipeline_simple.py
-   :literal:
+.. code-block:: python
+
+    import pykoop
+    from sklearn.preprocessing import MaxAbsScaler, StandardScaler
+
+    # Get sample mass-spring-damper data
+    X_msd = pykoop.example_data_msd()
+
+    # Create pipeline
+    kp = pykoop.KoopmanPipeline(
+        lifting_functions=[
+            pykoop.SkLearnLiftingFn(MaxAbsScaler()),
+            pykoop.PolynomialLiftingFn(order=2),
+            pykoop.SkLearnLiftingFn(StandardScaler())
+        ],
+        regressor=pykoop.Edmd(alpha=0.1),
+    )
+
+    # Fit the pipeline
+    kp.fit(X_msd, n_inputs=1, episode_feature=True)
+
+    # Predict using the pipeline
+    X_pred = kp.predict_multistep(X_msd)
+
+    # Score using the pipeline
+    score = kp.score(X_msd)
 
 Library layout
 ==============
 
 Most of the required classes and functions have been imported into the
 ``pykoop`` namespace. The most important object is the
-:class:`KoopmanPipeline`, which requires a list of lifting functions and
+``KoopmanPipeline``, which requires a list of lifting functions and
 a regressor.
 
 Some example lifting functions are
 
-- :class:`PolynomialLiftingFn`,
-- :class:`DelayLiftingFn`, and
-- :class:`BilinearInputLiftingFn`.
+- ``PolynomialLiftingFn``,
+- ``DelayLiftingFn``, and
+- ``BilinearInputLiftingFn``.
 
 ``scikit-learn`` preprocessors can be wrapped into lifting functions using
-:class:`SkLearnLiftingFn`. States and inputs can be lifted independently using
-:class:`SplitPipeline`. This is useful to avoid lifting inputs.
+``SkLearnLiftingFn``. States and inputs can be lifted independently using
+``SplitPipeline``. This is useful to avoid lifting inputs.
 
 Some basic regressors included are
 
-- :class:`Edmd` (includes Tikhonov regularization),
-- :class:`Dmdc`, and
-- :class:`Dmd`.
+- ``Edmd`` (includes Tikhonov regularization),
+- ``Dmdc``, and
+- ``Dmd``.
 
 More advanced (and experimental) LMI-based regressors are included in the
 ``pykoop.lmi_regressors`` namespace. They allow for different kinds of
 regularization as well as hard constraints on the Koopman operator.
 
 You can roll your own lifting functions and regressors by inheriting from
-:class:`KoopmanLiftingFn`, :class:`EpisodeIndependentLiftingFn`,
-:class:`EpisodeDependentLiftingFn`, and :class:`KoopmanRegressor`.
+``KoopmanLiftingFn``, ``EpisodeIndependentLiftingFn``,
+``EpisodeDependentLiftingFn``, and ``KoopmanRegressor``.
 
 Some sample dynamic models are also included in the ``pykoop.dynamic_models``
 namespace.
