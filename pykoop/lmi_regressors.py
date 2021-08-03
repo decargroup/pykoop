@@ -1,4 +1,4 @@
-"""Collection of experimental LMI-based Koopman regressors.
+"""Collection of experimental LMI-based Koopman regressors from [lmikoop]_.
 
 Warning
 -------
@@ -817,6 +817,8 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
             if len(self.objective_log_) > 1:
                 diff = np.absolute(self.objective_log_[-2]
                                    - self.objective_log_[-1])
+                log.info(f'Objective: {self.objective_log_[-1]}; '
+                         f'Change: {diff}.')
                 if (diff < self.iter_tol):
                     self.stop_reason_ = f'Reached tolerance {diff}'
                     break
@@ -1054,6 +1056,8 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
             if len(self.objective_log_) > 1:
                 diff = np.absolute(self.objective_log_[-2]
                                    - self.objective_log_[-1])
+                log.info(f'Objective: {self.objective_log_[-1]}; '
+                         f'Change: {diff}.')
                 if (diff < self.iter_tol):
                     self.stop_reason_ = f'Reached tolerance {diff}'
                     break
@@ -1353,6 +1357,8 @@ class LmiEdmdHinfReg(LmiRegressor):
             if len(self.objective_log_) > 1:
                 diff = np.absolute(self.objective_log_[-2]
                                    - self.objective_log_[-1])
+                log.info(f'Objective: {self.objective_log_[-1]}; '
+                         f'Change: {diff}.')
                 if (diff < self.iter_tol):
                     self.stop_reason_ = f'Reached tolerance {diff}'
                     break
@@ -1670,6 +1676,8 @@ class LmiDmdcHinfReg(LmiRegressor):
             if len(self.objective_log_) > 1:
                 diff = np.absolute(self.objective_log_[-2]
                                    - self.objective_log_[-1])
+                log.info(f'Objective: {self.objective_log_[-1]}; '
+                         f'Change: {diff}.')
                 if (diff < self.iter_tol):
                     self.stop_reason_ = f'Reached tolerance {diff}'
                     break
@@ -1956,6 +1964,8 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
             if len(self.objective_log_) > 1:
                 diff = np.absolute(self.objective_log_[-2]
                                    - self.objective_log_[-1])
+                log.info(f'Objective: {self.objective_log_[-1]}; '
+                         f'Change: {diff}.')
                 if (diff < self.iter_tol):
                     self.stop_reason_ = f'Reached tolerance {diff}'
                     break
