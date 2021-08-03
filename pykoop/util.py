@@ -3,7 +3,7 @@
 import numpy as np
 from scipy import interpolate, signal
 
-from . import koopman_pipeline
+from . import dynamic_models, koopman_pipeline
 
 
 class AnglePreprocessor(koopman_pipeline.EpisodeIndependentLiftingFn):
@@ -242,3 +242,48 @@ def random_input(t_range,
         return f_smooth
     else:
         raise ValueError(f'{output} is not a valid output form.')
+
+
+def example_data_msd() -> np.ndarray:
+    """Get example mass-spring-damper data.
+
+    Returns
+    -------
+    np.ndarray
+        Sample mass-spring damper data.
+    """
+    # Create mass-spring-damper object
+    msd = dynamic_models.MassSpringDamper(
+        mass=0.5,
+        stiffness=0.7,
+        damping=0.6,
+    )
+    # Initial conditions and inputs
+    conditions = [
+        (0, np.array([0, 0]), lambda t: 0.1 * np.sin(t)),
+        (1, np.array([0, 0]), lambda t: 0.2 * np.cos(t)),
+        (2, np.array([0, 0]), lambda t: -0.2 * np.sin(t)),
+        (3, np.array([0, 0]), lambda t: -0.1 * np.cos(t)),
+    ]
+    X_msd_lst = []
+    # Loop over initial conditions and inputs
+    for ep, x0, u in conditions:
+        # Simulate ODE
+        t, x = msd.simulate(
+            t_range=(0, 10),
+            t_step=0.1,
+            x0=msd.x0(x0),
+            u=u,
+            rtol=1e-8,
+            atol=1e-8,
+        )
+        # Format the data
+        X_msd_lst.append(
+            np.hstack((
+                ep * np.ones((t.shape[0], 1)),
+                x,
+                np.reshape(u(t), (-1, 1)),
+            )))
+    # Stack data and return
+    X_msd = np.vstack(X_msd_lst)
+    return X_msd
