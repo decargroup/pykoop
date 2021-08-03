@@ -6,13 +6,13 @@ Koopman operator identification library in Python.
 
 ### General
 
-- [ ] Examples and doctests
+- [x] Examples and doctests
 - [ ] Fix idempotence unit test if possible?
 
 ### Pipeline
 
 - [ ] Add post-processing step for normalization of quaternions etc.
-- [ ] Fix examples (Must merge LMI methods first)
+- [x] Fix examples (Must merge LMI methods first)
 - [ ] Handle methods that don't save a `coef_`?
 - [ ] Cosmetic: Replace ints with floats in function signature?
 - [x] Merge LMI methods with new abstract base class

@@ -6,18 +6,6 @@ Importing this module has side effects! When imported, the module creates a
 temporary directory with the prefix ``pykoop_``, which is used to memoize long
 computations that may be repreated frequently. It also catches ``SIGINT`` so
 that long regressions can be stopped politely.
-
-References
-----------
-.. [optht] Matan Gavish and David L. Donoho. "The optimal hard threshold for
-   singular values is 4/sqrt(3)." IEEE Transactions on Information Theory 60.8
-   (2014): 5040-5053. http://arxiv.org/abs/1305.5870
-.. [dissip] Keita Hara, Masaki Inoue, and Noboru Sebe. "Learning Koopman
-   operator under dissipativity constraints." arXiv:1911.03884v1 [eess.SY]
-   (2019). https://arxiv.org/abs/1911.03884v1
-.. [lmikoop] Steven Dahdah and James Richard Forbes. "Linear matrix inequality
-   approaches to Koopman operator approximation." arXiv:2102.03613 [eess.SY]
-   (2021). https://arxiv.org/abs/2102.03613
 """
 
 import logging

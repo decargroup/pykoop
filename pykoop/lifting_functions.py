@@ -2,13 +2,6 @@
 
 All of the lifting functions included in this module adhere to the interface
 defined in :class:`KoopmanLiftingFn`.
-
-References
-----------
-.. [bilinear] Daniel Bruder, Xun Fu, and Ram Vasudevan. "Advantages of bilinear
-   Koopman realizations for the modeling and control of systems with unknown
-   dynamics." arXiv:2010.09961v3 [cs.RO] (2020).
-   https://arxiv.org/abs/2010.09961v3
 """
 
 import numpy as np

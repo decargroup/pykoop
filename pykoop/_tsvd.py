@@ -1,11 +1,4 @@
-"""Compute truncated singular value decomposition.
-
-References
-----------
-.. [optht] Matan Gavish and David L. Donoho. "The optimal hard threshold for
-   singular values is 4/sqrt(3)." IEEE Transactions on Information Theory 60.8
-   (2014): 5040-5053. http://arxiv.org/abs/1305.5870
-"""
+"""Compute truncated singular value decomposition."""
 
 import numpy as np
 import optht
