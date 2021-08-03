@@ -21,5 +21,8 @@ setuptools.setup(
         'pandas>=1.3.1',
         'optht>=0.2.0',
     ],
-    extra_require={'MOSEK solver': ['mosek>=9.2.49']},
+    extra_require={
+        'MOSEK solver': ['mosek>=9.2.49'],
+        'SMCP solver': ['smcp>=0.4.6'],
+    },
 )

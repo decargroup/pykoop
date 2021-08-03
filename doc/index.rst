@@ -3,10 +3,12 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-pykoop Documentation
-====================
+pykoop
+======
 
-Koopman operator identification library in Python.
+``pykoop`` is a Koopman operator identification library written in Python. It
+allows the user to specify Koopman lifting functions and regressors in order to
+learn a linear model of a given system in the lifted space.
 
 ``pykoop`` places heavy emphasis on modular lifting function construction and
 ``scikit-learn`` compatibility. The library aims to make it easy to
@@ -27,18 +29,75 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
 .. include:: ../examples/example_pipeline_simple.py
    :literal:
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+Library layout
+==============
 
-   pykoop
+Most of the required classes and functions have been imported into the
+``pykoop`` namespace. The most important object is the
+:class:`KoopmanPipeline`, which requires a list of lifting functions and
+a regressor.
 
-Indices and tables
-==================
+Some example lifting functions are
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+- :class:`PolynomialLiftingFn`,
+- :class:`DelayLiftingFn`, and
+- :class:`BilinearInputLiftingFn`.
+
+``scikit-learn`` preprocessors can be wrapped into lifting functions using
+:class:`SkLearnLiftingFn`. States and inputs can be lifted independently using
+:class:`SplitPipeline`. This is useful to avoid lifting inputs.
+
+Some basic regressors included are
+
+- :class:`Edmd` (includes Tikhonov regularization),
+- :class:`Dmdc`, and
+- :class:`Dmd`.
+
+More advanced (and experimental) LMI-based regressors are included in the
+``pykoop.lmi_regressors`` namespace. They allow for different kinds of
+regularization as well as hard constraints on the Koopman operator.
+
+You can roll your own lifting functions and regressors by inheriting from
+:class:`KoopmanLiftingFn`, :class:`EpisodeIndependentLiftingFn`,
+:class:`EpisodeDependentLiftingFn`, and :class:`KoopmanRegressor`.
+
+Some sample dynamic models are also included in the ``pykoop.dynamic_models``
+namespace.
+
+Installation and testing
+========================
+
+``pykoop`` can be installed from PyPI using
+
+.. code-block:: sh
+
+    $ pip install pykoop
+
+Additional LMI solvers can be installed using
+
+.. code-block:: sh
+
+    $ pip install mosek
+    $ pip install smcp
+
+Mosek is recommended, but is nonfree and requires a license.
+
+The library can be tested using
+
+.. code-block:: sh
+
+    $ pip install -r requirements.txt
+    $ pytest
+
+Note that ``pytest`` must be run from the repository's root directory.
+
+The documentation can be compiled using
+
+.. code-block:: sh
+
+    $ cd doc
+    $ make html
+
 
 Related packages
 ================
@@ -83,3 +142,18 @@ References
    Koopman realizations for the modeling and control of systems with unknown
    dynamics." arXiv:2010.09961v3 [cs.RO] (2020).
    https://arxiv.org/abs/2010.09961v3
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   pykoop
+
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
+

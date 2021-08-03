@@ -38,6 +38,13 @@ Dynamic models
 Cross-validation with ``scikit-learn``
 --------------------------------------
 
+To enable cross-validation, ``pykoop`` strives to be fully-compatible with
+``scikit-learn``. All of its regressors and lifting functions pass
+``scikit-learn``'s `estimator checks`_, with minor exceptions made when
+necessary.
+
+.. _estimator checks: https://scikit-learn.org/stable/modules/generated/sklearn.utils.estimator_checks.check_estimator.html
+
 Regressor parameters and lifting functions can easily be cross-validated using
 ``scikit-learn``:
 

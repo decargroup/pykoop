@@ -1,7 +1,8 @@
 """Koopman pipeline meta-estimators and related interfaces.
 
 Since the Koopman regression problem operates on timeseries data, it has
-additional requirements that preclude the use of ``scikit-learn`` pipelines:
+additional requirements that preclude the use of ``scikit-learn``
+:class:`Pipeline` objects:
 
 1. The original state must be kept at the beginning of the lifted state.
 2. The input-dependent lifted states must be kept at the end of the lifted
