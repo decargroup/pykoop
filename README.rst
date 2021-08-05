@@ -134,7 +134,7 @@ Library      Unique features
 `pykoopman`_ - Continuous-time Koopman operator identification
              - Built-in numerical differentiation
              - Detailed DMD outputs
-             - DMDc with known control
+             - DMDc with known control matrix
 `PyDMD`_     - Extensive library containing pretty much every variant of DMD
 `PySINDy`_   - Python implementation of the famous (SINDy) method
              - Related to, but not the same as, Koopman operator approximation
