@@ -84,7 +84,10 @@ from pykoop import lmi_regressors
             'max_iter': -1
         }),
         (lmi_regressors.LmiEdmdSpectralRadiusConstr, {
-            'iter_tol': -1
+            'iter_atol': -1
+        }),
+        (lmi_regressors.LmiEdmdSpectralRadiusConstr, {
+            'iter_rtol': -1
         }),
         (lmi_regressors.LmiEdmdSpectralRadiusConstr, {
             'alpha': -1
@@ -97,7 +100,10 @@ from pykoop import lmi_regressors
             'max_iter': -1
         }),
         (lmi_regressors.LmiDmdcSpectralRadiusConstr, {
-            'iter_tol': -1
+            'iter_atol': -1
+        }),
+        (lmi_regressors.LmiDmdcSpectralRadiusConstr, {
+            'iter_rtol': -1
         }),
         # LmiEdmdHinfReg
         (lmi_regressors.LmiEdmdHinfReg, {
@@ -116,7 +122,10 @@ from pykoop import lmi_regressors
             'max_iter': -1
         }),
         (lmi_regressors.LmiEdmdHinfReg, {
-            'iter_tol': -1
+            'iter_atol': -1
+        }),
+        (lmi_regressors.LmiEdmdHinfReg, {
+            'iter_rtol': -1
         }),
         # LmiDmdcHinfReg
         (lmi_regressors.LmiDmdcHinfReg, {
@@ -135,7 +144,10 @@ from pykoop import lmi_regressors
             'max_iter': -1
         }),
         (lmi_regressors.LmiDmdcHinfReg, {
-            'iter_tol': -1
+            'iter_atol': -1
+        }),
+        (lmi_regressors.LmiDmdcHinfReg, {
+            'iter_rtol': -1
         }),
         # LmiEdmdDissipativityConstr
         (lmi_regressors.LmiDmdcHinfReg, {
@@ -148,7 +160,10 @@ from pykoop import lmi_regressors
             'max_iter': -1
         }),
         (lmi_regressors.LmiDmdcHinfReg, {
-            'iter_tol': -1
+            'iter_atol': -1
+        }),
+        (lmi_regressors.LmiDmdcHinfReg, {
+            'iter_rtol': -1
         }),
     ])
 def test_bad_params(class_, params):
