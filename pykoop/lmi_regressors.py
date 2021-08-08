@@ -597,7 +597,8 @@ class LmiDmdc(LmiRegressor):
         self.sig_hat_ = sig_hat
         self.Z_hat_ = Z_hat
         # Reconstruct Koopman operator
-        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p - p_theta)).T
+        p_upsilon = p - p_theta
+        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p_upsilon)).T
         coef = U.T
         return coef
 
@@ -633,7 +634,8 @@ class LmiDmdc(LmiRegressor):
         p, r_tld = Q_tld.shape
         p_theta, r_hat = Q_hat.shape
         # Compute Q_hat
-        Q_bar = linalg.block_diag(Q_hat, np.eye(p - p_theta)).T @ Q_tld
+        p_upsilon = p - p_theta
+        Q_bar = linalg.block_diag(Q_hat, np.eye(p_upsilon)).T @ Q_tld
         # Create optimization problem
         problem = picos.Problem()
         # Constants
@@ -1061,13 +1063,13 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
             self.tsvd_method)
         Q_tld, sig_tld, Z_tld = _tsvd._tsvd(X_unshifted.T, *tsvd_method_tld)
         Q_hat, sig_hat, Z_hat = _tsvd._tsvd(X_shifted.T, *tsvd_method_hat)
-        r = Q_tld.shape[1]
-        r_theta = Q_hat.shape[1]
+        r_tld = Q_tld.shape[1]
+        r_hat = Q_hat.shape[1]
         # Make initial guesses and iterate
-        Gamma = np.eye(r_theta)
+        Gamma = np.eye(r_hat)
         # Set scope of other variables
-        U_hat = np.zeros((r_theta, r))
-        P = np.zeros((r_theta, r_theta))
+        U_hat = np.zeros((r_hat, r_hat + p - p_theta))
+        P = np.zeros((r_hat, r_hat))
         self.objective_log_ = []
         for k in range(self.max_iter):
             # Formulate Problem A
@@ -1123,7 +1125,8 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
             log.warn(self.stop_reason_)
         self.n_iter_ = k + 1
-        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p - p_theta)).T
+        p_upsilon = p - p_theta
+        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p_upsilon)).T
         coef = U.T
         # Only useful for debugging
         self.U_hat_ = U_hat
@@ -1717,22 +1720,21 @@ class LmiDmdcHinfReg(LmiRegressor):
             self.tsvd_method)
         Q_tld, sig_tld, Z_tld = _tsvd._tsvd(X_unshifted.T, *tsvd_method_tld)
         Q_hat, sig_hat, Z_hat = _tsvd._tsvd(X_shifted.T, *tsvd_method_hat)
-        r = Q_tld.shape[1]
-        r_theta = Q_hat.shape[1]
+        r_tld = Q_tld.shape[1]
+        r_hat = Q_hat.shape[1]
         # Set up weights
         if self.weight is None:
-            P = np.eye(r_theta)
+            P = np.eye(r_hat)
         elif self.weight[0] == 'pre':
-            n_u = r - r_theta
-            P = np.eye(r_theta + n_u * self.weight[1].shape[0])
+            p_upsilon = p - p_theta
+            P = np.eye(r_hat + p_upsilon * self.weight[1].shape[0])
         elif self.weight[0] == 'post':
-            n_x = r_theta
-            P = np.eye(r_theta + n_x * self.weight[1].shape[0])
+            P = np.eye(r_hat + r_hat * self.weight[1].shape[0])
         else:
             # Already checked. Should never get here.
             assert False
         # Solve optimization problem iteratively
-        U_hat = np.zeros((r_theta, r))
+        U_hat = np.zeros((r_hat, r_hat + p - p_theta))
         gamma = np.zeros((1, ))
         self.objective_log_ = []
         for k in range(self.max_iter):
@@ -1788,7 +1790,8 @@ class LmiDmdcHinfReg(LmiRegressor):
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
             log.warn(self.stop_reason_)
         self.n_iter_ = k + 1
-        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p - p_theta)).T
+        p_upsilon = p - p_theta
+        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p_upsilon)).T
         coef = U.T
         # Only useful for debugging
         self.U_hat_ = U_hat
