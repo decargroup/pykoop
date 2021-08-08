@@ -2344,7 +2344,7 @@ def _calc_c_G_H(
             stats_str[key] = f'{stats[key]:.2e}'
         else:
             stats_str[key] = stats[key]
-    log.info(f'_calc_c_G_H() stats: {stats_str}')
+    log.info(f'`_calc_c_G_H()` stats: {stats_str}')
     return c, G, H_reg, stats
 
 
