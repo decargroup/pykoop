@@ -1024,11 +1024,13 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
             self.tsvd_method)
         Q_tld, sig_tld, Z_tld = _tsvd._tsvd(X_unshifted.T, *tsvd_method_tld)
         Q_hat, sig_hat, Z_hat = _tsvd._tsvd(X_shifted.T, *tsvd_method_hat)
+        r = Q_tld.shape[1]
+        r_theta = Q_hat.shape[1]
         # Make initial guesses and iterate
-        Gamma = np.eye(p_theta)
+        Gamma = np.eye(r_theta)
         # Set scope of other variables
-        U_hat = np.zeros((p_theta, p))
-        P = np.zeros((p_theta, p_theta))
+        U_hat = np.zeros((r_theta, r))
+        P = np.zeros((r_theta, r_theta))
         self.objective_log_ = []
         for k in range(self.max_iter):
             # Formulate Problem A
