@@ -411,6 +411,20 @@ class LmiDmdc(LmiRegressor):
         Matrix two norm or nuclear norm regularization coefficient used.
     solver_params_ : dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
+    U_hat_ : np.ndarray
+        Reduced Koopman matrix for debugging.
+    Q_tld_ : np.ndarray
+        Left singular vectors of ``X_unshifted`` for debugging.
+    sig_tld_ : np.ndarray
+        Singular values of ``X_unshifted`` for debugging.
+    Z_tld_ : np.ndarray
+        Right singular vectors of ``X_unshifted`` for debugging.
+    Q_hat_ : np.ndarray
+        Left singular vectors of ``X_shifted`` for debugging.
+    sig_hat_ : np.ndarray
+        Singular values of ``X_shifted`` for debugging.
+    Z_hat_ : np.ndarray
+        Right singular vectors of ``X_shifted`` for debugging.
     n_features_in_ : int
         Number of features input, including episode feature.
     n_states_in_ : int
@@ -574,6 +588,15 @@ class LmiDmdc(LmiRegressor):
         self.solution_status_ = problem.last_solution.claimedStatus
         # Extract solution from ``Problem`` object
         U_hat = self._extract_solution(problem).T
+        # Save SVDs and reduced U for debugging
+        self.U_hat_ = U_hat
+        self.Q_tld_ = Q_tld
+        self.sig_tld_ = sig_tld
+        self.Z_tld_ = Z_tld
+        self.Q_hat_ = Q_hat
+        self.sig_hat_ = sig_hat
+        self.Z_hat_ = Z_hat
+        # Reconstruct Koopman operator
         U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p - p_theta)).T
         coef = U.T
         return coef
@@ -664,9 +687,9 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
     n_iter_ : int
         Number of iterations
     Gamma_ : np.ndarray
-        ``Gamma`` matrix, for debugging.
+        ``Gamma`` matrix for debugging.
     P_ : np.ndarray
-        ``P`` matrix, for debugging.
+        ``P`` matrix for debugging.
     solver_params_ : dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
@@ -915,10 +938,24 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
+    U_hat_ : np.ndarray
+        Reduced Koopman matrix for debugging.
+    Q_tld_ : np.ndarray
+        Left singular vectors of ``X_unshifted`` for debugging.
+    sig_tld_ : np.ndarray
+        Singular values of ``X_unshifted`` for debugging.
+    Z_tld_ : np.ndarray
+        Right singular vectors of ``X_unshifted`` for debugging.
+    Q_hat_ : np.ndarray
+        Left singular vectors of ``X_shifted`` for debugging.
+    sig_hat_ : np.ndarray
+        Singular values of ``X_shifted`` for debugging.
+    Z_hat_ : np.ndarray
+        Right singular vectors of ``X_shifted`` for debugging.
     Gamma_ : np.ndarray
-        ``Gamma`` matrix, for debugging.
+        ``Gamma`` matrix for debugging.
     P_ : np.ndarray
-        ``P`` matrix, for debugging.
+        ``P`` matrix for debugging.
     solver_params_ : dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
@@ -1089,6 +1126,13 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
         U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p - p_theta)).T
         coef = U.T
         # Only useful for debugging
+        self.U_hat_ = U_hat
+        self.Q_tld_ = Q_tld
+        self.sig_tld_ = sig_tld
+        self.Z_tld_ = Z_tld
+        self.Q_hat_ = Q_hat
+        self.sig_hat_ = sig_hat
+        self.Z_hat_ = Z_hat
         self.Gamma_ = Gamma
         self.P_ = P
         return coef
@@ -1171,6 +1215,10 @@ class LmiEdmdHinfReg(LmiRegressor):
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
+    P_ : np.ndarray
+        ``P`` matirx for debugging.
+    gamma_ : np.ndarray
+        H-infinity norm for debugging.
     solver_params_ : dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
@@ -1500,6 +1548,24 @@ class LmiDmdcHinfReg(LmiRegressor):
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
+    U_hat_ : np.ndarray
+        Reduced Koopman matrix for debugging.
+    Q_tld_ : np.ndarray
+        Left singular vectors of ``X_unshifted`` for debugging.
+    sig_tld_ : np.ndarray
+        Singular values of ``X_unshifted`` for debugging.
+    Z_tld_ : np.ndarray
+        Right singular vectors of ``X_unshifted`` for debugging.
+    Q_hat_ : np.ndarray
+        Left singular vectors of ``X_shifted`` for debugging.
+    sig_hat_ : np.ndarray
+        Singular values of ``X_shifted`` for debugging.
+    Z_hat_ : np.ndarray
+        Right singular vectors of ``X_shifted`` for debugging.
+    P_ : np.ndarray
+        ``P`` matirx for debugging.
+    gamma_ : np.ndarray
+        H-infinity norm for debugging.
     solver_params_ : dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
@@ -1725,6 +1791,13 @@ class LmiDmdcHinfReg(LmiRegressor):
         U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p - p_theta)).T
         coef = U.T
         # Only useful for debugging
+        self.U_hat_ = U_hat
+        self.Q_tld_ = Q_tld
+        self.sig_tld_ = sig_tld
+        self.Z_tld_ = Z_tld
+        self.Q_hat_ = Q_hat
+        self.sig_hat_ = sig_hat
+        self.Z_hat_ = Z_hat
         self.P_ = P
         self.gamma_ = gamma
         return coef
