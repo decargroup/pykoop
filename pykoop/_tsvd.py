@@ -1,8 +1,12 @@
 """Compute truncated singular value decomposition."""
 
+import logging
+
 import numpy as np
 import optht
 from scipy import linalg
+
+log = logging.getLogger(__name__)
 
 
 def _tsvd(
@@ -69,4 +73,14 @@ def _tsvd(
     Q_r = Q[:, :rank]
     sig_r = sig[:rank]
     Z_r = Z[:, :rank]
+    stats = {
+        'method': method,
+        'shape': X.shape,
+        'rank': sig.shape[0],
+        'reduced_rank': rank,
+        'max_sv': f'{np.max(sig):.2e}',
+        'min_sv': f'{np.min(sig):.2e}',
+        'reduced_min_sv': f'{np.min(sig_r):.2e}',
+    }
+    log.info(f'`_tsvd()` stats: {stats}')
     return (Q_r, sig_r, Z_r)

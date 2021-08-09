@@ -188,8 +188,10 @@ class Dmdc(koopman_pipeline.KoopmanRegressor):
             tsvd_method: Union[str, tuple]) -> tuple[tuple, tuple]:
         """Format truncated SVD methods for ``_tsvd``."""
         # Convert string if needed
-        if type(tsvd_method) is not tuple:
+        if type(tsvd_method) is str:
             tsvd_method = (tsvd_method, )
+        else:
+            tsvd_method = tuple(tsvd_method)
         # Form tuples
         if len(tsvd_method) == 1:
             tms = (tsvd_method, tsvd_method)

@@ -411,6 +411,20 @@ class LmiDmdc(LmiRegressor):
         Matrix two norm or nuclear norm regularization coefficient used.
     solver_params_ : dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
+    U_hat_ : np.ndarray
+        Reduced Koopman matrix for debugging.
+    Q_tld_ : np.ndarray
+        Left singular vectors of ``X_unshifted`` for debugging.
+    sig_tld_ : np.ndarray
+        Singular values of ``X_unshifted`` for debugging.
+    Z_tld_ : np.ndarray
+        Right singular vectors of ``X_unshifted`` for debugging.
+    Q_hat_ : np.ndarray
+        Left singular vectors of ``X_shifted`` for debugging.
+    sig_hat_ : np.ndarray
+        Singular values of ``X_shifted`` for debugging.
+    Z_hat_ : np.ndarray
+        Right singular vectors of ``X_shifted`` for debugging.
     n_features_in_ : int
         Number of features input, including episode feature.
     n_states_in_ : int
@@ -574,7 +588,17 @@ class LmiDmdc(LmiRegressor):
         self.solution_status_ = problem.last_solution.claimedStatus
         # Extract solution from ``Problem`` object
         U_hat = self._extract_solution(problem).T
-        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p - p_theta)).T
+        # Save SVDs and reduced U for debugging
+        self.U_hat_ = U_hat
+        self.Q_tld_ = Q_tld
+        self.sig_tld_ = sig_tld
+        self.Z_tld_ = Z_tld
+        self.Q_hat_ = Q_hat
+        self.sig_hat_ = sig_hat
+        self.Z_hat_ = Z_hat
+        # Reconstruct Koopman operator
+        p_upsilon = p - p_theta
+        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p_upsilon)).T
         coef = U.T
         return coef
 
@@ -610,7 +634,8 @@ class LmiDmdc(LmiRegressor):
         p, r_tld = Q_tld.shape
         p_theta, r_hat = Q_hat.shape
         # Compute Q_hat
-        Q_bar = linalg.block_diag(Q_hat, np.eye(p - p_theta)).T @ Q_tld
+        p_upsilon = p - p_theta
+        Q_bar = linalg.block_diag(Q_hat, np.eye(p_upsilon)).T @ Q_tld
         # Create optimization problem
         problem = picos.Problem()
         # Constants
@@ -664,9 +689,9 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
     n_iter_ : int
         Number of iterations
     Gamma_ : np.ndarray
-        ``Gamma`` matrix, for debugging.
+        ``Gamma`` matrix for debugging.
     P_ : np.ndarray
-        ``P`` matrix, for debugging.
+        ``P`` matrix for debugging.
     solver_params_ : dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
@@ -696,7 +721,8 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
     def __init__(self,
                  spectral_radius: float = 1.0,
                  max_iter: int = 100,
-                 iter_tol: float = 1e-6,
+                 iter_atol: float = 1e-6,
+                 iter_rtol: float = 0,
                  alpha: float = 0,
                  inv_method: str = 'svd',
                  tsvd_method: Union[str, tuple] = 'economy',
@@ -714,10 +740,11 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
         max_iter : int
             Maximum number of solver iterations.
 
-        iter_tol : float
-            Absolute tolerance for change in objective function value. When the
-            change in objective function is less than ``iter_tol``, the
-            iteration will stop.
+        iter_atol : float
+            Absolute tolerance for change in objective function value.
+
+        iter_rtol : float
+            Relative tolerance for change in objective function value.
 
         alpha : float
             Regularization coefficient. Can only be zero if
@@ -759,7 +786,8 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
         """
         self.spectral_radius = spectral_radius
         self.max_iter = max_iter
-        self.iter_tol = iter_tol
+        self.iter_atol = iter_atol
+        self.iter_rtol = iter_rtol
         self.alpha = alpha
         self.inv_method = inv_method
         self.tsvd_method = tsvd_method
@@ -803,12 +831,15 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
             # Check stopping condition
             self.objective_log_.append(problem_a.value)
             if len(self.objective_log_) > 1:
-                diff = np.absolute(self.objective_log_[-2]
-                                   - self.objective_log_[-1])
-                log.info(f'Objective: {self.objective_log_[-1]}; '
-                         f'Change: {diff}.')
-                if (diff < self.iter_tol):
-                    self.stop_reason_ = f'Reached tolerance {diff}'
+                curr_obj = self.objective_log_[-1]
+                prev_obj = self.objective_log_[-2]
+                diff_obj = prev_obj - curr_obj
+                log.info(f'Objective: {curr_obj}; Change: {diff_obj}.')
+                if np.allclose(curr_obj,
+                               prev_obj,
+                               atol=self.iter_atol,
+                               rtol=self.iter_rtol):
+                    self.stop_reason_ = f'Reached tolerance {diff_obj}'
                     break
             # Formulate Problem B
             problem_b = self._create_problem_b(U, P)
@@ -843,8 +874,10 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
             raise ValueError('`spectral_radius` must be positive.')
         if self.max_iter <= 0:
             raise ValueError('`max_iter` must be positive.')
-        if self.iter_tol <= 0:
-            raise ValueError('`iter_tol` must be positive.')
+        if self.iter_atol < 0:
+            raise ValueError('`iter_atol` must be positive or zero.')
+        if self.iter_rtol < 0:
+            raise ValueError('`iter_rtol` must be positive or zero.')
 
     def _create_problem_a(self, X_unshifted: np.ndarray, X_shifted: np.ndarray,
                           Gamma: np.ndarray) -> picos.Problem:
@@ -907,10 +940,24 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
+    U_hat_ : np.ndarray
+        Reduced Koopman matrix for debugging.
+    Q_tld_ : np.ndarray
+        Left singular vectors of ``X_unshifted`` for debugging.
+    sig_tld_ : np.ndarray
+        Singular values of ``X_unshifted`` for debugging.
+    Z_tld_ : np.ndarray
+        Right singular vectors of ``X_unshifted`` for debugging.
+    Q_hat_ : np.ndarray
+        Left singular vectors of ``X_shifted`` for debugging.
+    sig_hat_ : np.ndarray
+        Singular values of ``X_shifted`` for debugging.
+    Z_hat_ : np.ndarray
+        Right singular vectors of ``X_shifted`` for debugging.
     Gamma_ : np.ndarray
-        ``Gamma`` matrix, for debugging.
+        ``Gamma`` matrix for debugging.
     P_ : np.ndarray
-        ``P`` matrix, for debugging.
+        ``P`` matrix for debugging.
     solver_params_ : dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
@@ -942,7 +989,8 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
     def __init__(self,
                  spectral_radius: float = 1.0,
                  max_iter: int = 100,
-                 iter_tol: float = 1e-6,
+                 iter_atol: float = 1e-6,
+                 iter_rtol: float = 0,
                  alpha: float = 0,
                  tsvd_method: Union[str, tuple] = 'economy',
                  picos_eps: float = 0,
@@ -959,10 +1007,11 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
         max_iter : int
             Maximum number of solver iterations.
 
-        iter_tol : float
-            Absolute tolerance for change in objective function value. When the
-            change in objective function is less than ``iter_tol``, the
-            iteration will stop.
+        iter_atol : float
+            Absolute tolerance for change in objective function value.
+
+        iter_rtol : float
+            Relative tolerance for change in objective function value.
 
         alpha : float
             Tikhonov regularization coefficient.
@@ -993,7 +1042,8 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
         """
         self.spectral_radius = spectral_radius
         self.max_iter = max_iter
-        self.iter_tol = iter_tol
+        self.iter_atol = iter_atol
+        self.iter_rtol = iter_rtol
         self.alpha = alpha
         self.tsvd_method = tsvd_method
         self.picos_eps = picos_eps
@@ -1013,11 +1063,13 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
             self.tsvd_method)
         Q_tld, sig_tld, Z_tld = _tsvd._tsvd(X_unshifted.T, *tsvd_method_tld)
         Q_hat, sig_hat, Z_hat = _tsvd._tsvd(X_shifted.T, *tsvd_method_hat)
+        r_tld = Q_tld.shape[1]
+        r_hat = Q_hat.shape[1]
         # Make initial guesses and iterate
-        Gamma = np.eye(p_theta)
+        Gamma = np.eye(r_hat)
         # Set scope of other variables
-        U_hat = np.zeros((p_theta, p))
-        P = np.zeros((p_theta, p_theta))
+        U_hat = np.zeros((r_hat, r_hat + p - p_theta))
+        P = np.zeros((r_hat, r_hat))
         self.objective_log_ = []
         for k in range(self.max_iter):
             # Formulate Problem A
@@ -1042,12 +1094,15 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
             # Check stopping condition
             self.objective_log_.append(problem_a.value)
             if len(self.objective_log_) > 1:
-                diff = np.absolute(self.objective_log_[-2]
-                                   - self.objective_log_[-1])
-                log.info(f'Objective: {self.objective_log_[-1]}; '
-                         f'Change: {diff}.')
-                if (diff < self.iter_tol):
-                    self.stop_reason_ = f'Reached tolerance {diff}'
+                curr_obj = self.objective_log_[-1]
+                prev_obj = self.objective_log_[-2]
+                diff_obj = prev_obj - curr_obj
+                log.info(f'Objective: {curr_obj}; Change: {diff_obj}.')
+                if np.allclose(curr_obj,
+                               prev_obj,
+                               atol=self.iter_atol,
+                               rtol=self.iter_rtol):
+                    self.stop_reason_ = f'Reached tolerance {diff_obj}'
                     break
             # Formulate Problem B
             problem_b = self._create_problem_b(U_hat, P)
@@ -1070,9 +1125,17 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
             log.warn(self.stop_reason_)
         self.n_iter_ = k + 1
-        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p - p_theta)).T
+        p_upsilon = p - p_theta
+        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p_upsilon)).T
         coef = U.T
         # Only useful for debugging
+        self.U_hat_ = U_hat
+        self.Q_tld_ = Q_tld
+        self.sig_tld_ = sig_tld
+        self.Z_tld_ = Z_tld
+        self.Q_hat_ = Q_hat
+        self.sig_hat_ = sig_hat
+        self.Z_hat_ = Z_hat
         self.Gamma_ = Gamma
         self.P_ = P
         return coef
@@ -1083,8 +1146,10 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
             raise ValueError('`spectral_radius` must be positive.')
         if self.max_iter <= 0:
             raise ValueError('`max_iter` must be positive.')
-        if self.iter_tol <= 0:
-            raise ValueError('`iter_tol` must be positive.')
+        if self.iter_atol < 0:
+            raise ValueError('`iter_atol` must be positive or zero.')
+        if self.iter_rtol < 0:
+            raise ValueError('`iter_rtol` must be positive or zero.')
 
     def _create_problem_a(
         self,
@@ -1153,6 +1218,10 @@ class LmiEdmdHinfReg(LmiRegressor):
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
+    P_ : np.ndarray
+        ``P`` matirx for debugging.
+    gamma_ : np.ndarray
+        H-infinity norm for debugging.
     solver_params_ : dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
@@ -1203,7 +1272,8 @@ class LmiEdmdHinfReg(LmiRegressor):
         weight: tuple[str, np.ndarray, np.ndarray, np.ndarray,
                       np.ndarray] = None,
         max_iter: int = 100,
-        iter_tol: float = 1e-6,
+        iter_atol: float = 1e-6,
+        iter_rtol: float = 0,
         inv_method: str = 'svd',
         tsvd_method: Union[str, tuple] = 'economy',
         square_norm: bool = False,
@@ -1231,10 +1301,11 @@ class LmiEdmdHinfReg(LmiRegressor):
         max_iter : int
             Maximum number of solver iterations.
 
-        iter_tol : float
-            Absolute tolerance for change in objective function value. When the
-            change in objective function is less than ``iter_tol``, the
-            iteration will stop.
+        iter_atol : float
+            Absolute tolerance for change in objective function value.
+
+        iter_rtol : float
+            Relative tolerance for change in objective function value.
 
         inv_method : str
             Method to handle or avoid inversion of the ``H`` matrix when
@@ -1279,7 +1350,8 @@ class LmiEdmdHinfReg(LmiRegressor):
         self.ratio = ratio
         self.weight = weight
         self.max_iter = max_iter
-        self.iter_tol = iter_tol
+        self.iter_atol = iter_atol
+        self.iter_rtol = iter_rtol
         self.inv_method = inv_method
         self.tsvd_method = tsvd_method
         self.square_norm = square_norm
@@ -1343,12 +1415,15 @@ class LmiEdmdHinfReg(LmiRegressor):
             gamma = np.array(problem_a.get_valued_variable('gamma'))
             self.objective_log_.append(problem_a.value)
             if len(self.objective_log_) > 1:
-                diff = np.absolute(self.objective_log_[-2]
-                                   - self.objective_log_[-1])
-                log.info(f'Objective: {self.objective_log_[-1]}; '
-                         f'Change: {diff}.')
-                if (diff < self.iter_tol):
-                    self.stop_reason_ = f'Reached tolerance {diff}'
+                curr_obj = self.objective_log_[-1]
+                prev_obj = self.objective_log_[-2]
+                diff_obj = prev_obj - curr_obj
+                log.info(f'Objective: {curr_obj}; Change: {diff_obj}.')
+                if np.allclose(curr_obj,
+                               prev_obj,
+                               atol=self.iter_atol,
+                               rtol=self.iter_rtol):
+                    self.stop_reason_ = f'Reached tolerance {diff_obj}'
                     break
             # Formulate Problem B
             problem_b = self._create_problem_b(U, gamma)
@@ -1387,8 +1462,10 @@ class LmiEdmdHinfReg(LmiRegressor):
                                  f'of {valid_weight_types}.')
         if self.max_iter <= 0:
             raise ValueError('`max_iter` must be positive.')
-        if self.iter_tol <= 0:
-            raise ValueError('`iter_tol` must be positive.')
+        if self.iter_atol < 0:
+            raise ValueError('`iter_atol` must be positive or zero.')
+        if self.iter_rtol < 0:
+            raise ValueError('`iter_rtol` must be positive or zero.')
 
     def _create_problem_a(self, X_unshifted: np.ndarray, X_shifted: np.ndarray,
                           P: np.ndarray) -> picos.Problem:
@@ -1474,6 +1551,24 @@ class LmiDmdcHinfReg(LmiRegressor):
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
+    U_hat_ : np.ndarray
+        Reduced Koopman matrix for debugging.
+    Q_tld_ : np.ndarray
+        Left singular vectors of ``X_unshifted`` for debugging.
+    sig_tld_ : np.ndarray
+        Singular values of ``X_unshifted`` for debugging.
+    Z_tld_ : np.ndarray
+        Right singular vectors of ``X_unshifted`` for debugging.
+    Q_hat_ : np.ndarray
+        Left singular vectors of ``X_shifted`` for debugging.
+    sig_hat_ : np.ndarray
+        Singular values of ``X_shifted`` for debugging.
+    Z_hat_ : np.ndarray
+        Right singular vectors of ``X_shifted`` for debugging.
+    P_ : np.ndarray
+        ``P`` matirx for debugging.
+    gamma_ : np.ndarray
+        H-infinity norm for debugging.
     solver_params_ : dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
@@ -1526,7 +1621,8 @@ class LmiDmdcHinfReg(LmiRegressor):
         weight: tuple[str, np.ndarray, np.ndarray, np.ndarray,
                       np.ndarray] = None,
         max_iter: int = 100,
-        iter_tol: float = 1e-6,
+        iter_atol: float = 1e-6,
+        iter_rtol: float = 0,
         tsvd_method: Union[str, tuple] = 'economy',
         square_norm: bool = False,
         picos_eps: float = 0,
@@ -1553,10 +1649,11 @@ class LmiDmdcHinfReg(LmiRegressor):
         max_iter : int
             Maximum number of solver iterations.
 
-        iter_tol : float
-            Absolute tolerance for change in objective function value. When the
-            change in objective function is less than ``iter_tol``, the
-            iteration will stop.
+        iter_atol : float
+            Absolute tolerance for change in objective function value.
+
+        iter_rtol : float
+            Relative tolerance for change in objective function value.
 
          tsvd_method : Union[str, tuple]
             Singular value truncation method used to change basis. Parameters
@@ -1591,7 +1688,8 @@ class LmiDmdcHinfReg(LmiRegressor):
         self.ratio = ratio
         self.weight = weight
         self.max_iter = max_iter
-        self.iter_tol = iter_tol
+        self.iter_atol = iter_atol
+        self.iter_rtol = iter_rtol
         self.tsvd_method = tsvd_method
         self.square_norm = square_norm
         self.picos_eps = picos_eps
@@ -1622,22 +1720,21 @@ class LmiDmdcHinfReg(LmiRegressor):
             self.tsvd_method)
         Q_tld, sig_tld, Z_tld = _tsvd._tsvd(X_unshifted.T, *tsvd_method_tld)
         Q_hat, sig_hat, Z_hat = _tsvd._tsvd(X_shifted.T, *tsvd_method_hat)
-        r = Q_tld.shape[1]
-        r_theta = Q_hat.shape[1]
+        r_tld = Q_tld.shape[1]
+        r_hat = Q_hat.shape[1]
         # Set up weights
         if self.weight is None:
-            P = np.eye(r_theta)
+            P = np.eye(r_hat)
         elif self.weight[0] == 'pre':
-            n_u = r - r_theta
-            P = np.eye(r_theta + n_u * self.weight[1].shape[0])
+            p_upsilon = p - p_theta
+            P = np.eye(r_hat + p_upsilon * self.weight[1].shape[0])
         elif self.weight[0] == 'post':
-            n_x = r_theta
-            P = np.eye(r_theta + n_x * self.weight[1].shape[0])
+            P = np.eye(r_hat + r_hat * self.weight[1].shape[0])
         else:
             # Already checked. Should never get here.
             assert False
         # Solve optimization problem iteratively
-        U_hat = np.zeros((r_theta, r))
+        U_hat = np.zeros((r_hat, r_hat + p - p_theta))
         gamma = np.zeros((1, ))
         self.objective_log_ = []
         for k in range(self.max_iter):
@@ -1662,12 +1759,15 @@ class LmiDmdcHinfReg(LmiRegressor):
             gamma = np.array(problem_a.get_valued_variable('gamma'))
             self.objective_log_.append(problem_a.value)
             if len(self.objective_log_) > 1:
-                diff = np.absolute(self.objective_log_[-2]
-                                   - self.objective_log_[-1])
-                log.info(f'Objective: {self.objective_log_[-1]}; '
-                         f'Change: {diff}.')
-                if (diff < self.iter_tol):
-                    self.stop_reason_ = f'Reached tolerance {diff}'
+                curr_obj = self.objective_log_[-1]
+                prev_obj = self.objective_log_[-2]
+                diff_obj = prev_obj - curr_obj
+                log.info(f'Objective: {curr_obj}; Change: {diff_obj}.')
+                if np.allclose(curr_obj,
+                               prev_obj,
+                               atol=self.iter_atol,
+                               rtol=self.iter_rtol):
+                    self.stop_reason_ = f'Reached tolerance {diff_obj}'
                     break
             # Formulate Problem B
             problem_b = self._create_problem_b(U_hat, gamma)
@@ -1690,9 +1790,17 @@ class LmiDmdcHinfReg(LmiRegressor):
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
             log.warn(self.stop_reason_)
         self.n_iter_ = k + 1
-        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p - p_theta)).T
+        p_upsilon = p - p_theta
+        U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p_upsilon)).T
         coef = U.T
         # Only useful for debugging
+        self.U_hat_ = U_hat
+        self.Q_tld_ = Q_tld
+        self.sig_tld_ = sig_tld
+        self.Z_tld_ = Z_tld
+        self.Q_hat_ = Q_hat
+        self.sig_hat_ = sig_hat
+        self.Z_hat_ = Z_hat
         self.P_ = P
         self.gamma_ = gamma
         return coef
@@ -1707,8 +1815,10 @@ class LmiDmdcHinfReg(LmiRegressor):
                                  f'of {valid_weight_types}.')
         if self.max_iter <= 0:
             raise ValueError('`max_iter` must be positive.')
-        if self.iter_tol <= 0:
-            raise ValueError('`iter_tol` must be positive.')
+        if self.iter_atol < 0:
+            raise ValueError('`iter_atol` must be positive or zero.')
+        if self.iter_rtol < 0:
+            raise ValueError('`iter_rtol` must be positive or zero.')
 
     def _create_problem_a(
         self,
@@ -1830,7 +1940,8 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         alpha: float = 1,
         supply_rate: np.ndarray = None,
         max_iter: int = 100,
-        iter_tol: float = 1e-6,
+        iter_atol: float = 1e-6,
+        iter_rtol: float = 0,
         inv_method: str = 'svd',
         tsvd_method: Union[str, tuple] = 'economy',
         picos_eps: float = 0,
@@ -1859,10 +1970,11 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         max_iter : int
             Maximum number of solver iterations.
 
-        iter_tol : float
-            Absolute tolerance for change in objective function value. When the
-            change in objective function is less than ``iter_tol``, the
-            iteration will stop.
+        iter_atol : float
+            Absolute tolerance for change in objective function value.
+
+        iter_rtol : float
+            Relative tolerance for change in objective function value.
 
         inv_method : str
             Method to handle or avoid inversion of the ``H`` matrix when
@@ -1901,7 +2013,8 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         self.alpha = alpha
         self.supply_rate = supply_rate
         self.max_iter = max_iter
-        self.iter_tol = iter_tol
+        self.iter_atol = iter_atol
+        self.iter_rtol = iter_rtol
         self.inv_method = inv_method
         self.tsvd_method = tsvd_method
         self.picos_eps = picos_eps
@@ -1950,12 +2063,15 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             self.objective_log_.append(problem_a.value)
             if len(self.objective_log_) > 1:
-                diff = np.absolute(self.objective_log_[-2]
-                                   - self.objective_log_[-1])
-                log.info(f'Objective: {self.objective_log_[-1]}; '
-                         f'Change: {diff}.')
-                if (diff < self.iter_tol):
-                    self.stop_reason_ = f'Reached tolerance {diff}'
+                curr_obj = self.objective_log_[-1]
+                prev_obj = self.objective_log_[-2]
+                diff_obj = prev_obj - curr_obj
+                log.info(f'Objective: {curr_obj}; Change: {diff_obj}.')
+                if np.allclose(curr_obj,
+                               prev_obj,
+                               atol=self.iter_atol,
+                               rtol=self.iter_rtol):
+                    self.stop_reason_ = f'Reached tolerance {diff_obj}'
                     break
             # Formulate Problem B
             problem_b = self._create_problem_b(U)
@@ -1987,8 +2103,10 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         # Check other parameters
         if self.max_iter <= 0:
             raise ValueError('`max_iter` must be positive.')
-        if self.iter_tol <= 0:
-            raise ValueError('`iter_tol` must be positive.')
+        if self.iter_atol < 0:
+            raise ValueError('`iter_atol` must be positive or zero.')
+        if self.iter_rtol < 0:
+            raise ValueError('`iter_rtol` must be positive or zero.')
 
     def _create_problem_a(self, X_unshifted: np.ndarray, X_shifted: np.ndarray,
                           P: np.ndarray) -> picos.Problem:
@@ -2304,7 +2422,7 @@ def _calc_c_G_H(
             stats_str[key] = f'{stats[key]:.2e}'
         else:
             stats_str[key] = stats[key]
-    log.info(f'_calc_c_G_H() stats: {stats_str}')
+    log.info(f'`_calc_c_G_H()` stats: {stats_str}')
     return c, G, H_reg, stats
 
 

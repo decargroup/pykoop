@@ -111,7 +111,7 @@ from sklearn import linear_model
                 pykoop.lmi_regressors.LmiEdmdHinfReg(
                     inv_method='eig',
                     max_iter=100,
-                    iter_tol=1e-3,
+                    iter_atol=1e-3,
                     alpha=1,
                     ratio=1,
                     solver_params={'dualize': False}),
