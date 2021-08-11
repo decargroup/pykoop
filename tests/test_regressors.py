@@ -1,10 +1,11 @@
 import numpy as np
-import pykoop
-import pykoop.dynamic_models
-import pykoop.lmi_regressors
 import pytest
 from scipy import integrate, linalg
 from sklearn import linear_model
+
+import pykoop
+import pykoop.dynamic_models
+import pykoop.lmi_regressors
 
 # TODO This file is a nightmare
 
@@ -102,8 +103,8 @@ from sklearn import linear_model
                 # checked (eigenvalue magnitudes are less than 0.8) but
                 # strictly speaking, it hasn't been checked against other code.
                 np.array([
-                    [0.88994802, 0.04260765],  # noqa: E201
-                    [-0.22883601, 0.70816555]
+                    [0.797335, 0.065241],
+                    [-0.065242, 0.797335],
                 ])),
             marks=pytest.mark.slow),
         pytest.param(

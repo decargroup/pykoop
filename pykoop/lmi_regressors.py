@@ -688,8 +688,6 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
-    Gamma_ : np.ndarray
-        ``Gamma`` matrix for debugging.
     P_ : np.ndarray
         ``P`` matrix for debugging.
     solver_params_ : Dict[str, Any]
@@ -804,14 +802,13 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
         p = X_unshifted.shape[1]
         p_theta = X_shifted.shape[1]
         # Make initial guesses and iterate
-        Gamma = np.eye(p_theta)
+        P = np.eye(p_theta)
         # Set scope of other variables
         U = np.zeros((p_theta, p))
-        P = np.zeros((p_theta, p_theta))
         self.objective_log_ = []
         for k in range(self.max_iter):
             # Formulate Problem A
-            problem_a = self._create_problem_a(X_unshifted, X_shifted, Gamma)
+            problem_a = self._create_problem_a(X_unshifted, X_shifted, P)
             # Solve Problem A
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
@@ -827,7 +824,6 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
                 log.warn(self.stop_reason_)
                 break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
-            P = np.array(problem_a.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
             self.objective_log_.append(problem_a.value)
             if len(self.objective_log_) > 1:
@@ -842,7 +838,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
                     self.stop_reason_ = f'Reached tolerance {diff_obj}'
                     break
             # Formulate Problem B
-            problem_b = self._create_problem_b(U, P)
+            problem_b = self._create_problem_b(U)
             # Solve Problem B
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
@@ -857,14 +853,13 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
                     f'Solution status: `{solution_status_b}`.')
                 log.warn(self.stop_reason_)
                 break
-            Gamma = np.array(problem_b.get_valued_variable('Gamma'), ndmin=2)
+            P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
             log.warn(self.stop_reason_)
         self.n_iter_ = k + 1
         coef = U.T
         # Only useful for debugging
-        self.Gamma_ = Gamma
         self.P_ = P
         return coef
 
@@ -880,7 +875,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
             raise ValueError('`iter_rtol` must be positive or zero.')
 
     def _create_problem_a(self, X_unshifted: np.ndarray, X_shifted: np.ndarray,
-                          Gamma: np.ndarray) -> picos.Problem:
+                          P: np.ndarray) -> picos.Problem:
         """Create first problem in iteration scheme."""
         q = X_unshifted.shape[0]
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
@@ -893,34 +888,33 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
         # Get needed sizes
         p_theta = U.shape[0]
         # Add new constraints
-        rho_bar_sq = picos.Constant('rho_bar^2', self.spectral_radius**2)
-        Gamma = picos.Constant('Gamma', Gamma)
-        P = picos.SymmetricVariable('P', p_theta)
-        problem_a.add_constraint(P >> self.picos_eps)
+        rho_bar = picos.Constant('rho_bar', self.spectral_radius)
+        P = picos.Constant('P', P)
         problem_a.add_constraint(
             picos.block([
-                [rho_bar_sq * P, U[:, :p_theta].T * Gamma],
-                [Gamma.T * U[:, :p_theta], Gamma + Gamma.T - P],
+                # Use ``(P + P.T) / 2`` so PICOS understands it's symmetric.
+                [rho_bar * (P + P.T) / 2, U[:, :p_theta].T * P],
+                [P.T * U[:, :p_theta], rho_bar * (P + P.T) / 2],
             ]) >> self.picos_eps)
         return problem_a
 
-    def _create_problem_b(self, U: np.ndarray, P: np.ndarray) -> picos.Problem:
+    def _create_problem_b(self, U: np.ndarray) -> picos.Problem:
         """Create second problem in iteration scheme."""
         # Create optimization problem
         problem_b = picos.Problem()
         # Get needed sizes
         p_theta = U.shape[0]
         # Create constants
-        rho_bar_sq = picos.Constant('rho_bar^2', self.spectral_radius**2)
+        rho_bar = picos.Constant('rho_bar', self.spectral_radius)
         U = picos.Constant('U', U)
-        P = picos.Constant('P', P)
         # Create variables
-        Gamma = picos.RealVariable('Gamma', P.shape)
+        P = picos.SymmetricVariable('P', p_theta)
         # Add constraints
+        problem_b.add_constraint(P >> self.picos_eps)
         problem_b.add_constraint(
             picos.block([
-                [rho_bar_sq * P, U[:, :p_theta].T * Gamma],
-                [Gamma.T * U[:, :p_theta], Gamma + Gamma.T - P],
+                [rho_bar * P, U[:, :p_theta].T * P],
+                [P.T * U[:, :p_theta], rho_bar * P],
             ]) >> self.picos_eps)
         # Set objective
         problem_b.set_objective('find')
