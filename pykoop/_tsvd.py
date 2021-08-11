@@ -1,6 +1,7 @@
 """Compute truncated singular value decomposition."""
 
 import logging
+from typing import Tuple
 
 import numpy as np
 import optht
@@ -13,7 +14,7 @@ def _tsvd(
     X: np.ndarray,
     method: str,
     param: float = None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Compute truncated singular value decomposition.
 
     Parameters
@@ -37,7 +38,7 @@ def _tsvd(
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray, np.ndarray]
+    Tuple[np.ndarray, np.ndarray, np.ndarray]
         Left singular vectors ``Q``, singular values ``sig``, and right
         singular vectors ``Z`` (not transposed).
     """

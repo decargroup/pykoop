@@ -1,5 +1,7 @@
 """Utilities for data generation and preprocessing."""
 
+from typing import Tuple
+
 import numpy as np
 from scipy import interpolate, signal
 
@@ -72,7 +74,7 @@ class AnglePreprocessor(koopman_pipeline.EpisodeIndependentLiftingFn):
         self.angle_features = angle_features
         self.unwrap_inverse = unwrap_inverse
 
-    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int]:
+    def _fit_one_ep(self, X: np.ndarray) -> Tuple[int, int]:
         # Compute boolean array with one entry per feature. A ``True`` value
         # indicates that the feature is an angle.
         n_states_inputs_in = self.n_states_in_ + self.n_inputs_in_
