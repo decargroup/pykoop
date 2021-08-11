@@ -110,6 +110,12 @@ The library can be tested using
 
 Note that ``pytest`` must be run from the repository's root directory.
 
+To skip slow unit tests, including all doctests and examples, run
+
+.. code-block:: sh
+
+    $ pytest ./tests -k-slow
+
 The documentation can be compiled using
 
 .. code-block:: sh
