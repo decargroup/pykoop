@@ -4,7 +4,7 @@ All of the lifting functions included in this module adhere to the interface
 defined in :class:`KoopmanRegressor`.
 """
 
-from typing import Any, Union
+from typing import Any, Dict, Tuple, Union
 
 import numpy as np
 import sklearn.base
@@ -185,7 +185,7 @@ class Dmdc(koopman_pipeline.KoopmanRegressor):
 
     @staticmethod
     def _get_tsvd_methods(
-            tsvd_method: Union[str, tuple]) -> tuple[tuple, tuple]:
+            tsvd_method: Union[str, tuple]) -> Tuple[tuple, tuple]:
         """Format truncated SVD methods for ``_tsvd``."""
         # Convert string if needed
         if type(tsvd_method) is str:
@@ -243,7 +243,7 @@ class Dmd(koopman_pipeline.KoopmanRegressor):
     """
 
     # Override check parameters to skip ``check_fit2d_1sample`` sklearn test.
-    _check_X_y_params: dict[str, Any] = {
+    _check_X_y_params: Dict[str, Any] = {
         'multi_output': True,
         'y_numeric': True,
         'ensure_min_samples': 2,

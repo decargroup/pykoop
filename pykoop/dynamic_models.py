@@ -1,7 +1,7 @@
 """Example dynamic models."""
 
 import abc
-from typing import Callable
+from typing import Callable, Tuple
 
 import numpy as np
 from scipy import constants, integrate
@@ -73,17 +73,17 @@ class ContinuousDynamicModel(metaclass=abc.ABCMeta):
 
     def simulate(
         self,
-        t_range: tuple[float, float],
+        t_range: Tuple[float, float],
         t_step: float,
         x0: np.ndarray,
         u: Callable[[float], np.ndarray],
         **kwargs,
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Simulate the model using numerical integration.
 
         Parameters
         ----------
-        t_range : tuple[float, float]
+        t_range : Tuple[float, float]
             Start and stop times in a tuple.
         t_step : float
             Timestep of output data.
@@ -96,7 +96,7 @@ class ContinuousDynamicModel(metaclass=abc.ABCMeta):
 
         Returns
         -------
-        tuple[np.ndarray, np.ndarray]
+        Tuple[np.ndarray, np.ndarray]
             Time and state at every timestep. Each timestep is one row.
         """
         sol = integrate.solve_ivp(
@@ -175,16 +175,16 @@ class DiscreteDynamicModel(metaclass=abc.ABCMeta):
 
     def simulate(
         self,
-        t_range: tuple[float, float],
+        t_range: Tuple[float, float],
         t_step: float,
         x0: np.ndarray,
         u: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Simulate the model.
 
         Parameters
         ----------
-        t_range : tuple[float, float]
+        t_range : Tuple[float, float]
             Start and stop times in a tuple.
         t_step : float
             Timestep of output data.
@@ -195,7 +195,7 @@ class DiscreteDynamicModel(metaclass=abc.ABCMeta):
 
         Returns
         -------
-        tuple[np.ndarray, np.ndarray]
+        Tuple[np.ndarray, np.ndarray]
             Time and state at every timestep. Each timestep is one row.
         """
         t = np.arange(*t_range, t_step)

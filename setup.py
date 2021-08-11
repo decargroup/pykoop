@@ -13,6 +13,7 @@ setuptools.setup(
                   'vassili.korotkine@mail.mcgill.ca'),
     url='https://bitbucket.org/decargroup/pykoop',
     packages=setuptools.find_packages(exclude=('tests', 'examples')),
+    python_requires='>=3.8',
     install_requires=[
         'numpy>=1.2.1',
         'scipy>=1.7.0',

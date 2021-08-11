@@ -11,7 +11,7 @@ that long regressions can be stopped politely.
 import logging
 import signal
 import tempfile
-from typing import Any, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import joblib
 import numpy as np
@@ -64,7 +64,7 @@ class LmiRegressor(koopman_pipeline.KoopmanRegressor):
     """
 
     # Default solver parameters
-    _default_solver_params: dict[str, Any] = {
+    _default_solver_params: Dict[str, Any] = {
         'primals': None,
         'duals': None,
         'dualize': True,
@@ -81,7 +81,7 @@ class LmiRegressor(koopman_pipeline.KoopmanRegressor):
     }
 
     # Override since PICOS only works with ``float64``.
-    _check_X_y_params: dict[str, Any] = {
+    _check_X_y_params: Dict[str, Any] = {
         'multi_output': True,
         'y_numeric': True,
         'dtype': 'float64',
@@ -111,7 +111,7 @@ class LmiEdmd(LmiRegressor):
         Tikhonov regularization coefficient used.
     self.alpha_other_ : float
         Matrix two norm or nuclear norm regularization coefficient used.
-    solver_params_ : dict[str, Any]
+    solver_params_ : Dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -177,7 +177,7 @@ class LmiEdmd(LmiRegressor):
                  tsvd_method: Union[str, tuple] = 'economy',
                  square_norm: bool = False,
                  picos_eps: float = 0,
-                 solver_params: dict[str, Any] = None) -> None:
+                 solver_params: Dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiEdmd`.
 
         To disable regularization, use ``alpha=0`` paired with
@@ -239,7 +239,7 @@ class LmiEdmd(LmiRegressor):
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : dict[str, Any]
+        solver_params : Dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -409,7 +409,7 @@ class LmiDmdc(LmiRegressor):
         Tikhonov regularization coefficient used.
     self.alpha_other_ : float
         Matrix two norm or nuclear norm regularization coefficient used.
-    solver_params_ : dict[str, Any]
+    solver_params_ : Dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     U_hat_ : np.ndarray
         Reduced Koopman matrix for debugging.
@@ -487,7 +487,7 @@ class LmiDmdc(LmiRegressor):
                  reg_method: str = 'tikhonov',
                  square_norm: bool = False,
                  picos_eps: float = 0,
-                 solver_params: dict[str, Any] = None) -> None:
+                 solver_params: Dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiDmdc`.
 
         Parameters
@@ -536,7 +536,7 @@ class LmiDmdc(LmiRegressor):
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : dict[str, Any]
+        solver_params : Dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -682,7 +682,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
 
     Attributes
     ----------
-    objective_log_ : list[float]
+    objective_log_ : List[float]
         Objective function history.
     stop_reason_ : str
         Reason iteration stopped.
@@ -692,7 +692,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
         ``Gamma`` matrix for debugging.
     P_ : np.ndarray
         ``P`` matrix for debugging.
-    solver_params_ : dict[str, Any]
+    solver_params_ : Dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -727,7 +727,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
                  inv_method: str = 'svd',
                  tsvd_method: Union[str, tuple] = 'economy',
                  picos_eps: float = 0,
-                 solver_params: dict[str, Any] = None) -> None:
+                 solver_params: Dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiEdmdSpectralRadiusConstr`.
 
         To disable regularization, use ``alpha=0``.
@@ -780,7 +780,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : dict[str, Any]
+        solver_params : Dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -934,7 +934,7 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
 
     Attributes
     ----------
-    objective_log_ : list[float]
+    objective_log_ : List[float]
         Objective function history.
     stop_reason_ : str
         Reason iteration stopped.
@@ -958,7 +958,7 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
         ``Gamma`` matrix for debugging.
     P_ : np.ndarray
         ``P`` matrix for debugging.
-    solver_params_ : dict[str, Any]
+    solver_params_ : Dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -994,7 +994,7 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
                  alpha: float = 0,
                  tsvd_method: Union[str, tuple] = 'economy',
                  picos_eps: float = 0,
-                 solver_params: dict[str, Any] = None) -> None:
+                 solver_params: Dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiDmdcSpectralRadiusConstr`.
 
         To disable regularization, use ``alpha=0``.
@@ -1036,7 +1036,7 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : dict[str, Any]
+        solver_params : Dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -1212,7 +1212,7 @@ class LmiEdmdHinfReg(LmiRegressor):
 
     Attributes
     ----------
-    objective_log_ : list[float]
+    objective_log_ : List[float]
         Objective function history.
     stop_reason_ : str
         Reason iteration stopped.
@@ -1222,7 +1222,7 @@ class LmiEdmdHinfReg(LmiRegressor):
         ``P`` matirx for debugging.
     gamma_ : np.ndarray
         H-infinity norm for debugging.
-    solver_params_ : dict[str, Any]
+    solver_params_ : Dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -1269,7 +1269,7 @@ class LmiEdmdHinfReg(LmiRegressor):
         self,
         alpha: float = 1,
         ratio: float = 1,
-        weight: tuple[str, np.ndarray, np.ndarray, np.ndarray,
+        weight: Tuple[str, np.ndarray, np.ndarray, np.ndarray,
                       np.ndarray] = None,
         max_iter: int = 100,
         iter_atol: float = 1e-6,
@@ -1278,7 +1278,7 @@ class LmiEdmdHinfReg(LmiRegressor):
         tsvd_method: Union[str, tuple] = 'economy',
         square_norm: bool = False,
         picos_eps: float = 0,
-        solver_params: dict[str, Any] = None,
+        solver_params: Dict[str, Any] = None,
     ) -> None:
         """Instantiate :class:`LmiEdmdHinfReg`.
 
@@ -1293,7 +1293,7 @@ class LmiEdmdHinfReg(LmiRegressor):
             Ratio of H-infinity norm to use in mixed regularization. If
             ``ratio=1``, no Tikhonov regularization is used. Cannot be zero.
 
-        weight : tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        weight : Tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
             Tuple containing weight type (``'pre'`` or ``'post'``), and the
             weight state space matrices (``A``, ``B``, ``C``, and ``D``). If
             ``None``, no weighting is used.
@@ -1342,7 +1342,7 @@ class LmiEdmdHinfReg(LmiRegressor):
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : dict[str, Any]
+        solver_params : Dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -1545,7 +1545,7 @@ class LmiDmdcHinfReg(LmiRegressor):
 
     Attributes
     ----------
-    objective_log_ : list[float]
+    objective_log_ : List[float]
         Objective function history.
     stop_reason_ : str
         Reason iteration stopped.
@@ -1569,7 +1569,7 @@ class LmiDmdcHinfReg(LmiRegressor):
         ``P`` matirx for debugging.
     gamma_ : np.ndarray
         H-infinity norm for debugging.
-    solver_params_ : dict[str, Any]
+    solver_params_ : Dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -1618,7 +1618,7 @@ class LmiDmdcHinfReg(LmiRegressor):
         self,
         alpha: float = 1,
         ratio: float = 1,
-        weight: tuple[str, np.ndarray, np.ndarray, np.ndarray,
+        weight: Tuple[str, np.ndarray, np.ndarray, np.ndarray,
                       np.ndarray] = None,
         max_iter: int = 100,
         iter_atol: float = 1e-6,
@@ -1626,7 +1626,7 @@ class LmiDmdcHinfReg(LmiRegressor):
         tsvd_method: Union[str, tuple] = 'economy',
         square_norm: bool = False,
         picos_eps: float = 0,
-        solver_params: dict[str, Any] = None,
+        solver_params: Dict[str, Any] = None,
     ) -> None:
         """Instantiate :class:`LmiDmdcHinfReg`.
 
@@ -1641,7 +1641,7 @@ class LmiDmdcHinfReg(LmiRegressor):
             Ratio of H-infinity norm to use in mixed regularization. If
             ``ratio=1``, no Tikhonov regularization is used. Cannot be zero.
 
-        weight : tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        weight : Tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
             Tuple containing weight type (``'pre'`` or ``'post'``), and the
             weight state space matrices (``A``, ``B``, ``C``, and ``D``). If
             ``None``, no weighting is used.
@@ -1680,7 +1680,7 @@ class LmiDmdcHinfReg(LmiRegressor):
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : dict[str, Any]
+        solver_params : Dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -1905,13 +1905,13 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
 
     Attributes
     ----------
-    objective_log_ : list[float]
+    objective_log_ : List[float]
         Objective function history.
     stop_reason_ : str
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
-    solver_params_ : dict[str, Any]
+    solver_params_ : Dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -1945,7 +1945,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         inv_method: str = 'svd',
         tsvd_method: Union[str, tuple] = 'economy',
         picos_eps: float = 0,
-        solver_params: dict[str, Any] = None,
+        solver_params: Dict[str, Any] = None,
     ) -> None:
         """Instantiate :class:`LmiEdmdDissipativityConstr`.
 
@@ -2006,7 +2006,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : dict[str, Any]
+        solver_params : Dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -2185,9 +2185,9 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
 
 def _create_ss(
     U: np.ndarray,
-    weight: Optional[tuple[str, np.ndarray, np.ndarray, np.ndarray,
+    weight: Optional[Tuple[str, np.ndarray, np.ndarray, np.ndarray,
                            np.ndarray]],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Augment Koopman system with weight if present.
 
     Parameters
@@ -2195,7 +2195,7 @@ def _create_ss(
     U : np.ndarray
         Koopman matrix containing ``A`` and ``B`` concatenated
         horizontally.
-    weight : Optional[tuple[str, np.ndarray, np.ndarray, np.ndarray,
+    weight : Optional[Tuple[str, np.ndarray, np.ndarray, np.ndarray,
                             np.ndarray]]
         Tuple containing weight type (``'pre'`` or ``'post'``), and the
         weight state space matrices (``A``, ``B``, ``C``, and ``D``). If
@@ -2203,7 +2203,7 @@ def _create_ss(
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+    Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
         Weighted state space matrices (``A``, ``B``, ``C``, ``D``).
     """
     p_theta = U.shape[0]
@@ -2365,7 +2365,7 @@ def _calc_c_G_H(
     X_unshifted: np.ndarray,
     X_shifted: np.ndarray,
     alpha: float,
-) -> tuple[float, np.ndarray, np.ndarray, dict[str, Any]]:
+) -> Tuple[float, np.ndarray, np.ndarray, Dict[str, Any]]:
     """Compute ``c``, ``G``, and ``H``.
 
     Parameters
@@ -2379,7 +2379,7 @@ def _calc_c_G_H(
 
     Returns
     -------
-    tuple[float, np.ndarray, np.ndarray, dict[str, Any]]
+    Tuple[float, np.ndarray, np.ndarray, Dict[str, Any]]
         Tuple containing ``c``, ``G``, and ``H``, along with numerical
         statistics.
     """

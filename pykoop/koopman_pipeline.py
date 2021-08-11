@@ -92,8 +92,7 @@ episode feature.
 """
 
 import abc
-from collections.abc import Callable
-from typing import Any, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas
@@ -358,7 +357,7 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
         return Xt
 
     @abc.abstractmethod
-    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int]:
+    def _fit_one_ep(self, X: np.ndarray) -> Tuple[int, int]:
         """Fit lifting function using a single episode.
 
         Expects and returns data without an episode header. Data is assumed to
@@ -371,7 +370,7 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
 
         Returns
         -------
-        tuple[int, int]
+        Tuple[int, int]
             Tuple containing the number of state features and input features in
             the transformed data.
         """
@@ -588,7 +587,7 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
         return Xt
 
     @abc.abstractmethod
-    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int, int]:
+    def _fit_one_ep(self, X: np.ndarray) -> Tuple[int, int, int]:
         """Fit lifting function using a single episode.
 
         Expects and returns data without an episode header. Data is assumed to
@@ -601,7 +600,7 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
 
         Returns
         -------
-        tuple[int, int, int]
+        Tuple[int, int, int]
             Tuple containing the number of state features in the transformed
             data, the number of input features in the transformed data, and
             the minimum number of samples required to use the transformer.
@@ -680,14 +679,14 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
     """
 
     # Array check parameters for :func:`fit` when ``X`` and ``y` are given
-    _check_X_y_params: dict[str, Any] = {
+    _check_X_y_params: Dict[str, Any] = {
         'multi_output': True,
         'y_numeric': True,
     }
 
     # Array check parameters for :func:`predict` and :func:`fit` when only
     # ``X`` is given
-    _check_array_params: dict[str, Any] = {
+    _check_array_params: Dict[str, Any] = {
         'dtype': 'numeric',
     }
 
@@ -837,9 +836,9 @@ class SplitPipeline(KoopmanLiftingFn):
 
     Attributes
     ----------
-    lifting_functions_state_: list[EpisodeIndependentLiftingFn]
+    lifting_functions_state_: List[EpisodeIndependentLiftingFn]
         Fit state lifting functions.
-    lifting_functions_input_: list[EpisodeIndependentLiftingFn]
+    lifting_functions_input_: List[EpisodeIndependentLiftingFn]
         Fit input lifting functions.
     n_features_in_ : int
         Number of features before transformation, including episode feature.
@@ -881,16 +880,16 @@ class SplitPipeline(KoopmanLiftingFn):
 
     def __init__(
         self,
-        lifting_functions_state: list[EpisodeIndependentLiftingFn] = None,
-        lifting_functions_input: list[EpisodeIndependentLiftingFn] = None
+        lifting_functions_state: List[EpisodeIndependentLiftingFn] = None,
+        lifting_functions_input: List[EpisodeIndependentLiftingFn] = None
     ) -> None:
         """Instantiate :class:`SplitPipeline`.
 
         Parameters
         ----------
-        lifting_functions_state : list[EpisodeIndependentLiftingFn]
+        lifting_functions_state : List[EpisodeIndependentLiftingFn]
             Lifting functions to apply to the state features.
-        lifting_functions_input : list[EpisodeIndependentLiftingFn]
+        lifting_functions_input : List[EpisodeIndependentLiftingFn]
             Lifting functions to apply to the input features.
         """
         self.lifting_functions_state = lifting_functions_state
@@ -1089,7 +1088,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
 
     Attributes
     ----------
-    liting_functions_ : list[KoopmanLiftingFn]
+    liting_functions_ : List[KoopmanLiftingFn]
         Fit lifting functions.
     regressor_ : KoopmanRegressor
         Fit regressor.
@@ -1171,14 +1170,14 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
 
     def __init__(
         self,
-        lifting_functions: list[KoopmanLiftingFn] = None,
+        lifting_functions: List[KoopmanLiftingFn] = None,
         regressor: KoopmanRegressor = None,
     ) -> None:
         """Instantiate for :class:`KoopmanPipeline`.
 
         Parameters
         ----------
-        lifting_functions : list[KoopmanLiftingFn]
+        lifting_functions : List[KoopmanLiftingFn]
             List of lifting function objects.
         regressor : KoopmanRegressor
             Koopman regressor.
@@ -1654,7 +1653,7 @@ def _strip_initial_conditions(X: np.ndarray,
 def _shift_episodes(
         X: np.ndarray,
         n_inputs: int = 0,
-        episode_feature: bool = False) -> tuple[np.ndarray, np.ndarray]:
+        episode_feature: bool = False) -> Tuple[np.ndarray, np.ndarray]:
     """Shift episodes and truncate shifted inputs.
 
     The Koopman matrix ``K`` approximately satisfies::
@@ -1679,7 +1678,7 @@ def _shift_episodes(
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray]
+    Tuple[np.ndarray, np.ndarray]
         Tuple whose first element is the unshifted array and whose second
         element is the shifted array with its inputs truncated. Both arrays
         have the same number of samples. Their episode features are stripped if
@@ -1711,7 +1710,7 @@ def _shift_episodes(
 
 def _split_episodes(
         X: np.ndarray,
-        episode_feature: bool = False) -> list[tuple[int, np.ndarray]]:
+        episode_feature: bool = False) -> List[Tuple[int, np.ndarray]]:
     """Split a data matrix into episodes.
 
     Parameters
@@ -1723,7 +1722,7 @@ def _split_episodes(
 
     Returns
     -------
-    list[tuple[int, np.ndarray]]
+    List[Tuple[int, np.ndarray]]
         List of episode tuples. The first element of each tuple contains the
         episode index. The second element contains the episode data.
     """
@@ -1743,13 +1742,13 @@ def _split_episodes(
     return episodes
 
 
-def _combine_episodes(episodes: list[tuple[int, np.ndarray]],
+def _combine_episodes(episodes: List[Tuple[int, np.ndarray]],
                       episode_feature: bool = False) -> np.ndarray:
     """Combine episodes into a data matrix.
 
     Parameters
     ----------
-    episodes : list[tuple[int, np.ndarray]]
+    episodes : List[Tuple[int, np.ndarray]]
         List of episode tuples. The first element of each tuple contains the
         episode index. The second element contains the episode data.
     episode_feature : bool

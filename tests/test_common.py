@@ -1,9 +1,12 @@
-import pykoop
-import pykoop.lmi_regressors
+import pytest
 import sklearn.utils.estimator_checks
 from sklearn import preprocessing
 
+import pykoop
+import pykoop.lmi_regressors
 
+
+@pytest.mark.slow
 @sklearn.utils.estimator_checks.parametrize_with_checks([
     pykoop.Edmd(),
     pykoop.Dmdc(),

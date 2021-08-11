@@ -4,6 +4,8 @@ All of the lifting functions included in this module adhere to the interface
 defined in :class:`KoopmanLiftingFn`.
 """
 
+from typing import Tuple
+
 import numpy as np
 import sklearn.base
 import sklearn.preprocessing
@@ -77,7 +79,7 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         """
         self.transformer = transformer
 
-    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int]:
+    def _fit_one_ep(self, X: np.ndarray) -> Tuple[int, int]:
         self.transformer_ = sklearn.base.clone(self.transformer)
         self.transformer_.fit(X)
         return (self.n_states_in_, self.n_inputs_in_)
@@ -147,7 +149,7 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         self.order = order
         self.interaction_only = interaction_only
 
-    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int]:
+    def _fit_one_ep(self, X: np.ndarray) -> Tuple[int, int]:
         self.transformer_ = sklearn.preprocessing.PolynomialFeatures(
             degree=self.order,
             interaction_only=self.interaction_only,
@@ -276,7 +278,7 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         # Nothing to do but write the docstring.
         pass
 
-    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int]:
+    def _fit_one_ep(self, X: np.ndarray) -> Tuple[int, int]:
         n_states_out = self.n_states_in_
         n_inputs_out = (self.n_states_in_ + 1) * self.n_inputs_in_
         return (n_states_out, n_inputs_out)
@@ -364,7 +366,7 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
         # noqa: D102
         return n_samples_out + max(self.n_delays_state, self.n_delays_input)
 
-    def _fit_one_ep(self, X: np.ndarray) -> tuple[int, int, int]:
+    def _fit_one_ep(self, X: np.ndarray) -> Tuple[int, int, int]:
         # Compute number of states and inputs that will be output.
         n_states_out = self.n_states_in_ * (self.n_delays_state + 1)
         n_inputs_out = self.n_inputs_in_ * (self.n_delays_input + 1)
