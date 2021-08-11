@@ -572,15 +572,15 @@ class LmiDmdc(LmiRegressor):
         # Form optimization problem
         problem = self._create_base_problem(Q_tld, sig_tld, Z_tld, Q_hat,
                                             sig_hat, Z_hat,
-                                            self.alpha_tikhonov_,
+                                            self.alpha_tikhonov_ / q,
                                             self.picos_eps)
         if self.reg_method == 'twonorm':
             problem = _add_twonorm(problem, problem.variables['U_hat'],
-                                   self.alpha_other_, self.square_norm,
+                                   self.alpha_other_ / q, self.square_norm,
                                    self.picos_eps)
         elif self.reg_method == 'nuclear':
             problem = _add_nuclear(problem, problem.variables['U_hat'],
-                                   self.alpha_other_, self.square_norm,
+                                   self.alpha_other_ / q, self.square_norm,
                                    self.picos_eps)
         # Solve optimization problem
         problem.solve(**self.solver_params_)
@@ -631,6 +631,7 @@ class LmiDmdc(LmiRegressor):
         if picos_eps < 0:
             raise ValueError('Parameter `picos_eps` must be positive or zero.')
         # Compute needed sizes
+        q = Z_hat.shape[0]
         p, r_tld = Q_tld.shape
         p_theta, r_hat = Q_hat.shape
         # Compute Q_hat
@@ -638,11 +639,12 @@ class LmiDmdc(LmiRegressor):
         Q_bar = linalg.block_diag(Q_hat, np.eye(p_upsilon)).T @ Q_tld
         # Create optimization problem
         problem = picos.Problem()
-        # Constants
-        Sigma_hat_sq = picos.Constant('Sigma_hat^2', np.diag(sig_hat**2))
-        Sigma_hat = np.diag(sig_hat)
+        # Constants.
+        # Sigmas are scaled by ``1/sqrt(q)`` to scale cost function, like EDMD.
+        Sigma_hat_sq = picos.Constant('Sigma_hat^2', np.diag(sig_hat**2 / q))
         # Add regularizer to ``Sigma_tld``
-        Sigma_tld = np.diag(np.sqrt(sig_tld**2 + alpha_tikhonov))
+        Sigma_hat = np.diag(sig_hat / np.sqrt(q))
+        Sigma_tld = np.diag(np.sqrt(sig_tld**2 / q + alpha_tikhonov))
         big_constant = picos.Constant(
             'Q_bar Sigma_tld Z_tld.T Z_hat Sigma_Hat',
             Q_bar @ Sigma_tld @ Z_tld.T @ Z_hat @ Sigma_hat,
@@ -652,7 +654,6 @@ class LmiDmdc(LmiRegressor):
             Q_bar @ Sigma_tld,
         )
         m1 = picos.Constant('-1', -1 * np.eye(r_tld))
-        Sigma_hat = picos.Constant('Sigma_hat', Sigma_hat)
         # Variables
         U_hat = picos.RealVariable('U_hat', (r_hat, r_hat + p - p_theta))
         W_hat = picos.SymmetricVariable('W_hat', (r_hat, r_hat))
@@ -1151,8 +1152,10 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
         P: np.ndarray,
     ) -> picos.Problem:
         """Create first problem in iteration scheme."""
+        q = Z_hat.shape[0]
         problem_a = LmiDmdc._create_base_problem(Q_tld, sig_tld, Z_tld, Q_hat,
-                                                 sig_hat, Z_hat, self.alpha,
+                                                 sig_hat, Z_hat,
+                                                 self.alpha / q,
                                                  self.picos_eps)
         # Extract information from problem
         U_hat = problem_a.variables['U_hat']
@@ -1818,9 +1821,10 @@ class LmiDmdcHinfReg(LmiRegressor):
         P: np.ndarray,
     ) -> picos.Problem:
         """Create first problem in iteration scheme."""
+        q = Z_hat.shape[0]
         problem_a = LmiDmdc._create_base_problem(Q_tld, sig_tld, Z_tld, Q_hat,
                                                  sig_hat, Z_hat,
-                                                 self.alpha_tikhonov_,
+                                                 self.alpha_tikhonov_ / q,
                                                  self.picos_eps)
         # Extract information from problem
         U_hat = problem_a.variables['U_hat']
@@ -1845,7 +1849,8 @@ class LmiDmdcHinfReg(LmiRegressor):
         # Add term to cost function
         if self.alpha_other_ <= 0:
             raise ValueError('`alpha_other_` must be positive.')
-        alpha_scaled = picos.Constant('alpha_scaled_inf', self.alpha_other_)
+        alpha_scaled = picos.Constant('alpha_scaled_inf',
+                                      self.alpha_other_ / q)
         if self.square_norm:
             objective += alpha_scaled * gamma**2
         else:
