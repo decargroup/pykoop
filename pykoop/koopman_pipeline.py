@@ -1436,6 +1436,9 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
         The state features of ``X`` (other than the first ``min_samples_``
         features) are not used at all.
 
+        If prediction fails numerically, missing predictions are filled with
+        ``np.nan``.
+
         Parameters
         ----------
         X : np.ndarray
@@ -1463,6 +1466,8 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
                 raise ValueError(f'Episode {i} has {X_i.shape[0]} samples but '
                                  f'`min_samples_`={self.min_samples_} samples '
                                  'are required.')
+            # Index where prediction blows up (if it does)
+            crash_index = None
             # Extract initial state and input
             x0 = X_i[:self.min_samples_, :self.n_states_in_]
             u = X_i[:, self.n_states_in_:]
@@ -1481,10 +1486,16 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
                       )))],
                     episode_feature=self.episode_feature_)
                 # Predict next step
-                X_pred_ik = self.predict(X_ik)[[-1], :]
+                try:
+                    X_pred_ik = self.predict(X_ik)[[-1], :]
+                except ValueError:
+                    crash_index = k
+                    break
                 # Extract data matrix from prediction
                 X_pred_i[[k], :] = _split_episodes(
                     X_pred_ik, episode_feature=self.episode_feature_)[0][1]
+            if crash_index is not None:
+                X_pred_i[crash_index:, :] = np.nan
             predictions.append((i, X_pred_i))
         # Combine episodes
         X_p = _combine_episodes(predictions,
