@@ -25,7 +25,7 @@ from sklearn import linear_model
             alpha=0,
             inv_method='inv',
             solver_params={'dualize': False},
-        ), 'msd-no-input', 1e-4, 1e-5, 'exact'),
+        ), 'msd-no-input', 1e-3, 1e-4, 'exact'),
         (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='ldl'),
          'msd-no-input', 1e-4, 1e-5, 'exact'),
         (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='chol'),
