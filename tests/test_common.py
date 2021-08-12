@@ -46,6 +46,7 @@ import pykoop.lmi_regressors
         ],
         lifting_functions_input=None,
     ),
+    pykoop.Tsvd(),
 ])
 def test_sklearn_compatible_estimator(estimator, check):
     check(estimator)
