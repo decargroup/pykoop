@@ -14,9 +14,10 @@ from sklearn import linear_model
         (pykoop.Edmd(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
         (pykoop.Dmdc(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
         (pykoop.Dmd(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
-        (pykoop.Dmdc(tsvd_method=('known_noise', 1, 1)), 'msd-no-input', None,
-         None, 'exact'),
-        (pykoop.Dmd(tsvd_method=('known_noise', 1)), 'msd-no-input', None,
+        (pykoop.Dmdc(tsvd_unshifted=pykoop.Tsvd('known_noise', 1),
+                     tsvd_shifted=pykoop.Tsvd('known_noise', 1)),
+         'msd-no-input', None, None, 'exact'),
+        (pykoop.Dmd(tsvd=pykoop.Tsvd('known_noise', 1)), 'msd-no-input', None,
          None, 'exact'),
         (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='eig'),
          'msd-no-input', 1e-4, 1e-5, 'exact'),
@@ -102,8 +103,8 @@ from sklearn import linear_model
                 # checked (eigenvalue magnitudes are less than 0.8) but
                 # strictly speaking, it hasn't been checked against other code.
                 np.array([
-                    [0.88994802, 0.04260765],  # noqa: E201
-                    [-0.22883601, 0.70816555]
+                    [0.797335, 0.065241],
+                    [-0.065242, 0.797335],
                 ])),
             marks=pytest.mark.slow),
         pytest.param(
