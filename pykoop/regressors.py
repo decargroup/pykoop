@@ -4,14 +4,14 @@ All of the lifting functions included in this module adhere to the interface
 defined in :class:`KoopmanRegressor`.
 """
 
-from typing import Any, Union
+from typing import Any, Dict, Tuple, Union
 
 import numpy as np
 import sklearn.base
 import sklearn.utils.validation
 from scipy import linalg
 
-from . import _tsvd, koopman_pipeline
+from . import koopman_pipeline, tsvd
 
 
 class Edmd(koopman_pipeline.KoopmanRegressor):
@@ -83,6 +83,10 @@ class Dmdc(koopman_pipeline.KoopmanRegressor):
         DMD modes (exact or projected depending on constructor params).
     B_tilde_ : np.ndarray
         ``B`` matrix in transformed basis.
+    tsvd_unshifted_ : pykoop.Tsvd
+        Fit truncated SVD object for unshifted data matrix.
+    tsvd_shifted_ : pykoop.Tsvd
+        Fit truncated SVD object for shifted data matrix.
     n_features_in_ : int
         Number of features input, including episode feature.
     n_states_in_ : int
@@ -105,49 +109,57 @@ class Dmdc(koopman_pipeline.KoopmanRegressor):
     DMDc with singular value truncation on mass-spring-damper data
 
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.Dmdc(
-    ...     tsvd_method=('rank', 1, 2)))
+    ...     tsvd_unshifted=pykoop.Tsvd('rank', 1),
+    ...     tsvd_shifted=pykoop.Tsvd('rank', 2)))
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
-    KoopmanPipeline(regressor=Dmdc(tsvd_method=('rank', 1, 2)))
+    KoopmanPipeline(regressor=Dmdc(tsvd_shifted=Tsvd(truncation='rank',
+                                                     truncation_param=2),
+                                   tsvd_unshifted=Tsvd(truncation='rank',
+                                                       truncation_param=1)))
     """
 
-    def __init__(self,
-                 mode_type: str = 'projected',
-                 tsvd_method: Union[str, tuple] = 'economy') -> None:
+    def __init__(
+        self,
+        mode_type: str = 'projected',
+        tsvd_unshifted: tsvd.Tsvd = None,
+        tsvd_shifted: tsvd.Tsvd = None,
+    ) -> None:
         """Instantiate :class:`Dmdc`.
 
         Parameters
         ----------
         mode_type : str
             DMD mode type, either ``'exact'`` or ``'projected'``.
-
-        tsvd_method : Union[str, tuple]
-            Singular value truncation method used to change basis. Parameters
-            for ``X_unshifted`` and ``X_shifted`` are specified independently.
-            Possible values are
-
-            - ``'economy'`` or ``('economy', )`` -- do not truncate (use
-              economy SVD),
-            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- truncate using
-              optimal hard truncation [optht]_ with unknown noise,
-            - ``('known_noise', sigma_unshifted, sigma_shifted)`` -- truncate
-              using optimal hard truncation [optht]_ with known noise,
-            - ``('cutoff', cutoff_unshifted, cutoff_shifted)`` -- truncate
-              singular values smaller than a cutoff, or
-            - ``('rank', rank_unshifted, rank_shifted)`` -- truncate singular
-              values to a fixed rank.
+        tsvd_unshifted : pykoop.Tsvd
+            Singular value truncation method used to change basis of unshifted
+            data matrix. If ``None``, economy SVD is used.
+        tsvd_shifted : pykoop.Tsvd
+            Singular value truncation method used to change basis of shifted
+            data matrix. If ``None``, economy SVD is used.
         """
         self.mode_type = mode_type
-        self.tsvd_method = tsvd_method
+        self.tsvd_unshifted = tsvd_unshifted
+        self.tsvd_shifted = tsvd_shifted
 
     def _fit_regressor(self, X_unshifted: np.ndarray,
                        X_shifted: np.ndarray) -> np.ndarray:
         Psi = X_unshifted.T
         Theta_p = X_shifted.T
+        # Clone TSVDs
+        self.tsvd_unshifted_ = (sklearn.base.clone(self.tsvd_unshifted)
+                                if self.tsvd_unshifted is not None else
+                                tsvd.Tsvd())
+        self.tsvd_shifted_ = (sklearn.base.clone(self.tsvd_shifted) if
+                              self.tsvd_shifted is not None else tsvd.Tsvd())
         # Compute truncated SVDs
-        tsvd_method_tld, tsvd_method_hat = Dmdc._get_tsvd_methods(
-            self.tsvd_method)
-        Q_tld, sig_tld, Z_tld = _tsvd._tsvd(Psi, *tsvd_method_tld)
-        Q_hat, sig_hat, Z_hat = _tsvd._tsvd(Theta_p, *tsvd_method_hat)
+        self.tsvd_unshifted_.fit(Psi)
+        Q_tld = self.tsvd_unshifted_.left_singular_vectors_
+        sig_tld = self.tsvd_unshifted_.singular_values_
+        Z_tld = self.tsvd_unshifted_.right_singular_vectors_
+        self.tsvd_shifted_.fit(Theta_p)
+        Q_hat = self.tsvd_shifted_.left_singular_vectors_
+        sig_hat = self.tsvd_shifted_.singular_values_
+        Z_hat = self.tsvd_shifted_.right_singular_vectors_
         Sig_tld_inv = np.diag(1 / sig_tld)
         # Compute ``A`` and ``B``
         Q_tld_1 = Q_tld[:Theta_p.shape[0], :]
@@ -183,28 +195,6 @@ class Dmdc(koopman_pipeline.KoopmanRegressor):
         if self.mode_type not in valid_mode_types:
             raise ValueError(f'`mode_type` must be one of {valid_mode_types}')
 
-    @staticmethod
-    def _get_tsvd_methods(
-            tsvd_method: Union[str, tuple]) -> tuple[tuple, tuple]:
-        """Format truncated SVD methods for ``_tsvd``."""
-        # Convert string if needed
-        if type(tsvd_method) is str:
-            tsvd_method = (tsvd_method, )
-        else:
-            tsvd_method = tuple(tsvd_method)
-        # Form tuples
-        if len(tsvd_method) == 1:
-            tms = (tsvd_method, tsvd_method)
-        else:
-            try:
-                tm_tld = (tsvd_method[0], tsvd_method[1])
-                tm_hat = (tsvd_method[0], tsvd_method[2])
-            except IndexError:
-                raise ValueError('Incorrect number of tuple items in '
-                                 '`tsvd_method`.')
-            tms = (tm_tld, tm_hat)
-        return tms
-
 
 class Dmd(koopman_pipeline.KoopmanRegressor):
     """Dynamic Mode Decomposition.
@@ -215,6 +205,8 @@ class Dmd(koopman_pipeline.KoopmanRegressor):
         DMD eigenvalues.
     modes_ : np.ndarray
         DMD modes (exact or projected depending on constructor params).
+    tsvd_ : pykoop.Tsvd
+        Fit truncated SVD object.
     n_features_in_ : int
         Number of features input, including episode feature.
     n_states_in_ : int
@@ -237,13 +229,14 @@ class Dmd(koopman_pipeline.KoopmanRegressor):
     DMD with singular value truncation on inputless mass-spring-damper data
 
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.Dmd(
-    ...     tsvd_method=('known_noise', 1)))
+    ...     tsvd=pykoop.Tsvd('known_noise', 1)))
     >>> kp.fit(X_msd_no_input, n_inputs=0, episode_feature=True)
-    KoopmanPipeline(regressor=Dmd(tsvd_method=('known_noise', 1)))
+    KoopmanPipeline(regressor=Dmd(tsvd=Tsvd(truncation='known_noise',
+                                            truncation_param=1)))
     """
 
     # Override check parameters to skip ``check_fit2d_1sample`` sklearn test.
-    _check_X_y_params: dict[str, Any] = {
+    _check_X_y_params: Dict[str, Any] = {
         'multi_output': True,
         'y_numeric': True,
         'ensure_min_samples': 2,
@@ -251,48 +244,40 @@ class Dmd(koopman_pipeline.KoopmanRegressor):
 
     def __init__(self,
                  mode_type: str = 'projected',
-                 tsvd_method: Union[str, tuple] = 'economy') -> None:
+                 tsvd: tsvd.Tsvd = None) -> None:
         """Instantiate :class:`Dmd`.
 
         Parameters
         ----------
         mode_type : str
             DMD mode type, either ``'exact'`` or ``'projected'``.
-
-        tsvd_method : Union[str, tuple]
-            Singular value truncation method used to change basis. Possible
-            values are
-
-            - ``'economy'`` or ``('economy', )`` -- do not truncate (use
-              economy SVD),
-            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- truncate using
-              optimal hard truncation [optht]_ with unknown noise,
-            - ``('known_noise', sigma)`` -- truncate using optimal hard
-              truncation [optht]_ with known noise,
-            - ``('cutoff', cutoff)`` -- truncate singular values smaller than a
-              cutoff, or
-            - ``('rank', rank)`` -- truncate singular values to a fixed rank.
+        tsvd : pykoop.Tsvd
+            Truncated singular value object used to change bases. If ``None``,
+            economy SVD is used.
 
         Warning
         -------
         :class:`Dmd` has some compatibility issues with ``scikit-learn``
-        because of its relatively strict input requirements. Since both inputs
-        must have the same number of features, many incompatible
-        ``scikit-learn`` unit tests are disabled.
+        because the class has relatively strict input requirements.
+        Specifically, both inputs must have the same number of features.
+        Any ``scikit-learn`` unit tests that use different numbers of input
+        and output features are therefore disabled.
         """
         self.mode_type = mode_type
-        self.tsvd_method = tsvd_method
+        self.tsvd = tsvd
 
     def _fit_regressor(self, X_unshifted: np.ndarray,
                        X_shifted: np.ndarray) -> np.ndarray:
         Psi = X_unshifted.T
         Psi_p = X_shifted.T
+        # Clone TSVD
+        self.tsvd_ = (sklearn.base.clone(self.tsvd)
+                      if self.tsvd is not None else tsvd.Tsvd())
         # Compute truncated SVD
-        if type(self.tsvd_method) is tuple:
-            tsvd_method = self.tsvd_method
-        else:
-            tsvd_method = (self.tsvd_method, )
-        Q, sigma, Z = _tsvd._tsvd(Psi, *tsvd_method)
+        self.tsvd_.fit(Psi)
+        Q = self.tsvd_.left_singular_vectors_
+        sigma = self.tsvd_.singular_values_
+        Z = self.tsvd_.right_singular_vectors_
         # Compute ``U_tilde``
         Sigma_inv = np.diag(1 / sigma)
         U_tilde = Q.T @ Psi_p @ Z @ Sigma_inv

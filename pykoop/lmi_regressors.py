@@ -11,14 +11,15 @@ that long regressions can be stopped politely.
 import logging
 import signal
 import tempfile
-from typing import Any, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import joblib
 import numpy as np
 import picos
+import sklearn.base
 from scipy import linalg
 
-from . import _tsvd, koopman_pipeline, regressors
+from . import koopman_pipeline, regressors, tsvd
 
 # Create logger
 log = logging.getLogger(__name__)
@@ -64,7 +65,7 @@ class LmiRegressor(koopman_pipeline.KoopmanRegressor):
     """
 
     # Default solver parameters
-    _default_solver_params: dict[str, Any] = {
+    _default_solver_params: Dict[str, Any] = {
         'primals': None,
         'duals': None,
         'dualize': True,
@@ -81,7 +82,7 @@ class LmiRegressor(koopman_pipeline.KoopmanRegressor):
     }
 
     # Override since PICOS only works with ``float64``.
-    _check_X_y_params: dict[str, Any] = {
+    _check_X_y_params: Dict[str, Any] = {
         'multi_output': True,
         'y_numeric': True,
         'dtype': 'float64',
@@ -107,11 +108,13 @@ class LmiEdmd(LmiRegressor):
 
     Attributes
     ----------
-    self.alpha_tikhonov_ : float
+    alpha_tikhonov_ : float
         Tikhonov regularization coefficient used.
-    self.alpha_other_ : float
+    alpha_other_ : float
         Matrix two norm or nuclear norm regularization coefficient used.
-    solver_params_ : dict[str, Any]
+    tsvd_ : pykoop.Tsvd
+        Fit truncated SVD object.
+    solver_params_ : Dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -174,10 +177,10 @@ class LmiEdmd(LmiRegressor):
                  ratio: float = 1,
                  reg_method: str = 'tikhonov',
                  inv_method: str = 'svd',
-                 tsvd_method: Union[str, tuple] = 'economy',
+                 tsvd: tsvd.Tsvd = None,
                  square_norm: bool = False,
                  picos_eps: float = 0,
-                 solver_params: dict[str, Any] = None) -> None:
+                 solver_params: Dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiEdmd`.
 
         To disable regularization, use ``alpha=0`` paired with
@@ -216,19 +219,9 @@ class LmiEdmd(LmiRegressor):
             - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
             - ``'svd'`` -- split ``H`` using a singular value decomposition.
 
-         tsvd_method : Union[str, tuple]
-            Singular value truncation method if ``inv_method='svd'``. Very
-            experimental. Possible values are
-
-            - ``'economy'`` or ``('economy', )`` -- do not truncate (use
-              economy SVD),
-            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- truncate using
-              optimal hard truncation [optht]_ with unknown noise,
-            - ``('known_noise', sigma)`` -- truncate using optimal hard
-              truncation [optht]_ with known noise,
-            - ``('cutoff', cutoff)`` -- truncate singular values smaller than a
-              cutoff, or
-            - ``('rank', rank)`` -- truncate singular values to a fixed rank.
+        tsvd : pykoop.Tsvd()
+            Singular value truncation method if ``inv_method='svd'``. If
+            ``None``, economy SVD is used.
 
         square_norm : bool
             Square norm in matrix two-norm or nuclear norm regularizer.
@@ -239,7 +232,7 @@ class LmiEdmd(LmiRegressor):
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : dict[str, Any]
+        solver_params : Dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -247,7 +240,7 @@ class LmiEdmd(LmiRegressor):
         self.ratio = ratio
         self.reg_method = reg_method
         self.inv_method = inv_method
-        self.tsvd_method = tsvd_method
+        self.tsvd = tsvd
         self.square_norm = square_norm
         self.picos_eps = picos_eps
         self.solver_params = solver_params
@@ -265,12 +258,15 @@ class LmiEdmd(LmiRegressor):
         else:
             self.alpha_tikhonov_ = self.alpha * (1.0 - self.ratio)
             self.alpha_other_ = self.alpha * self.ratio
+        # Clone TSVD
+        self.tsvd_ = (sklearn.base.clone(self.tsvd)
+                      if self.tsvd is not None else tsvd.Tsvd())
         # Form optimization problem. Regularization coefficients must be scaled
         # because of how G and H are defined.
         q = X_unshifted.shape[0]
         problem = self._create_base_problem(X_unshifted, X_shifted,
                                             self.alpha_tikhonov_ / q,
-                                            self.inv_method, self.tsvd_method,
+                                            self.inv_method, self.tsvd_,
                                             self.picos_eps)
         if self.reg_method == 'twonorm':
             problem = _add_twonorm(problem, problem.variables['U'],
@@ -304,7 +300,7 @@ class LmiEdmd(LmiRegressor):
         X_shifted: np.ndarray,
         alpha_tikhonov: float,
         inv_method: str,
-        tsvd_method: Union[str, tuple],
+        tsvd: tsvd.Tsvd,
         picos_eps: float,
     ) -> picos.Problem:
         """Create optimization problem."""
@@ -376,8 +372,7 @@ class LmiEdmd(LmiRegressor):
                 ]) >> 0)
         elif inv_method == 'svd':
             QSig = picos.Constant(
-                'Q Sigma', _calc_QSig(X_unshifted, alpha_tikhonov,
-                                      tsvd_method))
+                'Q Sigma', _calc_QSig(X_unshifted, alpha_tikhonov, tsvd))
             problem.add_constraint(
                 picos.block([
                     [Z, U * QSig],
@@ -405,26 +400,18 @@ class LmiDmdc(LmiRegressor):
 
     Attributes
     ----------
-    self.alpha_tikhonov_ : float
+    alpha_tikhonov_ : float
         Tikhonov regularization coefficient used.
-    self.alpha_other_ : float
+    alpha_other_ : float
         Matrix two norm or nuclear norm regularization coefficient used.
-    solver_params_ : dict[str, Any]
-        Solver parameters used (defaults merged with constructor input).
+    tsvd_unshifted_ : pykoop.Tsvd
+        Fit truncated SVD object for unshifted data matrix.
+    tsvd_shifted_ : pykoop.Tsvd
+        Fit truncated SVD object for shifted data matrix.
     U_hat_ : np.ndarray
         Reduced Koopman matrix for debugging.
-    Q_tld_ : np.ndarray
-        Left singular vectors of ``X_unshifted`` for debugging.
-    sig_tld_ : np.ndarray
-        Singular values of ``X_unshifted`` for debugging.
-    Z_tld_ : np.ndarray
-        Right singular vectors of ``X_unshifted`` for debugging.
-    Q_hat_ : np.ndarray
-        Left singular vectors of ``X_shifted`` for debugging.
-    sig_hat_ : np.ndarray
-        Singular values of ``X_shifted`` for debugging.
-    Z_hat_ : np.ndarray
-        Right singular vectors of ``X_shifted`` for debugging.
+    solver_params_ : Dict[str, Any]
+        Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
     n_states_in_ : int
@@ -472,22 +459,25 @@ class LmiDmdc(LmiRegressor):
     ...     regressor=pykoop.lmi_regressors.LmiDmdc(
     ...         alpha=1,
     ...         reg_method='nuclear',
-    ...         tsvd_method=('known_noise', 0.1, 0.1),
+    ...         tsvd_unshifted=pykoop.Tsvd('known_noise', 0.1),
+    ...         tsvd_shifted=pykoop.Tsvd('known_noise', 0.1),
     ...     )
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=LmiDmdc(alpha=1, reg_method='nuclear',
-    tsvd_method=('known_noise', 0.1, 0.1)))
+    tsvd_shifted=Tsvd(truncation='known_noise', truncation_param=0.1),
+    tsvd_unshifted=Tsvd(truncation='known_noise', truncation_param=0.1)))
     """
 
     def __init__(self,
                  alpha: float = 0,
                  ratio: float = 1,
-                 tsvd_method: Union[str, tuple] = 'economy',
+                 tsvd_unshifted: tsvd.Tsvd = None,
+                 tsvd_shifted: tsvd.Tsvd = None,
                  reg_method: str = 'tikhonov',
                  square_norm: bool = False,
                  picos_eps: float = 0,
-                 solver_params: dict[str, Any] = None) -> None:
+                 solver_params: Dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiDmdc`.
 
         Parameters
@@ -501,21 +491,13 @@ class LmiDmdc(LmiRegressor):
             regularization. If ``ratio=1``, no Tikhonov regularization is
             used. Cannot be zero. Ignored if ``reg_method='tikhonov'``.
 
-         tsvd_method : Union[str, tuple]
-            Singular value truncation method used to change basis. Parameters
-            for ``X_unshifted`` and ``X_shifted`` are specified independently.
-            Possible values are
+        tsvd_unshifted : pykoop.Tsvd
+            Singular value truncation method used to change basis of unshifted
+            data matrix. If ``None``, economy SVD is used.
 
-            - ``'economy'`` or ``('economy', )`` -- do not truncate (use
-              economy SVD),
-            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- truncate using
-              optimal hard truncation [optht]_ with unknown noise,
-            - ``('known_noise', sigma_unshifted, sigma_shifted)`` -- truncate
-              using optimal hard truncation [optht]_ with known noise,
-            - ``('cutoff', cutoff_unshifted, cutoff_shifted)`` -- truncate
-              singular values smaller than a cutoff, or
-            - ``('rank', rank_unshifted, rank_shifted)`` -- truncate singular
-              values to a fixed rank.
+        tsvd_shifted : pykoop.Tsvd
+            Singular value truncation method used to change basis of shifted
+            data matrix. If ``None``, economy SVD is used.
 
         reg_method : str
             Regularization method to use. Possible values are
@@ -536,13 +518,14 @@ class LmiDmdc(LmiRegressor):
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : dict[str, Any]
+        solver_params : Dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
         self.alpha = alpha
         self.ratio = ratio
-        self.tsvd_method = tsvd_method
+        self.tsvd_unshifted = tsvd_unshifted
+        self.tsvd_shifted = tsvd_shifted
         self.reg_method = reg_method
         self.square_norm = square_norm
         self.picos_eps = picos_eps
@@ -564,23 +547,33 @@ class LmiDmdc(LmiRegressor):
         # Get needed sizes
         q, p = X_unshifted.shape
         p_theta = X_shifted.shape[1]
+        # Clone TSVDs
+        self.tsvd_unshifted_ = (sklearn.base.clone(self.tsvd_unshifted)
+                                if self.tsvd_unshifted is not None else
+                                tsvd.Tsvd())
+        self.tsvd_shifted_ = (sklearn.base.clone(self.tsvd_shifted) if
+                              self.tsvd_shifted is not None else tsvd.Tsvd())
         # Compute SVDs
-        tsvd_method_tld, tsvd_method_hat = regressors.Dmdc._get_tsvd_methods(
-            self.tsvd_method)
-        Q_tld, sig_tld, Z_tld = _tsvd._tsvd(X_unshifted.T, *tsvd_method_tld)
-        Q_hat, sig_hat, Z_hat = _tsvd._tsvd(X_shifted.T, *tsvd_method_hat)
+        self.tsvd_unshifted_.fit(X_unshifted.T)
+        Q_tld = self.tsvd_unshifted_.left_singular_vectors_
+        sig_tld = self.tsvd_unshifted_.singular_values_
+        Z_tld = self.tsvd_unshifted_.right_singular_vectors_
+        self.tsvd_shifted_.fit(X_shifted.T)
+        Q_hat = self.tsvd_shifted_.left_singular_vectors_
+        sig_hat = self.tsvd_shifted_.singular_values_
+        Z_hat = self.tsvd_shifted_.right_singular_vectors_
         # Form optimization problem
         problem = self._create_base_problem(Q_tld, sig_tld, Z_tld, Q_hat,
                                             sig_hat, Z_hat,
-                                            self.alpha_tikhonov_,
+                                            self.alpha_tikhonov_ / q,
                                             self.picos_eps)
         if self.reg_method == 'twonorm':
             problem = _add_twonorm(problem, problem.variables['U_hat'],
-                                   self.alpha_other_, self.square_norm,
+                                   self.alpha_other_ / q, self.square_norm,
                                    self.picos_eps)
         elif self.reg_method == 'nuclear':
             problem = _add_nuclear(problem, problem.variables['U_hat'],
-                                   self.alpha_other_, self.square_norm,
+                                   self.alpha_other_ / q, self.square_norm,
                                    self.picos_eps)
         # Solve optimization problem
         problem.solve(**self.solver_params_)
@@ -590,12 +583,6 @@ class LmiDmdc(LmiRegressor):
         U_hat = self._extract_solution(problem).T
         # Save SVDs and reduced U for debugging
         self.U_hat_ = U_hat
-        self.Q_tld_ = Q_tld
-        self.sig_tld_ = sig_tld
-        self.Z_tld_ = Z_tld
-        self.Q_hat_ = Q_hat
-        self.sig_hat_ = sig_hat
-        self.Z_hat_ = Z_hat
         # Reconstruct Koopman operator
         p_upsilon = p - p_theta
         U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p_upsilon)).T
@@ -631,6 +618,7 @@ class LmiDmdc(LmiRegressor):
         if picos_eps < 0:
             raise ValueError('Parameter `picos_eps` must be positive or zero.')
         # Compute needed sizes
+        q = Z_hat.shape[0]
         p, r_tld = Q_tld.shape
         p_theta, r_hat = Q_hat.shape
         # Compute Q_hat
@@ -638,11 +626,12 @@ class LmiDmdc(LmiRegressor):
         Q_bar = linalg.block_diag(Q_hat, np.eye(p_upsilon)).T @ Q_tld
         # Create optimization problem
         problem = picos.Problem()
-        # Constants
-        Sigma_hat_sq = picos.Constant('Sigma_hat^2', np.diag(sig_hat**2))
-        Sigma_hat = np.diag(sig_hat)
+        # Constants.
+        # Sigmas are scaled by ``1/sqrt(q)`` to scale cost function, like EDMD.
+        Sigma_hat_sq = picos.Constant('Sigma_hat^2', np.diag(sig_hat**2 / q))
         # Add regularizer to ``Sigma_tld``
-        Sigma_tld = np.diag(np.sqrt(sig_tld**2 + alpha_tikhonov))
+        Sigma_hat = np.diag(sig_hat / np.sqrt(q))
+        Sigma_tld = np.diag(np.sqrt(sig_tld**2 / q + alpha_tikhonov))
         big_constant = picos.Constant(
             'Q_bar Sigma_tld Z_tld.T Z_hat Sigma_Hat',
             Q_bar @ Sigma_tld @ Z_tld.T @ Z_hat @ Sigma_hat,
@@ -652,7 +641,6 @@ class LmiDmdc(LmiRegressor):
             Q_bar @ Sigma_tld,
         )
         m1 = picos.Constant('-1', -1 * np.eye(r_tld))
-        Sigma_hat = picos.Constant('Sigma_hat', Sigma_hat)
         # Variables
         U_hat = picos.RealVariable('U_hat', (r_hat, r_hat + p - p_theta))
         W_hat = picos.SymmetricVariable('W_hat', (r_hat, r_hat))
@@ -682,17 +670,17 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
 
     Attributes
     ----------
-    objective_log_ : list[float]
+    tsvd_ : pykoop.Tsvd
+        Fit truncated SVD object.
+    P_ : np.ndarray
+        ``P`` matrix for debugging.
+    objective_log_ : List[float]
         Objective function history.
     stop_reason_ : str
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
-    Gamma_ : np.ndarray
-        ``Gamma`` matrix for debugging.
-    P_ : np.ndarray
-        ``P`` matrix for debugging.
-    solver_params_ : dict[str, Any]
+    solver_params_ : Dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -725,9 +713,9 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
                  iter_rtol: float = 0,
                  alpha: float = 0,
                  inv_method: str = 'svd',
-                 tsvd_method: Union[str, tuple] = 'economy',
+                 tsvd: tsvd.Tsvd = None,
                  picos_eps: float = 0,
-                 solver_params: dict[str, Any] = None) -> None:
+                 solver_params: Dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiEdmdSpectralRadiusConstr`.
 
         To disable regularization, use ``alpha=0``.
@@ -762,25 +750,15 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
             - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
             - ``'svd'`` -- split ``H`` using a singular value decomposition.
 
-         tsvd_method : Union[str, tuple]
-            Singular value truncation method if ``inv_method='svd'``. Very
-            experimental. Possible values are
-
-            - ``'economy'`` or ``('economy', )`` -- do not truncate (use
-              economy SVD),
-            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- truncate using
-              optimal hard truncation [optht]_ with unknown noise,
-            - ``('known_noise', sigma)`` -- truncate using optimal hard
-              truncation [optht]_ with known noise,
-            - ``('cutoff', cutoff)`` -- truncate singular values smaller than a
-              cutoff, or
-            - ``('rank', rank)`` -- truncate singular values to a fixed rank.
+         tsvd : pykoop.Tsvd
+            Singular value truncation method if ``inv_method='svd'``. If
+            ``None``, economy SVD is used.
 
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : dict[str, Any]
+        solver_params : Dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -790,7 +768,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
         self.iter_rtol = iter_rtol
         self.alpha = alpha
         self.inv_method = inv_method
-        self.tsvd_method = tsvd_method
+        self.tsvd = tsvd
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
@@ -800,18 +778,20 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
         self.solver_params_ = self._default_solver_params.copy()
         if self.solver_params is not None:
             self.solver_params_.update(self.solver_params)
+        # Clone TSVD
+        self.tsvd_ = (sklearn.base.clone(self.tsvd)
+                      if self.tsvd is not None else tsvd.Tsvd())
         # Get needed sizes
         p = X_unshifted.shape[1]
         p_theta = X_shifted.shape[1]
         # Make initial guesses and iterate
-        Gamma = np.eye(p_theta)
+        P = np.eye(p_theta)
         # Set scope of other variables
         U = np.zeros((p_theta, p))
-        P = np.zeros((p_theta, p_theta))
         self.objective_log_ = []
         for k in range(self.max_iter):
             # Formulate Problem A
-            problem_a = self._create_problem_a(X_unshifted, X_shifted, Gamma)
+            problem_a = self._create_problem_a(X_unshifted, X_shifted, P)
             # Solve Problem A
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
@@ -827,7 +807,6 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
                 log.warn(self.stop_reason_)
                 break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
-            P = np.array(problem_a.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
             self.objective_log_.append(problem_a.value)
             if len(self.objective_log_) > 1:
@@ -842,7 +821,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
                     self.stop_reason_ = f'Reached tolerance {diff_obj}'
                     break
             # Formulate Problem B
-            problem_b = self._create_problem_b(U, P)
+            problem_b = self._create_problem_b(U)
             # Solve Problem B
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
@@ -857,14 +836,13 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
                     f'Solution status: `{solution_status_b}`.')
                 log.warn(self.stop_reason_)
                 break
-            Gamma = np.array(problem_b.get_valued_variable('Gamma'), ndmin=2)
+            P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
             log.warn(self.stop_reason_)
         self.n_iter_ = k + 1
         coef = U.T
         # Only useful for debugging
-        self.Gamma_ = Gamma
         self.P_ = P
         return coef
 
@@ -880,47 +858,46 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
             raise ValueError('`iter_rtol` must be positive or zero.')
 
     def _create_problem_a(self, X_unshifted: np.ndarray, X_shifted: np.ndarray,
-                          Gamma: np.ndarray) -> picos.Problem:
+                          P: np.ndarray) -> picos.Problem:
         """Create first problem in iteration scheme."""
         q = X_unshifted.shape[0]
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
                                                  self.alpha / q,
                                                  self.inv_method,
-                                                 self.tsvd_method,
+                                                 self.tsvd_,
                                                  self.picos_eps)
         # Extract information from problem
         U = problem_a.variables['U']
         # Get needed sizes
         p_theta = U.shape[0]
         # Add new constraints
-        rho_bar_sq = picos.Constant('rho_bar^2', self.spectral_radius**2)
-        Gamma = picos.Constant('Gamma', Gamma)
-        P = picos.SymmetricVariable('P', p_theta)
-        problem_a.add_constraint(P >> self.picos_eps)
+        rho_bar = picos.Constant('rho_bar', self.spectral_radius)
+        P = picos.Constant('P', P)
         problem_a.add_constraint(
             picos.block([
-                [rho_bar_sq * P, U[:, :p_theta].T * Gamma],
-                [Gamma.T * U[:, :p_theta], Gamma + Gamma.T - P],
+                # Use ``(P + P.T) / 2`` so PICOS understands it's symmetric.
+                [rho_bar * (P + P.T) / 2, U[:, :p_theta].T * P],
+                [P.T * U[:, :p_theta], rho_bar * (P + P.T) / 2],
             ]) >> self.picos_eps)
         return problem_a
 
-    def _create_problem_b(self, U: np.ndarray, P: np.ndarray) -> picos.Problem:
+    def _create_problem_b(self, U: np.ndarray) -> picos.Problem:
         """Create second problem in iteration scheme."""
         # Create optimization problem
         problem_b = picos.Problem()
         # Get needed sizes
         p_theta = U.shape[0]
         # Create constants
-        rho_bar_sq = picos.Constant('rho_bar^2', self.spectral_radius**2)
+        rho_bar = picos.Constant('rho_bar', self.spectral_radius)
         U = picos.Constant('U', U)
-        P = picos.Constant('P', P)
         # Create variables
-        Gamma = picos.RealVariable('Gamma', P.shape)
+        P = picos.SymmetricVariable('P', p_theta)
         # Add constraints
+        problem_b.add_constraint(P >> self.picos_eps)
         problem_b.add_constraint(
             picos.block([
-                [rho_bar_sq * P, U[:, :p_theta].T * Gamma],
-                [Gamma.T * U[:, :p_theta], Gamma + Gamma.T - P],
+                [rho_bar * P, U[:, :p_theta].T * P],
+                [P.T * U[:, :p_theta], rho_bar * P],
             ]) >> self.picos_eps)
         # Set objective
         problem_b.set_objective('find')
@@ -934,31 +911,21 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
 
     Attributes
     ----------
-    objective_log_ : list[float]
+    tsvd_unshifted_ : pykoop.Tsvd
+        Fit truncated SVD object for unshifted data matrix.
+    tsvd_shifted_ : pykoop.Tsvd
+        Fit truncated SVD object for shifted data matrix.
+    U_hat_ : np.ndarray
+        Reduced Koopman matrix for debugging.
+    P_ : np.ndarray
+        ``P`` matrix for debugging.
+    objective_log_ : List[float]
         Objective function history.
     stop_reason_ : str
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
-    U_hat_ : np.ndarray
-        Reduced Koopman matrix for debugging.
-    Q_tld_ : np.ndarray
-        Left singular vectors of ``X_unshifted`` for debugging.
-    sig_tld_ : np.ndarray
-        Singular values of ``X_unshifted`` for debugging.
-    Z_tld_ : np.ndarray
-        Right singular vectors of ``X_unshifted`` for debugging.
-    Q_hat_ : np.ndarray
-        Left singular vectors of ``X_shifted`` for debugging.
-    sig_hat_ : np.ndarray
-        Singular values of ``X_shifted`` for debugging.
-    Z_hat_ : np.ndarray
-        Right singular vectors of ``X_shifted`` for debugging.
-    Gamma_ : np.ndarray
-        ``Gamma`` matrix for debugging.
-    P_ : np.ndarray
-        ``P`` matrix for debugging.
-    solver_params_ : dict[str, Any]
+    solver_params_ : Dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -978,12 +945,14 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
     >>> kp = pykoop.KoopmanPipeline(
     ...     regressor=pykoop.lmi_regressors.LmiDmdcSpectralRadiusConstr(
     ...         spectral_radius=0.9,
-    ...         tsvd_method=('cutoff', 1e-6, 1e-6),
+    ...         tsvd_unshifted=pykoop.Tsvd('cutoff', 1e-6),
+    ...         tsvd_shifted=pykoop.Tsvd('cutoff', 1e-6),
     ...     )
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=LmiDmdcSpectralRadiusConstr(spectral_radius=0.9,
-    tsvd_method=('cutoff', 1e-06, 1e-06)))
+    tsvd_shifted=Tsvd(truncation='cutoff', truncation_param=1e-06),
+    tsvd_unshifted=Tsvd(truncation='cutoff', truncation_param=1e-06)))
     """
 
     def __init__(self,
@@ -992,9 +961,10 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
                  iter_atol: float = 1e-6,
                  iter_rtol: float = 0,
                  alpha: float = 0,
-                 tsvd_method: Union[str, tuple] = 'economy',
+                 tsvd_unshifted: tsvd.Tsvd = None,
+                 tsvd_shifted: tsvd.Tsvd = None,
                  picos_eps: float = 0,
-                 solver_params: dict[str, Any] = None) -> None:
+                 solver_params: Dict[str, Any] = None) -> None:
         """Instantiate :class:`LmiDmdcSpectralRadiusConstr`.
 
         To disable regularization, use ``alpha=0``.
@@ -1003,40 +973,24 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
         ----------
         spectral_radius : float
             Maximum spectral radius.
-
         max_iter : int
             Maximum number of solver iterations.
-
         iter_atol : float
             Absolute tolerance for change in objective function value.
-
         iter_rtol : float
             Relative tolerance for change in objective function value.
-
         alpha : float
             Tikhonov regularization coefficient.
-
-         tsvd_method : Union[str, tuple]
-            Singular value truncation method used to change basis. Parameters
-            for ``X_unshifted`` and ``X_shifted`` are specified independently.
-            Possible values are
-
-            - ``'economy'`` or ``('economy', )`` -- do not truncate (use
-              economy SVD),
-            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- truncate using
-              optimal hard truncation [optht]_ with unknown noise,
-            - ``('known_noise', sigma_unshifted, sigma_shifted)`` -- truncate
-              using optimal hard truncation [optht]_ with known noise,
-            - ``('cutoff', cutoff_unshifted, cutoff_shifted)`` -- truncate
-              singular values smaller than a cutoff, or
-            - ``('rank', rank_unshifted, rank_shifted)`` -- truncate singular
-              values to a fixed rank.
-
+        tsvd_unshifted : pykoop.Tsvd
+            Singular value truncation method used to change basis of unshifted
+            data matrix. If ``None``, economy SVD is used.
+        tsvd_shifted : pykoop.Tsvd
+            Singular value truncation method used to change basis of shifted
+            data matrix. If ``None``, economy SVD is used.
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
-
-        solver_params : dict[str, Any]
+        solver_params : Dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -1045,7 +999,8 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
         self.iter_atol = iter_atol
         self.iter_rtol = iter_rtol
         self.alpha = alpha
-        self.tsvd_method = tsvd_method
+        self.tsvd_unshifted = tsvd_unshifted
+        self.tsvd_shifted = tsvd_shifted
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
@@ -1058,23 +1013,33 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
         # Get needed sizes
         p = X_unshifted.shape[1]
         p_theta = X_shifted.shape[1]
+        # Clone TSVDs
+        self.tsvd_unshifted_ = (sklearn.base.clone(self.tsvd_unshifted)
+                                if self.tsvd_unshifted is not None else
+                                tsvd.Tsvd())
+        self.tsvd_shifted_ = (sklearn.base.clone(self.tsvd_shifted) if
+                              self.tsvd_shifted is not None else tsvd.Tsvd())
         # Compute SVDs
-        tsvd_method_tld, tsvd_method_hat = regressors.Dmdc._get_tsvd_methods(
-            self.tsvd_method)
-        Q_tld, sig_tld, Z_tld = _tsvd._tsvd(X_unshifted.T, *tsvd_method_tld)
-        Q_hat, sig_hat, Z_hat = _tsvd._tsvd(X_shifted.T, *tsvd_method_hat)
+        self.tsvd_unshifted_.fit(X_unshifted.T)
+        Q_tld = self.tsvd_unshifted_.left_singular_vectors_
+        sig_tld = self.tsvd_unshifted_.singular_values_
+        Z_tld = self.tsvd_unshifted_.right_singular_vectors_
+        self.tsvd_shifted_.fit(X_shifted.T)
+        Q_hat = self.tsvd_shifted_.left_singular_vectors_
+        sig_hat = self.tsvd_shifted_.singular_values_
+        Z_hat = self.tsvd_shifted_.right_singular_vectors_
+        # Get truncation values
         r_tld = Q_tld.shape[1]
         r_hat = Q_hat.shape[1]
         # Make initial guesses and iterate
-        Gamma = np.eye(r_hat)
+        P = np.eye(r_hat)
         # Set scope of other variables
         U_hat = np.zeros((r_hat, r_hat + p - p_theta))
-        P = np.zeros((r_hat, r_hat))
         self.objective_log_ = []
         for k in range(self.max_iter):
             # Formulate Problem A
             problem_a = self._create_problem_a(Q_tld, sig_tld, Z_tld, Q_hat,
-                                               sig_hat, Z_hat, Gamma)
+                                               sig_hat, Z_hat, P)
             # Solve Problem A
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
@@ -1090,7 +1055,6 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
                 log.warn(self.stop_reason_)
                 break
             U_hat = np.array(problem_a.get_valued_variable('U_hat'), ndmin=2)
-            P = np.array(problem_a.get_valued_variable('P'), ndmin=2)
             # Check stopping condition
             self.objective_log_.append(problem_a.value)
             if len(self.objective_log_) > 1:
@@ -1105,7 +1069,7 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
                     self.stop_reason_ = f'Reached tolerance {diff_obj}'
                     break
             # Formulate Problem B
-            problem_b = self._create_problem_b(U_hat, P)
+            problem_b = self._create_problem_b(U_hat)
             # Solve Problem B
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
@@ -1120,7 +1084,7 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
                     f'Solution status: `{solution_status_b}`.')
                 log.warn(self.stop_reason_)
                 break
-            Gamma = np.array(problem_b.get_valued_variable('Gamma'), ndmin=2)
+            P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
             log.warn(self.stop_reason_)
@@ -1130,13 +1094,6 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
         coef = U.T
         # Only useful for debugging
         self.U_hat_ = U_hat
-        self.Q_tld_ = Q_tld
-        self.sig_tld_ = sig_tld
-        self.Z_tld_ = Z_tld
-        self.Q_hat_ = Q_hat
-        self.sig_hat_ = sig_hat
-        self.Z_hat_ = Z_hat
-        self.Gamma_ = Gamma
         self.P_ = P
         return coef
 
@@ -1159,46 +1116,46 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
         Q_hat: np.ndarray,
         sig_hat: np.ndarray,
         Z_hat: np.ndarray,
-        Gamma: np.ndarray,
+        P: np.ndarray,
     ) -> picos.Problem:
         """Create first problem in iteration scheme."""
+        q = Z_hat.shape[0]
         problem_a = LmiDmdc._create_base_problem(Q_tld, sig_tld, Z_tld, Q_hat,
-                                                 sig_hat, Z_hat, self.alpha,
+                                                 sig_hat, Z_hat,
+                                                 self.alpha / q,
                                                  self.picos_eps)
         # Extract information from problem
         U_hat = problem_a.variables['U_hat']
         # Get needed sizes
         p_theta = U_hat.shape[0]
         # Add new constraints
-        rho_bar_sq = picos.Constant('rho_bar^2', self.spectral_radius**2)
-        Gamma = picos.Constant('Gamma', Gamma)
-        P = picos.SymmetricVariable('P', p_theta)
-        problem_a.add_constraint(P >> self.picos_eps)
+        rho_bar = picos.Constant('rho_bar', self.spectral_radius)
+        P = picos.Constant('P', P)
         problem_a.add_constraint(
             picos.block([
-                [rho_bar_sq * P, U_hat[:, :p_theta].T * Gamma],
-                [Gamma.T * U_hat[:, :p_theta], Gamma + Gamma.T - P],
+                # Use ``(P + P.T) / 2`` so PICOS understands it's symmetric.
+                [rho_bar * (P + P.T) / 2, U_hat[:, :p_theta].T * P],
+                [P.T * U_hat[:, :p_theta], rho_bar * (P + P.T) / 2],
             ]) >> self.picos_eps)
         return problem_a
 
-    def _create_problem_b(self, U_hat: np.ndarray,
-                          P: np.ndarray) -> picos.Problem:
+    def _create_problem_b(self, U_hat: np.ndarray) -> picos.Problem:
         """Create second problem in iteration scheme."""
         # Create optimization problem
         problem_b = picos.Problem()
         # Get needed sizes
         p_theta = U_hat.shape[0]
         # Create constants
-        rho_bar_sq = picos.Constant('rho_bar^2', self.spectral_radius**2)
+        rho_bar = picos.Constant('rho_bar', self.spectral_radius)
         U = picos.Constant('U', U_hat)
-        P = picos.Constant('P', P)
         # Create variables
-        Gamma = picos.RealVariable('Gamma', P.shape)
+        P = picos.SymmetricVariable('P', p_theta)
         # Add constraints
+        problem_b.add_constraint(P >> self.picos_eps)
         problem_b.add_constraint(
             picos.block([
-                [rho_bar_sq * P, U_hat[:, :p_theta].T * Gamma],
-                [Gamma.T * U_hat[:, :p_theta], Gamma + Gamma.T - P],
+                [rho_bar * P, U_hat[:, :p_theta].T * P],
+                [P.T * U_hat[:, :p_theta], rho_bar * P],
             ]) >> self.picos_eps)
         # Set objective
         problem_b.set_objective('find')
@@ -1212,17 +1169,19 @@ class LmiEdmdHinfReg(LmiRegressor):
 
     Attributes
     ----------
-    objective_log_ : list[float]
+    tsvd_ : pykoop.Tsvd
+        Fit truncated SVD object.
+    P_ : np.ndarray
+        ``P`` matirx for debugging.
+    gamma_ : np.ndarray
+        H-infinity norm for debugging.
+    objective_log_ : List[float]
         Objective function history.
     stop_reason_ : str
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
-    P_ : np.ndarray
-        ``P`` matirx for debugging.
-    gamma_ : np.ndarray
-        H-infinity norm for debugging.
-    solver_params_ : dict[str, Any]
+    solver_params_ : Dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -1269,16 +1228,16 @@ class LmiEdmdHinfReg(LmiRegressor):
         self,
         alpha: float = 1,
         ratio: float = 1,
-        weight: tuple[str, np.ndarray, np.ndarray, np.ndarray,
+        weight: Tuple[str, np.ndarray, np.ndarray, np.ndarray,
                       np.ndarray] = None,
         max_iter: int = 100,
         iter_atol: float = 1e-6,
         iter_rtol: float = 0,
         inv_method: str = 'svd',
-        tsvd_method: Union[str, tuple] = 'economy',
+        tsvd: tsvd.Tsvd = None,
         square_norm: bool = False,
         picos_eps: float = 0,
-        solver_params: dict[str, Any] = None,
+        solver_params: Dict[str, Any] = None,
     ) -> None:
         """Instantiate :class:`LmiEdmdHinfReg`.
 
@@ -1293,7 +1252,7 @@ class LmiEdmdHinfReg(LmiRegressor):
             Ratio of H-infinity norm to use in mixed regularization. If
             ``ratio=1``, no Tikhonov regularization is used. Cannot be zero.
 
-        weight : tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        weight : Tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
             Tuple containing weight type (``'pre'`` or ``'post'``), and the
             weight state space matrices (``A``, ``B``, ``C``, and ``D``). If
             ``None``, no weighting is used.
@@ -1319,19 +1278,9 @@ class LmiEdmdHinfReg(LmiRegressor):
             - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
             - ``'svd'`` -- split ``H`` using a singular value decomposition.
 
-         tsvd_method : Union[str, tuple]
-            Singular value truncation method if ``inv_method='svd'``. Very
-            experimental. Possible values are
-
-            - ``'economy'`` or ``('economy', )`` -- do not truncate (use
-              economy SVD),
-            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- truncate using
-              optimal hard truncation [optht]_ with unknown noise,
-            - ``('known_noise', sigma)`` -- truncate using optimal hard
-              truncation [optht]_ with known noise,
-            - ``('cutoff', cutoff)`` -- truncate singular values smaller than a
-              cutoff, or
-            - ``('rank', rank)`` -- truncate singular values to a fixed rank.
+         tsvd : pykoop.Tsvd
+            Singular value truncation method if ``inv_method='svd'``. If
+            ``None``, economy SVD is used.
 
         square_norm : bool
             Square norm H-infinity norm in regularizer. Enabling may increase
@@ -1342,7 +1291,7 @@ class LmiEdmdHinfReg(LmiRegressor):
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : dict[str, Any]
+        solver_params : Dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -1353,7 +1302,7 @@ class LmiEdmdHinfReg(LmiRegressor):
         self.iter_atol = iter_atol
         self.iter_rtol = iter_rtol
         self.inv_method = inv_method
-        self.tsvd_method = tsvd_method
+        self.tsvd = tsvd
         self.square_norm = square_norm
         self.picos_eps = picos_eps
         self.solver_params = solver_params
@@ -1364,6 +1313,9 @@ class LmiEdmdHinfReg(LmiRegressor):
         self.solver_params_ = self._default_solver_params.copy()
         if self.solver_params is not None:
             self.solver_params_.update(self.solver_params)
+        # Clone TSVD
+        self.tsvd_ = (sklearn.base.clone(self.tsvd)
+                      if self.tsvd is not None else tsvd.Tsvd())
         # Set regularization coefficients
         self.alpha_tikhonov_ = self.alpha * (1 - self.ratio)
         self.alpha_other_ = self.alpha * self.ratio
@@ -1474,7 +1426,7 @@ class LmiEdmdHinfReg(LmiRegressor):
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
                                                  self.alpha_tikhonov_ / q,
                                                  self.inv_method,
-                                                 self.tsvd_method,
+                                                 self.tsvd_,
                                                  self.picos_eps)
         # Extract information from problem
         U = problem_a.variables['U']
@@ -1545,31 +1497,23 @@ class LmiDmdcHinfReg(LmiRegressor):
 
     Attributes
     ----------
-    objective_log_ : list[float]
+    tsvd_unshifted_ : pykoop.Tsvd
+        Fit truncated SVD object for unshifted data matrix.
+    tsvd_shifted_ : pykoop.Tsvd
+        Fit truncated SVD object for shifted data matrix.
+    U_hat_ : np.ndarray
+        Reduced Koopman matrix for debugging.
+    P_ : np.ndarray
+        ``P`` matirx for debugging.
+    gamma_ : np.ndarray
+        H-infinity norm for debugging.
+    objective_log_ : List[float]
         Objective function history.
     stop_reason_ : str
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
-    U_hat_ : np.ndarray
-        Reduced Koopman matrix for debugging.
-    Q_tld_ : np.ndarray
-        Left singular vectors of ``X_unshifted`` for debugging.
-    sig_tld_ : np.ndarray
-        Singular values of ``X_unshifted`` for debugging.
-    Z_tld_ : np.ndarray
-        Right singular vectors of ``X_unshifted`` for debugging.
-    Q_hat_ : np.ndarray
-        Left singular vectors of ``X_shifted`` for debugging.
-    sig_hat_ : np.ndarray
-        Singular values of ``X_shifted`` for debugging.
-    Z_hat_ : np.ndarray
-        Right singular vectors of ``X_shifted`` for debugging.
-    P_ : np.ndarray
-        ``P`` matirx for debugging.
-    gamma_ : np.ndarray
-        H-infinity norm for debugging.
-    solver_params_ : dict[str, Any]
+    solver_params_ : Dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -1604,29 +1548,33 @@ class LmiDmdcHinfReg(LmiRegressor):
     ...     regressor=pykoop.lmi_regressors.LmiDmdcHinfReg(
     ...         alpha=1e-3,
     ...         weight=('pre', ss_dt.A, ss_dt.B, ss_dt.C, ss_dt.D),
-    ...         tsvd_method=('cutoff', 1e-3, 1e-3),
+    ...         tsvd_unshifted=pykoop.Tsvd('cutoff', 1e-3),
+    ...         tsvd_shifted=pykoop.Tsvd('cutoff', 1e-3),
     ...     )
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=LmiDmdcHinfReg(alpha=0.001,
-    tsvd_method=('cutoff', 1e-03, 1e-03), weight=('pre',
-    array([[0.66666667]]), array([[0.08333333]]), array([[-3.33333333]]),
-    array([[0.83333333]]))))
+    tsvd_shifted=Tsvd(truncation='cutoff', truncation_param=0.001),
+    tsvd_unshifted=Tsvd(truncation='cutoff', truncation_param=0.001),
+    weight=('pre', array([[0.66666667]]), array([[0.08333333]]),
+    array([[-3.33333333]]), array([[0.83333333]]))))
+
     """
 
     def __init__(
         self,
         alpha: float = 1,
         ratio: float = 1,
-        weight: tuple[str, np.ndarray, np.ndarray, np.ndarray,
+        weight: Tuple[str, np.ndarray, np.ndarray, np.ndarray,
                       np.ndarray] = None,
         max_iter: int = 100,
         iter_atol: float = 1e-6,
         iter_rtol: float = 0,
-        tsvd_method: Union[str, tuple] = 'economy',
+        tsvd_unshifted: tsvd.Tsvd = None,
+        tsvd_shifted: tsvd.Tsvd = None,
         square_norm: bool = False,
         picos_eps: float = 0,
-        solver_params: dict[str, Any] = None,
+        solver_params: Dict[str, Any] = None,
     ) -> None:
         """Instantiate :class:`LmiDmdcHinfReg`.
 
@@ -1636,51 +1584,33 @@ class LmiDmdcHinfReg(LmiRegressor):
         ----------
         alpha : float
             Regularization coefficient. Cannot be zero.
-
         ratio : float
             Ratio of H-infinity norm to use in mixed regularization. If
             ``ratio=1``, no Tikhonov regularization is used. Cannot be zero.
-
-        weight : tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        weight : Tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
             Tuple containing weight type (``'pre'`` or ``'post'``), and the
             weight state space matrices (``A``, ``B``, ``C``, and ``D``). If
             ``None``, no weighting is used.
-
         max_iter : int
             Maximum number of solver iterations.
-
         iter_atol : float
             Absolute tolerance for change in objective function value.
-
         iter_rtol : float
             Relative tolerance for change in objective function value.
-
-         tsvd_method : Union[str, tuple]
-            Singular value truncation method used to change basis. Parameters
-            for ``X_unshifted`` and ``X_shifted`` are specified independently.
-            Possible values are
-
-            - ``'economy'`` or ``('economy', )`` -- do not truncate (use
-              economy SVD),
-            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- truncate using
-              optimal hard truncation [optht]_ with unknown noise,
-            - ``('known_noise', sigma_unshifted, sigma_shifted)`` -- truncate
-              using optimal hard truncation [optht]_ with known noise,
-            - ``('cutoff', cutoff_unshifted, cutoff_shifted)`` -- truncate
-              singular values smaller than a cutoff, or
-            - ``('rank', rank_unshifted, rank_shifted)`` -- truncate singular
-              values to a fixed rank.
-
+        tsvd_unshifted : pykoop.Tsvd
+            Singular value truncation method used to change basis of unshifted
+            data matrix. If ``None``, economy SVD is used.
+        tsvd_shifted : pykoop.Tsvd
+            Singular value truncation method used to change basis of shifted
+            data matrix. If ``None``, economy SVD is used.
         square_norm : bool
             Square norm H-infinity norm in regularizer. Enabling may increase
             computation time. Frobenius norm used in Tikhonov regularizer is
             always squared.
-
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
-
-        solver_params : dict[str, Any]
+        solver_params : Dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -1690,7 +1620,8 @@ class LmiDmdcHinfReg(LmiRegressor):
         self.max_iter = max_iter
         self.iter_atol = iter_atol
         self.iter_rtol = iter_rtol
-        self.tsvd_method = tsvd_method
+        self.tsvd_unshifted = tsvd_unshifted
+        self.tsvd_shifted = tsvd_shifted
         self.square_norm = square_norm
         self.picos_eps = picos_eps
         self.solver_params = solver_params
@@ -1701,6 +1632,12 @@ class LmiDmdcHinfReg(LmiRegressor):
         self.solver_params_ = self._default_solver_params.copy()
         if self.solver_params is not None:
             self.solver_params_.update(self.solver_params)
+        # Clone TSVDs
+        self.tsvd_unshifted_ = (sklearn.base.clone(self.tsvd_unshifted)
+                                if self.tsvd_unshifted is not None else
+                                tsvd.Tsvd())
+        self.tsvd_shifted_ = (sklearn.base.clone(self.tsvd_shifted) if
+                              self.tsvd_shifted is not None else tsvd.Tsvd())
         # Set regularization coefficients
         self.alpha_tikhonov_ = self.alpha * (1 - self.ratio)
         self.alpha_other_ = self.alpha * self.ratio
@@ -1716,10 +1653,14 @@ class LmiDmdcHinfReg(LmiRegressor):
                              'different numbers of features. `X` and `y` both '
                              f'have {p} feature(s).')
         # Compute SVDs
-        tsvd_method_tld, tsvd_method_hat = regressors.Dmdc._get_tsvd_methods(
-            self.tsvd_method)
-        Q_tld, sig_tld, Z_tld = _tsvd._tsvd(X_unshifted.T, *tsvd_method_tld)
-        Q_hat, sig_hat, Z_hat = _tsvd._tsvd(X_shifted.T, *tsvd_method_hat)
+        self.tsvd_unshifted_.fit(X_unshifted.T)
+        Q_tld = self.tsvd_unshifted_.left_singular_vectors_
+        sig_tld = self.tsvd_unshifted_.singular_values_
+        Z_tld = self.tsvd_unshifted_.right_singular_vectors_
+        self.tsvd_shifted_.fit(X_shifted.T)
+        Q_hat = self.tsvd_shifted_.left_singular_vectors_
+        sig_hat = self.tsvd_shifted_.singular_values_
+        Z_hat = self.tsvd_shifted_.right_singular_vectors_
         r_tld = Q_tld.shape[1]
         r_hat = Q_hat.shape[1]
         # Set up weights
@@ -1795,12 +1736,6 @@ class LmiDmdcHinfReg(LmiRegressor):
         coef = U.T
         # Only useful for debugging
         self.U_hat_ = U_hat
-        self.Q_tld_ = Q_tld
-        self.sig_tld_ = sig_tld
-        self.Z_tld_ = Z_tld
-        self.Q_hat_ = Q_hat
-        self.sig_hat_ = sig_hat
-        self.Z_hat_ = Z_hat
         self.P_ = P
         self.gamma_ = gamma
         return coef
@@ -1831,9 +1766,10 @@ class LmiDmdcHinfReg(LmiRegressor):
         P: np.ndarray,
     ) -> picos.Problem:
         """Create first problem in iteration scheme."""
+        q = Z_hat.shape[0]
         problem_a = LmiDmdc._create_base_problem(Q_tld, sig_tld, Z_tld, Q_hat,
                                                  sig_hat, Z_hat,
-                                                 self.alpha_tikhonov_,
+                                                 self.alpha_tikhonov_ / q,
                                                  self.picos_eps)
         # Extract information from problem
         U_hat = problem_a.variables['U_hat']
@@ -1858,7 +1794,8 @@ class LmiDmdcHinfReg(LmiRegressor):
         # Add term to cost function
         if self.alpha_other_ <= 0:
             raise ValueError('`alpha_other_` must be positive.')
-        alpha_scaled = picos.Constant('alpha_scaled_inf', self.alpha_other_)
+        alpha_scaled = picos.Constant('alpha_scaled_inf',
+                                      self.alpha_other_ / q)
         if self.square_norm:
             objective += alpha_scaled * gamma**2
         else:
@@ -1905,13 +1842,15 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
 
     Attributes
     ----------
-    objective_log_ : list[float]
+    tsvd_ : pykoop.Tsvd
+        Fit truncated SVD object.
+    objective_log_ : List[float]
         Objective function history.
     stop_reason_ : str
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
-    solver_params_ : dict[str, Any]
+    solver_params_ : Dict[str, Any]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -1943,9 +1882,9 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         iter_atol: float = 1e-6,
         iter_rtol: float = 0,
         inv_method: str = 'svd',
-        tsvd_method: Union[str, tuple] = 'economy',
+        tsvd: tsvd.Tsvd = None,
         picos_eps: float = 0,
-        solver_params: dict[str, Any] = None,
+        solver_params: Dict[str, Any] = None,
     ) -> None:
         """Instantiate :class:`LmiEdmdDissipativityConstr`.
 
@@ -1988,25 +1927,15 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
             - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
             - ``'svd'`` -- split ``H`` using a singular value decomposition.
 
-         tsvd_method : Union[str, tuple]
-            Singular value truncation method if ``inv_method='svd'``. Very
-            experimental. Possible values are
-
-            - ``'economy'`` or ``('economy', )`` -- do not truncate (use
-              economy SVD),
-            - ``'unknown_noise'`` or ``('unknown_noise', )`` -- truncate using
-              optimal hard truncation [optht]_ with unknown noise,
-            - ``('known_noise', sigma)`` -- truncate using optimal hard
-              truncation [optht]_ with known noise,
-            - ``('cutoff', cutoff)`` -- truncate singular values smaller than a
-              cutoff, or
-            - ``('rank', rank)`` -- truncate singular values to a fixed rank.
+         tsvd : pykoop.Tsvd
+            Singular value truncation method if ``inv_method='svd'``. If
+            ``None``, economy SVD is used.
 
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : dict[str, Any]
+        solver_params : Dict[str, Any]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -2016,7 +1945,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         self.iter_atol = iter_atol
         self.iter_rtol = iter_rtol
         self.inv_method = inv_method
-        self.tsvd_method = tsvd_method
+        self.tsvd = tsvd
         self.picos_eps = picos_eps
         self.solver_params = solver_params
 
@@ -2026,6 +1955,9 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         self.solver_params_ = self._default_solver_params.copy()
         if self.solver_params is not None:
             self.solver_params_.update(self.solver_params)
+        # Clone TSVD
+        self.tsvd_ = (sklearn.base.clone(self.tsvd)
+                      if self.tsvd is not None else tsvd.Tsvd())
         # Set regularization coefficients
         # Get needed sizes
         p = X_unshifted.shape[1]
@@ -2115,7 +2047,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
                                                  self.alpha / q,
                                                  self.inv_method,
-                                                 self.tsvd_method,
+                                                 self.tsvd_,
                                                  self.picos_eps)
         # Extract information from problem
         U = problem_a.variables['U']
@@ -2185,9 +2117,9 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
 
 def _create_ss(
     U: np.ndarray,
-    weight: Optional[tuple[str, np.ndarray, np.ndarray, np.ndarray,
+    weight: Optional[Tuple[str, np.ndarray, np.ndarray, np.ndarray,
                            np.ndarray]],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Augment Koopman system with weight if present.
 
     Parameters
@@ -2195,7 +2127,7 @@ def _create_ss(
     U : np.ndarray
         Koopman matrix containing ``A`` and ``B`` concatenated
         horizontally.
-    weight : Optional[tuple[str, np.ndarray, np.ndarray, np.ndarray,
+    weight : Optional[Tuple[str, np.ndarray, np.ndarray, np.ndarray,
                             np.ndarray]]
         Tuple containing weight type (``'pre'`` or ``'post'``), and the
         weight state space matrices (``A``, ``B``, ``C``, and ``D``). If
@@ -2203,7 +2135,7 @@ def _create_ss(
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+    Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
         Weighted state space matrices (``A``, ``B``, ``C``, ``D``).
     """
     p_theta = U.shape[0]
@@ -2365,7 +2297,7 @@ def _calc_c_G_H(
     X_unshifted: np.ndarray,
     X_shifted: np.ndarray,
     alpha: float,
-) -> tuple[float, np.ndarray, np.ndarray, dict[str, Any]]:
+) -> Tuple[float, np.ndarray, np.ndarray, Dict[str, Any]]:
     """Compute ``c``, ``G``, and ``H``.
 
     Parameters
@@ -2379,7 +2311,7 @@ def _calc_c_G_H(
 
     Returns
     -------
-    tuple[float, np.ndarray, np.ndarray, dict[str, Any]]
+    Tuple[float, np.ndarray, np.ndarray, Dict[str, Any]]
         Tuple containing ``c``, ``G``, and ``H``, along with numerical
         statistics.
     """
@@ -2467,8 +2399,7 @@ def _calc_sqrtH(H: np.ndarray) -> np.ndarray:
 
 
 @memory.cache
-def _calc_QSig(X: np.ndarray, alpha: float,
-               tsvd_method: Union[str, tuple]) -> np.ndarray:
+def _calc_QSig(X: np.ndarray, alpha: float, tsvd: tsvd.Tsvd) -> np.ndarray:
     """Split ``H`` using the truncated SVD of ``X``.
 
     ``H`` is defined as:
@@ -2495,8 +2426,8 @@ def _calc_QSig(X: np.ndarray, alpha: float,
         ``X``, where ``H = 1/q * X @ X.T``.
     alpha : float
         Tikhonov regularization coefficient (divided by ``q``).
-     tsvd_method : Union[str, tuple]
-        Singular value truncation method if ``inv_method='svd'``.
+    tsvd : pykoop.Tsvd
+        Truncated singular value object.
 
     Returns
     -------
@@ -2504,9 +2435,9 @@ def _calc_QSig(X: np.ndarray, alpha: float,
         Split ``H`` matrix.
     """
     # SVD
-    if type(tsvd_method) is not tuple:
-        tsvd_method = (tsvd_method, )
-    Qr, sr, _ = _tsvd._tsvd(X.T, *tsvd_method)
+    tsvd.fit(X.T)
+    Qr = tsvd.left_singular_vectors_
+    sr = tsvd.singular_values_
     # Regularize
     q = X.shape[0]
     # ``alpha`` is already divided by ``q`` to be consistent with ``G`` and

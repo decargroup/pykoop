@@ -16,18 +16,9 @@ from pykoop import lmi_regressors
         (pykoop.Dmdc, {
             'mode_type': 'blah'
         }),
-        (pykoop.Dmdc, {
-            'tsvd_method': ('known_noise', )
-        }),
-        (pykoop.Dmdc, {
-            'tsvd_method': ('known_noise', 1)
-        }),
         # Dmd
         (pykoop.Dmd, {
             'mode_type': 'blah'
-        }),
-        (pykoop.Dmd, {
-            'tsvd_method': ('known_noise', )
         }),
         # LmiEdmd
         (lmi_regressors.LmiEdmd, {
@@ -46,12 +37,6 @@ from pykoop import lmi_regressors
             'inv_method': 'blahblah'
         }),
         (lmi_regressors.LmiEdmd, {
-            'tsvd_method': ('known_noise', )
-        }),
-        (lmi_regressors.LmiEdmd, {
-            'tsvd_method': ('cutoff', )
-        }),
-        (lmi_regressors.LmiEdmd, {
             'picos_eps': -1
         }),
         # LmiDmdc
@@ -63,12 +48,6 @@ from pykoop import lmi_regressors
         }),
         (lmi_regressors.LmiDmdc, {
             'ratio': 0
-        }),
-        (lmi_regressors.LmiDmdc, {
-            'tsvd_method': ('known_noise', )
-        }),
-        (lmi_regressors.LmiDmdc, {
-            'tsvd_method': ('rank', 1)
         }),
         (lmi_regressors.LmiDmdc, {
             'picos_eps': -1
