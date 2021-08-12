@@ -165,7 +165,7 @@ class Tsvd(sklearn.base.BaseEstimator):
             'min_sv': f'{np.min(sig):.2e}',
             'reduced_min_sv': f'{np.min(sig_r):.2e}',
         }
-        log.info(f'`_tsvd()` stats: {stats}')
+        log.info(f'``Tsvd.fit()`` stats: {stats}')
         self.left_singular_vectors_ = Q_r
         self.singular_values_ = sig_r
         self.right_singular_vectors_ = Z_r

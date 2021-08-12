@@ -1,11 +1,10 @@
 import numpy as np
-import pytest
-from scipy import integrate, linalg
-from sklearn import linear_model
-
 import pykoop
 import pykoop.dynamic_models
 import pykoop.lmi_regressors
+import pytest
+from scipy import integrate, linalg
+from sklearn import linear_model
 
 # TODO This file is a nightmare
 
@@ -15,9 +14,10 @@ import pykoop.lmi_regressors
         (pykoop.Edmd(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
         (pykoop.Dmdc(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
         (pykoop.Dmd(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
-        (pykoop.Dmdc(tsvd_method=('known_noise', 1, 1)), 'msd-no-input', None,
-         None, 'exact'),
-        (pykoop.Dmd(tsvd_method=('known_noise', 1)), 'msd-no-input', None,
+        (pykoop.Dmdc(tsvd_unshifted=pykoop.Tsvd('known_noise', 1),
+                     tsvd_shifted=pykoop.Tsvd('known_noise', 1)),
+         'msd-no-input', None, None, 'exact'),
+        (pykoop.Dmd(tsvd=pykoop.Tsvd('known_noise', 1)), 'msd-no-input', None,
          None, 'exact'),
         (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='eig'),
          'msd-no-input', 1e-4, 1e-5, 'exact'),
