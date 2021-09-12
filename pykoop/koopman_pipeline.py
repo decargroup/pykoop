@@ -99,6 +99,8 @@ import pandas
 import sklearn.base
 import sklearn.metrics
 
+from ._sklearn_metaestimators import metaestimators
+
 
 class KoopmanLiftingFn(sklearn.base.BaseEstimator,
                        sklearn.base.TransformerMixin,
@@ -827,7 +829,7 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         }
 
 
-class SplitPipeline(KoopmanLiftingFn):
+class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     """Meta-estimator for lifting states and inputs separately.
 
     Only works with episode-independent lifting functions! It's too complicated
@@ -913,17 +915,22 @@ class SplitPipeline(KoopmanLiftingFn):
                              (1 if episode_feature else 0))
         self.n_inputs_in_ = n_inputs
         # Clone state lifting functions
+        used_keys = []
         self.lifting_functions_state_ = []
         if self.lifting_functions_state is not None:
             for key, lf in self.lifting_functions_state:
+                used_keys.append(key)
                 self.lifting_functions_state_.append(
                     tuple((key, sklearn.base.clone(lf))))
         # Clone input lifting functions
         self.lifting_functions_input_ = []
         if self.lifting_functions_input is not None:
             for key, lf in self.lifting_functions_input:
+                used_keys.append(key)
                 self.lifting_functions_input_.append(
                     tuple((key, sklearn.base.clone(lf))))
+        # Check names
+        self._validate_names(used_keys)
         # Separate episode feature
         if self.episode_feature_:
             X_ep = X[:, [0]]
@@ -1086,8 +1093,24 @@ class SplitPipeline(KoopmanLiftingFn):
         # functions, we know ``n_samples_in == n_samples_out``.
         return n_samples_out
 
+    def get_params(self, deep: bool = True) -> Dict[str, Any]:
+        # noqa: D102
+        # A bit inefficient to do this twice but it's not the end of the world.
+        state = self._get_params('lifting_functions_state', deep=deep)
+        input = self._get_params('lifting_functions_input', deep=deep)
+        state.update(input)
+        return state
 
-class KoopmanPipeline(sklearn.base.BaseEstimator,
+    def set_params(self, **kwargs) -> 'SplitPipeline':
+        # noqa: D102
+        # A bit inefficient to do this twice but it's not the end of the world.
+        self._set_params('lifting_functions_state', **kwargs)
+        self._set_params('lifting_functions_input', **kwargs)
+        return self
+
+
+class KoopmanPipeline(metaestimators._BaseComposition,
+                      sklearn.base.BaseEstimator,
                       sklearn.base.TransformerMixin):
     """Meta-estimator for chaining lifting functions with an estimator.
 
@@ -1287,11 +1310,15 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
         self.n_states_in_ = (X.shape[1] - n_inputs -
                              (1 if episode_feature else 0))
         self.n_inputs_in_ = n_inputs
+        used_keys = []
         self.lifting_functions_ = []
         if self.lifting_functions is not None:
             for key, lf in self.lifting_functions:
+                used_keys.append(key)
                 self.lifting_functions_.append(
                     tuple((key, sklearn.base.clone(lf))))
+        # Check names
+        self._validate_names(used_keys)
         # Fit and transform lifting functions
         X_out = X
         n_inputs_out = n_inputs
@@ -1649,6 +1676,15 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
             return score
 
         return koopman_pipeline_scorer
+
+    def get_params(self, deep: bool = True) -> Dict[str, Any]:
+        # noqa: D102
+        return self._get_params('lifting_functions', deep=deep)
+
+    def set_params(self, **kwargs) -> 'KoopmanPipeline':
+        # noqa: D102
+        self._set_params('lifting_functions', **kwargs)
+        return self
 
 
 def _strip_initial_conditions(X: np.ndarray,
