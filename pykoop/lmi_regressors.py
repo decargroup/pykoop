@@ -18,6 +18,7 @@ import numpy as np
 import picos
 import sklearn.base
 from scipy import linalg
+import scipy.signal
 
 from . import koopman_pipeline, regressors, tsvd
 
@@ -863,8 +864,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
         q = X_unshifted.shape[0]
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
                                                  self.alpha / q,
-                                                 self.inv_method,
-                                                 self.tsvd_,
+                                                 self.inv_method, self.tsvd_,
                                                  self.picos_eps)
         # Extract information from problem
         U = problem_a.variables['U']
@@ -1425,8 +1425,7 @@ class LmiEdmdHinfReg(LmiRegressor):
         q = X_unshifted.shape[0]
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
                                                  self.alpha_tikhonov_ / q,
-                                                 self.inv_method,
-                                                 self.tsvd_,
+                                                 self.inv_method, self.tsvd_,
                                                  self.picos_eps)
         # Extract information from problem
         U = problem_a.variables['U']
@@ -2046,8 +2045,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         q = X_unshifted.shape[0]
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
                                                  self.alpha / q,
-                                                 self.inv_method,
-                                                 self.tsvd_,
+                                                 self.inv_method, self.tsvd_,
                                                  self.picos_eps)
         # Extract information from problem
         U = problem_a.variables['U']
@@ -2113,6 +2111,93 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         # Set objective
         problem_b.set_objective('find')
         return problem_b
+
+
+class LmiDmdcHinfReg1p1z(koopman_pipeline.KoopmanRegressor):
+    """H-infinity regularization weighted with a 1-pole 1-zero filter.
+
+    Makes cross-validation with poles and zeros easier.
+    """
+
+    def __init__(
+        self,
+        alpha: float = 1,
+        ratio: float = 1,
+        type: str = 'post',
+        zero: float = 0,
+        pole: float = 0,
+        gain: float = 1,
+        discretization: str = 'bilinear',
+        t_step: float = 1,
+        max_iter: int = 100,
+        iter_atol: float = 1e-6,
+        iter_rtol: float = 0,
+        tsvd_unshifted: tsvd.Tsvd = None,
+        tsvd_shifted: tsvd.Tsvd = None,
+        square_norm: bool = False,
+        picos_eps: float = 0,
+        solver_params: Dict[str, Any] = None,
+    ) -> None:
+        """Instantiate :class:`LmiDmdcHinfReg1p1z`."""
+        self.alpha = alpha
+        self.ratio = ratio
+        self.type = type
+        self.zero = zero
+        self.pole = pole
+        self.gain = gain
+        self.discretization = discretization
+        self.t_step = t_step
+        self.max_iter = max_iter
+        self.iter_atol = iter_atol
+        self.iter_rtol = iter_rtol
+        self.tsvd_unshifted = tsvd_unshifted
+        self.tsvd_shifted = tsvd_shifted
+        self.square_norm = square_norm
+        self.picos_eps = picos_eps
+        self.solver_params = solver_params
+
+    def _fit_regressor(self, X_unshifted: np.ndarray,
+                       X_shifted: np.ndarray) -> np.ndarray:
+        ss_ct = scipy.signal.ZerosPolesGain(
+            [self.zero],
+            [self.pole],
+            self.gain,
+        ).to_ss()
+        ss_dt = ss_ct.to_discrete(
+            self.t_step,
+            self.discretization,
+        )
+        weight = (
+            self.type,
+            ss_dt.A,
+            ss_dt.B,
+            ss_dt.C,
+            ss_dt.D,
+        )
+        est = LmiDmdcHinfReg(
+            alpha=self.alpha,
+            ratio=self.ratio,
+            weight=weight,
+            max_iter=self.max_iter,
+            iter_atol=self.iter_atol,
+            iter_rtol=self.iter_rtol,
+            tsvd_unshifted=self.tsvd_unshifted,
+            tsvd_shifted=self.tsvd_shifted,
+            square_norm=self.square_norm,
+            picos_eps=self.picos_eps,
+            solver_params=self.solver_params,
+        )
+        return est._fit_regressor(X_unshifted, X_shifted)
+
+    def _validate_parameters(self) -> None:
+        if np.real(self.pole) > 0:
+            raise ValueError('`pole` must be negative or zero (it must be in '
+                             'the open left hand plane).')
+        if np.real(self.zero) > 0:
+            raise ValueError('`zero` must be negative or zero (it must be in '
+                             'the open left hand plane).')
+        if self.gain <= 0:
+            raise ValueError('`gain`must be positive.')
 
 
 def _create_ss(
