@@ -836,10 +836,10 @@ class SplitPipeline(KoopmanLiftingFn):
 
     Attributes
     ----------
-    lifting_functions_state_: List[EpisodeIndependentLiftingFn]
-        Fit state lifting functions.
-    lifting_functions_input_: List[EpisodeIndependentLiftingFn]
-        Fit input lifting functions.
+    lifting_functions_state_: List[Tuple[str, EpisodeIndependentLiftingFn]]
+        Fit state lifting functions (and their names).
+    lifting_functions_input_: List[Tuple[str, EpisodeIndependentLiftingFn]]
+        Fit input lifting functions (and their names).
     n_features_in_ : int
         Number of features before transformation, including episode feature.
     n_states_in_ : int
@@ -863,12 +863,13 @@ class SplitPipeline(KoopmanLiftingFn):
 
     >>> kp = pykoop.SplitPipeline(
     ...     lifting_functions_state=[
-    ...         pykoop.PolynomialLiftingFn(order=2)
+    ...         ('pl', pykoop.PolynomialLiftingFn(order=2))
     ...     ],
     ...     lifting_functions_input=None,
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
-    SplitPipeline(lifting_functions_state=[PolynomialLiftingFn(order=2)])
+    SplitPipeline(lifting_functions_state=[('pl',
+    PolynomialLiftingFn(order=2))])
     >>> Xt_msd = kp.transform(X_msd[:2, :])
     """
 
@@ -880,17 +881,19 @@ class SplitPipeline(KoopmanLiftingFn):
 
     def __init__(
         self,
-        lifting_functions_state: List[EpisodeIndependentLiftingFn] = None,
-        lifting_functions_input: List[EpisodeIndependentLiftingFn] = None
+        lifting_functions_state: List[Tuple[
+            str, EpisodeIndependentLiftingFn]] = None,
+        lifting_functions_input: List[Tuple[
+            str, EpisodeIndependentLiftingFn]] = None,
     ) -> None:
         """Instantiate :class:`SplitPipeline`.
 
         Parameters
         ----------
-        lifting_functions_state : List[EpisodeIndependentLiftingFn]
-            Lifting functions to apply to the state features.
-        lifting_functions_input : List[EpisodeIndependentLiftingFn]
-            Lifting functions to apply to the input features.
+        lifting_functions_state : List[Tuple[str, EpisodeIndependentLiftingFn]]
+            Lifting functions to apply to the state features (and their names).
+        lifting_functions_input : List[Tuple[str, EpisodeIndependentLiftingFn]]
+            Lifting functions to apply to the input features (and their names).
         """
         self.lifting_functions_state = lifting_functions_state
         self.lifting_functions_input = lifting_functions_input
@@ -912,13 +915,15 @@ class SplitPipeline(KoopmanLiftingFn):
         # Clone state lifting functions
         self.lifting_functions_state_ = []
         if self.lifting_functions_state is not None:
-            for lf in self.lifting_functions_state:
-                self.lifting_functions_state_.append(sklearn.base.clone(lf))
+            for key, lf in self.lifting_functions_state:
+                self.lifting_functions_state_.append(
+                    tuple((key, sklearn.base.clone(lf))))
         # Clone input lifting functions
         self.lifting_functions_input_ = []
         if self.lifting_functions_input is not None:
-            for lf in self.lifting_functions_input:
-                self.lifting_functions_input_.append(sklearn.base.clone(lf))
+            for key, lf in self.lifting_functions_input:
+                self.lifting_functions_input_.append(
+                    tuple((key, sklearn.base.clone(lf))))
         # Separate episode feature
         if self.episode_feature_:
             X_ep = X[:, [0]]
@@ -938,7 +943,7 @@ class SplitPipeline(KoopmanLiftingFn):
             ))
         # Fit and transform states
         X_out_state = X_state
-        for lf in self.lifting_functions_state_:
+        for _, lf in self.lifting_functions_state_:
             X_out_state = lf.fit_transform(
                 X_out_state,
                 n_inputs=0,
@@ -946,7 +951,7 @@ class SplitPipeline(KoopmanLiftingFn):
             )
         # Fit and transform inputs
         X_out_input = X_input
-        for lf in self.lifting_functions_input_:
+        for _, lf in self.lifting_functions_input_:
             X_out_input = lf.fit_transform(
                 X_out_input,
                 n_inputs=0,
@@ -955,7 +960,7 @@ class SplitPipeline(KoopmanLiftingFn):
         # Compute output dimensions for states
         if len(self.lifting_functions_state_) > 0:
             # Compute number of output states
-            last_tf = self.lifting_functions_state_[-1]
+            last_tf = self.lifting_functions_state_[-1][1]
             if last_tf.n_inputs_out_ != 0:
                 raise RuntimeError(f'Lifting function {last_tf} was called '
                                    'with `n_inputs=0` but `n_inputs_out_` is '
@@ -966,7 +971,7 @@ class SplitPipeline(KoopmanLiftingFn):
         # Compute output dimensions for inputs
         if len(self.lifting_functions_input_) > 0:
             # Compute number of output states
-            last_tf = self.lifting_functions_input_[-1]
+            last_tf = self.lifting_functions_input_[-1][1]
             if last_tf.n_inputs_out_ != 0:
                 raise RuntimeError(f'Lifting function {last_tf} was called '
                                    'with `n_inputs=0` but `n_inputs_out_` is '
@@ -1011,11 +1016,11 @@ class SplitPipeline(KoopmanLiftingFn):
             ))
         # Fit and transform states
         X_out_state = X_state
-        for lf in self.lifting_functions_state_:
+        for _, lf in self.lifting_functions_state_:
             X_out_state = lf.transform(X_out_state)
         # Fit and transform inputs
         X_out_input = X_input
-        for lf in self.lifting_functions_input_:
+        for _, lf in self.lifting_functions_input_:
             X_out_input = lf.transform(X_out_input)
         if self.episode_feature_:
             Xt = np.hstack((
@@ -1057,11 +1062,11 @@ class SplitPipeline(KoopmanLiftingFn):
             ))
         # Fit and inverse transform states
         X_out_state = X_state
-        for lf in self.lifting_functions_state_[::-1]:
+        for _, lf in self.lifting_functions_state_[::-1]:
             X_out_state = lf.inverse_transform(X_out_state)
         # Fit and transform inputs
         X_out_input = X_input
-        for lf in self.lifting_functions_input_[::-1]:
+        for _, lf in self.lifting_functions_input_[::-1]:
             X_out_input = lf.inverse_transform(X_out_input)
         if self.episode_feature_:
             Xt = np.hstack((
@@ -1088,8 +1093,8 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
 
     Attributes
     ----------
-    liting_functions_ : List[KoopmanLiftingFn]
-        Fit lifting functions.
+    liting_functions_ : List[Tuple[str, KoopmanLiftingFn]]
+        Fit lifting functions (and their names).
     regressor_ : KoopmanRegressor
         Fit regressor.
     transformers_fit_ : bool
@@ -1127,38 +1132,47 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
 
     >>> kp = KoopmanPipeline(
     ...     lifting_functions=[
-    ...         pykoop.SkLearnLiftingFn(sklearn.preprocessing.MaxAbsScaler()),
-    ...         pykoop.PolynomialLiftingFn(order=2),
-    ...         pykoop.SkLearnLiftingFn(sklearn.preprocessing.StandardScaler())
+    ...         ('ma', pykoop.SkLearnLiftingFn(
+    ...                    sklearn.preprocessing.MaxAbsScaler())),
+    ...         ('pl', pykoop.PolynomialLiftingFn(order=2)),
+    ...         ('ss', pykoop.SkLearnLiftingFn(
+    ...                    sklearn.preprocessing.StandardScaler())),
     ...     ],
     ...     regressor=pykoop.Edmd(),
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
-    KoopmanPipeline(lifting_functions=[SkLearnLiftingFn(transformer=MaxAbsScaler()),
-    PolynomialLiftingFn(order=2),
-    SkLearnLiftingFn(transformer=StandardScaler())], regressor=Edmd())
+    KoopmanPipeline(lifting_functions=[('ma',
+    SkLearnLiftingFn(transformer=MaxAbsScaler())),
+    ('pl', PolynomialLiftingFn(order=2)),
+    ('ss', SkLearnLiftingFn(transformer=StandardScaler()))],
+    regressor=Edmd())
     >>> Xt_msd = kp.transform(X_msd[:2, :])
 
     Apply bilinear Koopman pipeline to mass-spring-damper data
 
     >>> kp = KoopmanPipeline(
     ...     lifting_functions=[
-    ...         pykoop.SkLearnLiftingFn(sklearn.preprocessing.MaxAbsScaler()),
-    ...         pykoop.SplitPipeline(
+    ...         ('ma', pykoop.SkLearnLiftingFn(
+    ...                    sklearn.preprocessing.MaxAbsScaler())),
+    ...         ('sp', pykoop.SplitPipeline(
     ...             lifting_functions_state=[
-    ...                 pykoop.PolynomialLiftingFn(order=2),
+    ...                 ('pl', pykoop.PolynomialLiftingFn(order=2)),
     ...             ],
     ...             lifting_functions_input=None,
-    ...         ),
-    ...         pykoop.BilinearInputLiftingFn(),
-    ...         pykoop.SkLearnLiftingFn(sklearn.preprocessing.StandardScaler())
+    ...         )),
+    ...         ('bi', pykoop.BilinearInputLiftingFn()),
+    ...         ('ss', pykoop.SkLearnLiftingFn(
+    ...                    sklearn.preprocessing.StandardScaler())),
     ...     ],
     ...     regressor=pykoop.Edmd(),
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
-    KoopmanPipeline(lifting_functions=[SkLearnLiftingFn(transformer=MaxAbsScaler()),
-    SplitPipeline(lifting_functions_state=[PolynomialLiftingFn(order=2)]),
-    BilinearInputLiftingFn(), SkLearnLiftingFn(transformer=StandardScaler())],
+    KoopmanPipeline(lifting_functions=[('ma',
+    SkLearnLiftingFn(transformer=MaxAbsScaler())),
+    ('sp', SplitPipeline(lifting_functions_state=[('pl',
+    PolynomialLiftingFn(order=2))])),
+    ('bi', BilinearInputLiftingFn()),
+    ('ss', SkLearnLiftingFn(transformer=StandardScaler()))],
     regressor=Edmd())
     """
 
@@ -1170,15 +1184,15 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
 
     def __init__(
         self,
-        lifting_functions: List[KoopmanLiftingFn] = None,
+        lifting_functions: List[Tuple[str, KoopmanLiftingFn]] = None,
         regressor: KoopmanRegressor = None,
     ) -> None:
         """Instantiate for :class:`KoopmanPipeline`.
 
         Parameters
         ----------
-        lifting_functions : List[KoopmanLiftingFn]
-            List of lifting function objects.
+        lifting_functions : List[Tuple[str, KoopmanLiftingFn]]
+            List of names and lifting function objects.
         regressor : KoopmanRegressor
             Koopman regressor.
         """
@@ -1275,12 +1289,13 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
         self.n_inputs_in_ = n_inputs
         self.lifting_functions_ = []
         if self.lifting_functions is not None:
-            for lf in self.lifting_functions:
-                self.lifting_functions_.append(sklearn.base.clone(lf))
+            for key, lf in self.lifting_functions:
+                self.lifting_functions_.append(
+                    tuple((key, sklearn.base.clone(lf))))
         # Fit and transform lifting functions
         X_out = X
         n_inputs_out = n_inputs
-        for lf in self.lifting_functions_:
+        for _, lf in self.lifting_functions_:
             X_out = lf.fit_transform(X_out,
                                      n_inputs=n_inputs_out,
                                      episode_feature=episode_feature)
@@ -1288,7 +1303,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
         # Set output dimensions
         if len(self.lifting_functions_) > 0:
             # Find the last transformer and use it to get output dimensions
-            last_pp = self.lifting_functions_[-1]
+            last_pp = self.lifting_functions_[-1][1]
             self.n_features_out_ = last_pp.n_features_out_
             self.n_states_out_ = last_pp.n_states_out_
             self.n_inputs_out_ = last_pp.n_inputs_out_
@@ -1298,7 +1313,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
             # sample at the output, we work backwards to figure out how many
             # samples we need at the beginning of the pipeline.
             n_samples_out = 1
-            for tf in self.lifting_functions_[::-1]:
+            for _, tf in self.lifting_functions_[::-1]:
                 n_samples_out = tf.n_samples_in(n_samples_out)
             self.min_samples_ = n_samples_out
         else:
@@ -1333,7 +1348,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
                              'features.')
         # Apply lifting functions
         X_out = X
-        for lf in self.lifting_functions_:
+        for _, lf in self.lifting_functions_:
             X_out = lf.transform(X_out)
         return X_out
 
@@ -1360,7 +1375,7 @@ class KoopmanPipeline(sklearn.base.BaseEstimator,
                              f'{X.shape[1]} features.')
         # Apply inverse lifting functions in reverse order
         X_out = X
-        for lf in self.lifting_functions_[::-1]:
+        for _, lf in self.lifting_functions_[::-1]:
             X_out = lf.inverse_transform(X_out)
         return X_out
 
