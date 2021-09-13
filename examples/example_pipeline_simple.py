@@ -13,9 +13,9 @@ def main() -> None:
     # Create pipeline
     kp = pykoop.KoopmanPipeline(
         lifting_functions=[
-            pykoop.SkLearnLiftingFn(MaxAbsScaler()),
-            pykoop.PolynomialLiftingFn(order=2),
-            pykoop.SkLearnLiftingFn(StandardScaler())
+            ('ma', pykoop.SkLearnLiftingFn(MaxAbsScaler())),
+            ('pl', pykoop.PolynomialLiftingFn(order=2)),
+            ('ss', pykoop.SkLearnLiftingFn(StandardScaler())),
         ],
         regressor=pykoop.Edmd(alpha=0.1),
     )

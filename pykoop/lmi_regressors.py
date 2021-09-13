@@ -16,7 +16,9 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import joblib
 import numpy as np
 import picos
+import scipy.signal
 import sklearn.base
+import sklearn.utils.metaestimators
 from scipy import linalg
 
 from . import koopman_pipeline, regressors, tsvd
@@ -863,8 +865,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
         q = X_unshifted.shape[0]
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
                                                  self.alpha / q,
-                                                 self.inv_method,
-                                                 self.tsvd_,
+                                                 self.inv_method, self.tsvd_,
                                                  self.picos_eps)
         # Extract information from problem
         U = problem_a.variables['U']
@@ -1425,8 +1426,7 @@ class LmiEdmdHinfReg(LmiRegressor):
         q = X_unshifted.shape[0]
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
                                                  self.alpha_tikhonov_ / q,
-                                                 self.inv_method,
-                                                 self.tsvd_,
+                                                 self.inv_method, self.tsvd_,
                                                  self.picos_eps)
         # Extract information from problem
         U = problem_a.variables['U']
@@ -2046,8 +2046,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         q = X_unshifted.shape[0]
         problem_a = LmiEdmd._create_base_problem(X_unshifted, X_shifted,
                                                  self.alpha / q,
-                                                 self.inv_method,
-                                                 self.tsvd_,
+                                                 self.inv_method, self.tsvd_,
                                                  self.picos_eps)
         # Extract information from problem
         U = problem_a.variables['U']
@@ -2113,6 +2112,193 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         # Set objective
         problem_b.set_objective('find')
         return problem_b
+
+
+class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
+    """Meta-estimator where H-infinity weight is specified in ZPK format.
+
+    H-infinity regularization weights must normally be specified in
+    discrete-time state space format. This can make cross-validating pole or
+    zero positions annoying.  This meta-estimator wraps :class:`LmiEdmdHinfReg`
+    or :class:`LmiDmdcHinfReg` and allows the weighting filter to be specified
+    using zeros, poles, and a gain (i.e., ZPK format) in continuous-time.
+
+    All attributes with a trailing underscore are set by :func:`fit`.
+
+    Attributes
+    ----------
+    hinf_regressor_ : koopman_pipeline.KoopmanRegressor
+        Fit internal regressor.
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+    """
+
+    def __init__(
+        self,
+        hinf_regressor: koopman_pipeline.KoopmanRegressor = None,
+        type: str = 'post',
+        zeros: Union[float, np.ndarray] = None,
+        poles: Union[float, np.ndarray] = None,
+        gain: float = 1,
+        discretization: str = 'bilinear',
+        t_step: float = 1,
+    ) -> None:
+        """Instantiate :class:`LmiHinfZpkMeta`.
+
+        Paramters
+        ---------
+        hinf_regressor : koopman_pipeline.KoopmanRegressor
+            Instance of :class:`LmiEdmdHinfReg` or :class:`LmiDmdcHinfReg`.
+
+        type : str
+            Type of weight (``'pre'`` or ``'post'``).
+
+        zeros : Union[float, np.ndarray]
+            Filter zeros. If ``None``, no zeros are used. Accepts scalar input
+            if only one zero is required.
+
+        poles : Union[float, np.ndarray]
+            Filter poles. If ``None``, no poles are used. Accepts scalar input
+            if only one pole is required.
+
+        gain : float
+            Filter gain.
+
+        discretization : str
+            Discretization method supported by
+            :func:``scipy.signal.cont2discrete`` (except ``'gbt'``).
+            Specifically, possible valued are
+
+            - ``'bilinear'`` -- Tustin's approximation (recommended),
+            - ``'euler'`` -- Euler (or forward differencing) method,
+            - ``'backward_diff'`` -- backwards differencing method,
+            - ``'zoh'`` -- zero-order hold method,
+            - ``'foh'`` -- first-order hold method, or
+            - ``'impulse'`` -- equivalent impulse response method.
+
+        See [cont2discrete]_ for details.
+
+        t_step : float
+            Timestep beween samples. Used for discretization.
+
+        Notes
+        -----
+        The zeros and poles in the weight should usually have negative real
+        parts! If you want a pole at ``10 rad/s``, then ``poles`` must be
+        ``-10``.
+
+        References
+        ----------
+        .. [cont2discrete] https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.cont2discrete.html#scipy-signal-cont2discrete  # noqa: E501
+
+        Examples
+        --------
+        >>> est = pykoop.lmi_regressors.LmiHinfZpkMeta(
+        ...     hinf_regressor=pykoop.lmi_regressors.LmiEdmdHinfReg(),
+        ...     type='post',
+        ...     zeros=-0,
+        ...     poles=-5,
+        ...     gain=1,
+        ...     discretization='bilinear',
+        ...     t_step=0.1,
+        ... )
+        >>> est.fit(X_msd, n_inputs=1, episode_feature=True)
+        LmiHinfZpkMeta(hinf_regressor=LmiEdmdHinfReg(), poles=-5, t_step=0.1,
+        zeros=0)
+        >>> est.hinf_regressor_
+        LmiEdmdHinfReg(weight=('post', array([[0.6]]), array([[0.08]]),
+        array([[-4.]]), array([[0.8]])))
+        """
+        self.hinf_regressor = hinf_regressor
+        self.type = type
+        self.zeros = zeros
+        self.poles = poles
+        self.gain = gain
+        self.discretization = discretization
+        self.t_step = t_step
+
+    def fit(self,
+            X: np.ndarray,
+            y: np.ndarray = None,
+            n_inputs: int = 0,
+            episode_feature: bool = False) -> 'LmiHinfZpkMeta':
+        """Fit the regressor.
+
+        If only ``X`` is specified, the regressor will compute its unshifted
+        and shifted versions. If ``X`` and ``y`` are specified, ``X`` is
+        treated as the unshifted data matrix, while ``y`` is treated as the
+        shifted data matrix.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Full data matrix if ``y=None``. Unshifted data matrix if ``y`` is
+            specified.
+        y : np.ndarray
+            Optional shifted data matrix. If ``None``, shifted data matrix is
+            computed using ``X``.
+        n_inputs : int
+            Number of input features at the end of ``X``.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+
+        Returns
+        -------
+        LmiHinfZpkMeta
+            Instance of itself.
+
+        Raises
+        -----
+        ValueError
+            If constructor or fit parameters are incorrect.
+        """
+        z = np.atleast_1d(self.zeros) if self.zeros is not None else []
+        p = np.atleast_1d(self.poles) if self.poles is not None else []
+        ss_ct = scipy.signal.ZerosPolesGain(z, p, self.gain).to_ss()
+        ss_dt = ss_ct.to_discrete(
+            self.t_step,
+            self.discretization,
+        )
+        weight = (
+            self.type,
+            ss_dt.A,
+            ss_dt.B,
+            ss_dt.C,
+            ss_dt.D,
+        )
+        self.hinf_regressor_ = sklearn.base.clone(self.hinf_regressor)
+        self.hinf_regressor_.set_params(weight=weight)
+        self.hinf_regressor_.fit(
+            X,
+            y,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        return self
+
+    @sklearn.utils.metaestimators.if_delegate_has_method('hinf_regressor_')
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Perform a single-step prediction for each state in each episode.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Predicted data matrix.
+        """
+        return self.hinf_regressor_.predict(X)
 
 
 def _create_ss(
@@ -2442,6 +2628,11 @@ def _calc_QSig(X: np.ndarray, alpha: float, tsvd: tsvd.Tsvd) -> np.ndarray:
     q = X.shape[0]
     # ``alpha`` is already divided by ``q`` to be consistent with ``G`` and
     # ``H``.
+    sr_reg = np.sqrt((sr**2 / q) + alpha)
+    Sr_reg = np.diag(sr_reg)
+    # Multiply with Q and return
+    QSig = Qr @ Sr_reg
+    return QSig
     sr_reg = np.sqrt((sr**2 / q) + alpha)
     Sr_reg = np.diag(sr_reg)
     # Multiply with Q and return
