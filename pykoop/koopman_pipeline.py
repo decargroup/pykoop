@@ -502,7 +502,7 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
         # Set number of input features (including episode feature)
         self.n_features_in_ = X.shape[1]
         # Split episodes
-        episodes = _split_episodes(X, episode_feature=self.episode_feature_)
+        episodes = split_episodes(X, episode_feature=self.episode_feature_)
         first_episode = episodes[0]
         X_first = first_episode[1]
         # Set states and inputs in
@@ -568,7 +568,7 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
             ``'inverse_transform'``.
         """
         # Split episodes
-        episodes = _split_episodes(X, episode_feature=self.episode_feature_)
+        episodes = split_episodes(X, episode_feature=self.episode_feature_)
         # Transform each episode
         transformed_episodes = []
         for (i, X_i) in episodes:
@@ -584,8 +584,8 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
             # some transformations may modify the episode length.
             transformed_episodes.append((i, transformed_episode))
         # Concatenate the transformed episodes
-        Xt = _combine_episodes(transformed_episodes,
-                               episode_feature=self.episode_feature_)
+        Xt = combine_episodes(transformed_episodes,
+                              episode_feature=self.episode_feature_)
         return Xt
 
     @abc.abstractmethod
@@ -744,7 +744,7 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         self.episode_feature_ = episode_feature
         # Split ``X`` if needed
         if y is None:
-            X_unshifted, X_shifted = _shift_episodes(
+            X_unshifted, X_shifted = shift_episodes(
                 X,
                 n_inputs=self.n_inputs_in_,
                 episode_feature=self.episode_feature_)
@@ -778,14 +778,14 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         sklearn.utils.validation.check_is_fitted(self)
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Split episodes
-        episodes = _split_episodes(X, episode_feature=self.episode_feature_)
+        episodes = split_episodes(X, episode_feature=self.episode_feature_)
         # Predict for each episode
         predictions = []
         for (i, X_i) in episodes:
             predictions.append((i, X_i @ self.coef_))
         # Combine and return
-        X_pred = _combine_episodes(predictions,
-                                   episode_feature=self.episode_feature_)
+        X_pred = combine_episodes(predictions,
+                                  episode_feature=self.episode_feature_)
         return X_pred
 
     @abc.abstractmethod
@@ -1499,7 +1499,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Split episodes
-        episodes = _split_episodes(X, episode_feature=self.episode_feature_)
+        episodes = split_episodes(X, episode_feature=self.episode_feature_)
         # Loop over episodes
         predictions = []
         for (i, X_i) in episodes:
@@ -1520,7 +1520,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
             # Predict all time steps
             for k in range(self.min_samples_, X_i.shape[0]):
                 # Stack episode feature, previous predictions, and input
-                X_ik = _combine_episodes(
+                X_ik = combine_episodes(
                     [(i,
                       np.hstack((
                           X_pred_i[(k - self.min_samples_):k, :],
@@ -1534,14 +1534,14 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                     crash_index = k
                     break
                 # Extract data matrix from prediction
-                X_pred_i[[k], :] = _split_episodes(
+                X_pred_i[[k], :] = split_episodes(
                     X_pred_ik, episode_feature=self.episode_feature_)[0][1]
             if crash_index is not None:
                 X_pred_i[crash_index:, :] = np.nan
             predictions.append((i, X_pred_i))
         # Combine episodes
-        X_p = _combine_episodes(predictions,
-                                episode_feature=self.episode_feature_)
+        X_p = combine_episodes(predictions,
+                               episode_feature=self.episode_feature_)
         return X_p
 
     @staticmethod
@@ -1628,7 +1628,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                                     X: np.ndarray,
                                     y: np.ndarray = None) -> float:
             # Shift episodes
-            X_unshifted, X_shifted = _shift_episodes(
+            X_unshifted, X_shifted = shift_episodes(
                 X,
                 n_inputs=estimator.n_inputs_in_,
                 episode_feature=estimator.episode_feature_)
@@ -1638,12 +1638,12 @@ class KoopmanPipeline(metaestimators._BaseComposition,
             else:
                 X_predicted = estimator.predict(X_unshifted)
             # Strip episode feature and initial conditions
-            X_shifted = _strip_initial_conditions(X_shifted,
-                                                  estimator.min_samples_,
-                                                  estimator.episode_feature_)
-            X_predicted = _strip_initial_conditions(X_predicted,
-                                                    estimator.min_samples_,
-                                                    estimator.episode_feature_)
+            X_shifted = strip_initial_conditions(X_shifted,
+                                                 estimator.min_samples_,
+                                                 estimator.episode_feature_)
+            X_predicted = strip_initial_conditions(X_predicted,
+                                                   estimator.min_samples_,
+                                                   estimator.episode_feature_)
             # Strip episode feature if present
             if estimator.episode_feature_:
                 X_shifted = X_shifted[:, 1:]
@@ -1687,9 +1687,9 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         return self
 
 
-def _strip_initial_conditions(X: np.ndarray,
-                              min_samples: int = 1,
-                              episode_feature: bool = False) -> np.ndarray:
+def strip_initial_conditions(X: np.ndarray,
+                             min_samples: int = 1,
+                             episode_feature: bool = False) -> np.ndarray:
     """Strip initial conditions from each episode.
 
     Parameters
@@ -1701,18 +1701,18 @@ def _strip_initial_conditions(X: np.ndarray,
     episode_feature : bool
         True if first feature indicates which episode a timestep is from.
     """
-    episodes = _split_episodes(X, episode_feature=episode_feature)
+    episodes = split_episodes(X, episode_feature=episode_feature)
     # Strip each episode
     stripped_episodes = []
     for (i, X_i) in episodes:
         stripped_episode = X_i[min_samples:, :]
         stripped_episodes.append((i, stripped_episode))
     # Concatenate the stripped episodes
-    Xs = _combine_episodes(stripped_episodes, episode_feature=episode_feature)
+    Xs = combine_episodes(stripped_episodes, episode_feature=episode_feature)
     return Xs
 
 
-def _shift_episodes(
+def shift_episodes(
         X: np.ndarray,
         n_inputs: int = 0,
         episode_feature: bool = False) -> Tuple[np.ndarray, np.ndarray]:
@@ -1747,7 +1747,7 @@ def _shift_episodes(
         present.
     """
     # Split episodes
-    episodes = _split_episodes(X, episode_feature=episode_feature)
+    episodes = split_episodes(X, episode_feature=episode_feature)
     # Shift each episode
     unshifted_episodes = []
     shifted_episodes = []
@@ -1763,14 +1763,14 @@ def _shift_episodes(
         unshifted_episodes.append((i, X_i_unshifted))
         shifted_episodes.append((i, X_i_shifted))
     # Recombine and return
-    X_unshifted = _combine_episodes(unshifted_episodes,
-                                    episode_feature=episode_feature)
-    X_shifted = _combine_episodes(shifted_episodes,
-                                  episode_feature=episode_feature)
+    X_unshifted = combine_episodes(unshifted_episodes,
+                                   episode_feature=episode_feature)
+    X_shifted = combine_episodes(shifted_episodes,
+                                 episode_feature=episode_feature)
     return (X_unshifted, X_shifted)
 
 
-def _split_episodes(
+def split_episodes(
         X: np.ndarray,
         episode_feature: bool = False) -> List[Tuple[int, np.ndarray]]:
     """Split a data matrix into episodes.
@@ -1804,8 +1804,8 @@ def _split_episodes(
     return episodes
 
 
-def _combine_episodes(episodes: List[Tuple[int, np.ndarray]],
-                      episode_feature: bool = False) -> np.ndarray:
+def combine_episodes(episodes: List[Tuple[int, np.ndarray]],
+                     episode_feature: bool = False) -> np.ndarray:
     """Combine episodes into a data matrix.
 
     Parameters

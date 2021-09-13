@@ -200,8 +200,7 @@ def test_kp_fit():
 )
 def test_shift_episodes(X, X_unsh_exp, X_sh_exp, n_inputs, episode_feature):
     """Test episode shifting."""
-    X_unsh, X_sh = pykoop.koopman_pipeline._shift_episodes(
-        X, n_inputs, episode_feature)
+    X_unsh, X_sh = pykoop.shift_episodes(X, n_inputs, episode_feature)
     np.testing.assert_allclose(X_unsh, X_unsh_exp)
     np.testing.assert_allclose(X_sh, X_sh_exp)
 
@@ -306,8 +305,7 @@ split_combine_episode_scenarios = [
                          split_combine_episode_scenarios)
 def test_split_episodes(X, episodes, episode_feature):
     # Split episodes
-    episodes_actual = pykoop.koopman_pipeline._split_episodes(
-        X, episode_feature=episode_feature)
+    episodes_actual = pykoop.split_episodes(X, episode_feature=episode_feature)
     # Compare every episode
     for actual, expected in zip(episodes_actual, episodes):
         i_actual, X_actual = actual
@@ -319,8 +317,8 @@ def test_split_episodes(X, episodes, episode_feature):
 @pytest.mark.parametrize('X, episodes, episode_feature',
                          split_combine_episode_scenarios)
 def test_combine_episodes(X, episodes, episode_feature):
-    X_actual = pykoop.koopman_pipeline._combine_episodes(
-        episodes, episode_feature=episode_feature)
+    X_actual = pykoop.combine_episodes(episodes,
+                                       episode_feature=episode_feature)
     np.testing.assert_allclose(X_actual, X)
 
 
@@ -658,6 +656,6 @@ def test_strip_initial_conditons():
         [-1, 2, -1, 4, 5, -1, 7, 8],
         [-1, 3, -1, 5, 6, -1, 8, 9],
     ]).T
-    X1s = pykoop.koopman_pipeline._strip_initial_conditions(X1, 1, True)
-    X2s = pykoop.koopman_pipeline._strip_initial_conditions(X2, 1, True)
+    X1s = pykoop.strip_initial_conditions(X1, 1, True)
+    X2s = pykoop.strip_initial_conditions(X2, 1, True)
     np.testing.assert_allclose(X1s, X2s)
