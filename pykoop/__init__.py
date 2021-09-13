@@ -3,7 +3,8 @@
 from .koopman_pipeline import (EpisodeDependentLiftingFn,
                                EpisodeIndependentLiftingFn, KoopmanLiftingFn,
                                KoopmanPipeline, KoopmanRegressor,
-                               SplitPipeline)
+                               SplitPipeline, combine_episodes, shift_episodes,
+                               split_episodes, strip_initial_conditions)
 from .lifting_functions import (BilinearInputLiftingFn, DelayLiftingFn,
                                 PolynomialLiftingFn, SkLearnLiftingFn)
 from .regressors import Dmd, Dmdc, Edmd

@@ -36,11 +36,11 @@ import pykoop.lmi_regressors
         ],
         regressor=pykoop.Edmd(),
     ),
-    pykoop.koopman_pipeline.SplitPipeline(
+    pykoop.SplitPipeline(
         lifting_functions_state=None,
         lifting_functions_input=None,
     ),
-    pykoop.koopman_pipeline.SplitPipeline(
+    pykoop.SplitPipeline(
         lifting_functions_state=[
             ('pl', pykoop.PolynomialLiftingFn()),
         ],
