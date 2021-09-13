@@ -15,10 +15,10 @@ def test_nested_get_set():
         ('s',
          pykoop.SplitPipeline(
              lifting_functions_state=[
-                ('p_state', pykoop.PolynomialLiftingFn(order=1)),
+                 ('p_state', pykoop.PolynomialLiftingFn(order=1)),
              ],
              lifting_functions_input=[
-                ('p_input', pykoop.PolynomialLiftingFn(order=2)),
+                 ('p_input', pykoop.PolynomialLiftingFn(order=2)),
              ],
          )),
     ])

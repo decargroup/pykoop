@@ -335,8 +335,6 @@ class DiscreteVanDerPol(DiscreteDynamicModel):
 
     def f(self, t: float, x: np.ndarray, u: np.ndarray) -> np.ndarray:
         # noqa: D102
-        x_next = x + self.t_step * np.array([
-            x[1],
-            self.mu * (1 - x[0]**2) * x[1] - x[0] + u
-        ])
+        x_next = x + self.t_step * np.array(
+            [x[1], self.mu * (1 - x[0]**2) * x[1] - x[0] + u])
         return x_next
