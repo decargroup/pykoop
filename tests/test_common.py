@@ -32,7 +32,7 @@ import pykoop.lmi_regressors
     pykoop.KoopmanPipeline(regressor=pykoop.Edmd()),
     pykoop.KoopmanPipeline(
         lifting_functions=[
-            pykoop.PolynomialLiftingFn(),
+            ('pl', pykoop.PolynomialLiftingFn()),
         ],
         regressor=pykoop.Edmd(),
     ),
@@ -42,7 +42,7 @@ import pykoop.lmi_regressors
     ),
     pykoop.koopman_pipeline.SplitPipeline(
         lifting_functions_state=[
-            pykoop.PolynomialLiftingFn(),
+            ('pl', pykoop.PolynomialLiftingFn()),
         ],
         lifting_functions_input=None,
     ),
