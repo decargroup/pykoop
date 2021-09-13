@@ -32,9 +32,9 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
     # Create pipeline
     kp = pykoop.KoopmanPipeline(
         lifting_functions=[
-            pykoop.SkLearnLiftingFn(MaxAbsScaler()),
-            pykoop.PolynomialLiftingFn(order=2),
-            pykoop.SkLearnLiftingFn(StandardScaler())
+            ('ma', pykoop.SkLearnLiftingFn(MaxAbsScaler())),
+            ('pl', pykoop.PolynomialLiftingFn(order=2)),
+            ('ss', pykoop.SkLearnLiftingFn(StandardScaler())),
         ],
         regressor=pykoop.Edmd(alpha=0.1),
     )
@@ -157,3 +157,12 @@ References
 .. [lmikoop] Steven Dahdah and James Richard Forbes. "Linear matrix inequality
    approaches to Koopman operator approximation." arXiv:2102.03613 [eess.SY]
    (2021). https://arxiv.org/abs/2102.03613
+
+License
+=======
+
+This project is distributed under the MIT License, except the contents of
+``./pykoop/_sklearn_metaestimators/``, which are from the `scikit-learn`_
+project, and are distributed under the BSD-3-Clause License.
+
+.. _scikit-learn: https://github.com/scikit-learn/scikit-learn

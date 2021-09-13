@@ -37,9 +37,9 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
     # Create pipeline
     kp = pykoop.KoopmanPipeline(
         lifting_functions=[
-            pykoop.SkLearnLiftingFn(MaxAbsScaler()),
-            pykoop.PolynomialLiftingFn(order=2),
-            pykoop.SkLearnLiftingFn(StandardScaler())
+            ('ma', pykoop.SkLearnLiftingFn(MaxAbsScaler())),
+            ('pl', pykoop.PolynomialLiftingFn(order=2)),
+            ('ss', pykoop.SkLearnLiftingFn(StandardScaler())),
         ],
         regressor=pykoop.Edmd(alpha=0.1),
     )
@@ -172,6 +172,15 @@ References
    Koopman realizations for the modeling and control of systems with unknown
    dynamics." arXiv:2010.09961v3 [cs.RO] (2020).
    https://arxiv.org/abs/2010.09961v3
+
+License
+=======
+
+This project is distributed under the MIT License, except the contents of
+``./pykoop/_sklearn_metaestimators/``, which are from the `scikit-learn`_
+project, and are distributed under the BSD-3-Clause License.
+
+.. _scikit-learn: https://github.com/scikit-learn/scikit-learn
 
 .. toctree::
    :maxdepth: 2

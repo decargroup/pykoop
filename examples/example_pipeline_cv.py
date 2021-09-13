@@ -1,10 +1,11 @@
 """Example of cross-validating lifting functions and regressor parameters."""
 
 import numpy as np
-import pykoop
-import pykoop.dynamic_models
 import sklearn.model_selection
 import sklearn.preprocessing
+
+import pykoop
+import pykoop.dynamic_models
 
 
 def main() -> None:
@@ -15,9 +16,19 @@ def main() -> None:
     # Create pipeline
     kp = pykoop.KoopmanPipeline(
         lifting_functions=[
-            pykoop.SkLearnLiftingFn(sklearn.preprocessing.MaxAbsScaler()),
-            pykoop.PolynomialLiftingFn(order=2),
-            pykoop.SkLearnLiftingFn(sklearn.preprocessing.StandardScaler())
+            (
+                'ma',
+                pykoop.SkLearnLiftingFn(sklearn.preprocessing.MaxAbsScaler()),
+            ),
+            (
+                'pl',
+                pykoop.PolynomialLiftingFn(order=2),
+            ),
+            (
+                'ss',
+                pykoop.SkLearnLiftingFn(
+                    sklearn.preprocessing.StandardScaler()),
+            ),
         ],
         regressor=pykoop.Edmd(alpha=0.1),
     )
@@ -33,13 +44,26 @@ def main() -> None:
     params = {
         # Lifting functions to try
         'lifting_functions': [
+            [(
+                'ss',
+                pykoop.SkLearnLiftingFn(
+                    sklearn.preprocessing.StandardScaler()),
+            )],
             [
-                pykoop.SkLearnLiftingFn(sklearn.preprocessing.StandardScaler())
-            ],
-            [
-                pykoop.SkLearnLiftingFn(sklearn.preprocessing.MaxAbsScaler()),
-                pykoop.PolynomialLiftingFn(order=2),
-                pykoop.SkLearnLiftingFn(sklearn.preprocessing.StandardScaler())
+                (
+                    'ma',
+                    pykoop.SkLearnLiftingFn(
+                        sklearn.preprocessing.MaxAbsScaler()),
+                ),
+                (
+                    'pl',
+                    pykoop.PolynomialLiftingFn(order=2),
+                ),
+                (
+                    'ss',
+                    pykoop.SkLearnLiftingFn(
+                        sklearn.preprocessing.StandardScaler()),
+                ),
             ],
         ],
         # Regressor parameters to try
