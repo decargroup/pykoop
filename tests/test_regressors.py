@@ -1,10 +1,11 @@
 import numpy as np
+import pytest
+from scipy import integrate, linalg, signal
+from sklearn import linear_model
+
 import pykoop
 import pykoop.dynamic_models
 import pykoop.lmi_regressors
-import pytest
-from scipy import integrate, linalg
-from sklearn import linear_model
 
 # TODO This file is a nightmare
 
@@ -255,3 +256,75 @@ def test_predict(scenario):
                                scenario['Xp_valid'],
                                atol=scenario['predict_tol'],
                                rtol=0)
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize('cls', [
+    pykoop.lmi_regressors.LmiEdmdHinfReg,
+    pykoop.lmi_regressors.LmiDmdcHinfReg,
+])
+def test_hinf_zpk_meta(cls):
+    # Specify duration
+    t_range = (0, 10)
+    t_step = 0.1
+    # Create object
+    msd = pykoop.dynamic_models.MassSpringDamper(
+        mass=0.5,
+        stiffness=0.7,
+        damping=0.6,
+    )
+
+    # Specify input
+    def u(t):
+        """Sinusoidal input."""
+        return 0.1 * np.sin(t)
+
+    # Specify initial conditions
+    x0 = msd.x0(np.array([0, 0]))
+    # Simulate ODE
+    t, x = msd.simulate(t_range, t_step, x0, u, rtol=1e-8, atol=1e-8)
+    # Format the data
+    X_msd = np.hstack((
+        np.zeros((t.shape[0], 1)),  # episode feature
+        x,
+        np.reshape(u(t), (-1, 1)),
+    ))
+    # Compute state space matrices
+    ss_ct = signal.ZerosPolesGain(
+        [-0],
+        [-5],
+        1,
+    ).to_ss()
+    ss_dt = ss_ct.to_discrete(
+        dt=t_step,
+        method='bilinear',
+    )
+    weight = (
+        'post',
+        ss_dt.A,
+        ss_dt.B,
+        ss_dt.C,
+        ss_dt.D,
+    )
+    est_expected = cls(weight=weight)
+    est_actual = pykoop.lmi_regressors.LmiHinfZpkMeta(
+        hinf_regressor=cls(),
+        type='post',
+        zeros=-0,
+        poles=-5,
+        gain=1,
+        discretization='bilinear',
+        t_step=t_step,
+    )
+    # Fit regressors
+    est_expected.fit(X_msd, n_inputs=1, episode_feature=True)
+    est_actual.fit(X_msd, n_inputs=1, episode_feature=True)
+    # Check Koopman matrices
+    U_expected = est_expected.coef_.T
+    U_actual = est_actual.hinf_regressor_.coef_.T
+    np.testing.assert_allclose(U_actual, U_expected)
+    # Check state space matrices
+    assert est_expected.weight[0] == est_actual.hinf_regressor_.weight[0]
+    for i in range(1, 5):
+        np.testing.assert_allclose(est_expected.weight[i],
+                                   est_actual.hinf_regressor_.weight[i])
