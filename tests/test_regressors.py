@@ -328,3 +328,75 @@ def test_hinf_zpk_meta(cls):
     for i in range(1, 5):
         np.testing.assert_allclose(est_expected.weight[i],
                                    est_actual.hinf_regressor_.weight[i])
+
+
+@pytest.mark.slow
+def test_hinf_zpk_units():
+    # Specify duration
+    t_range = (0, 10)
+    t_step = 0.1
+    # Create object
+    msd = pykoop.dynamic_models.MassSpringDamper(
+        mass=0.5,
+        stiffness=0.7,
+        damping=0.6,
+    )
+
+    # Specify input
+    def u(t):
+        """Sinusoidal input."""
+        return 0.1 * np.sin(t)
+
+    # Specify initial conditions
+    x0 = msd.x0(np.array([0, 0]))
+    # Simulate ODE
+    t, x = msd.simulate(t_range, t_step, x0, u, rtol=1e-8, atol=1e-8)
+    # Format the data
+    X_msd = np.hstack((
+        np.zeros((t.shape[0], 1)),  # episode feature
+        x,
+        np.reshape(u(t), (-1, 1)),
+    ))
+
+    est_1 = pykoop.lmi_regressors.LmiHinfZpkMeta(
+        hinf_regressor=pykoop.lmi_regressors.LmiEdmdHinfReg(),
+        type='post',
+        zeros=-0,
+        poles=(-2 * np.pi / t_step) / 2,
+        gain=1,
+        discretization='bilinear',
+        t_step=t_step,
+        units='rad/s'
+    )
+    est_2 = pykoop.lmi_regressors.LmiHinfZpkMeta(
+        hinf_regressor=pykoop.lmi_regressors.LmiEdmdHinfReg(),
+        type='post',
+        zeros=-0,
+        poles=(-1 / t_step) / 2,
+        gain=1,
+        discretization='bilinear',
+        t_step=t_step,
+        units='hz'
+    )
+    est_3 = pykoop.lmi_regressors.LmiHinfZpkMeta(
+        hinf_regressor=pykoop.lmi_regressors.LmiEdmdHinfReg(),
+        type='post',
+        zeros=-0,
+        poles=-1,
+        gain=1,
+        discretization='bilinear',
+        t_step=t_step,
+        units='normalized'
+    )
+    # Fit estimators
+    est_1.fit(X_msd, n_inputs=1, episode_feature=True)
+    est_2.fit(X_msd, n_inputs=1, episode_feature=True)
+    est_3.fit(X_msd, n_inputs=1, episode_feature=True)
+    # Check poles
+    np.testing.assert_allclose(est_1.ss_ct_.poles, est_2.ss_ct_.poles)
+    np.testing.assert_allclose(est_2.ss_ct_.poles, est_3.ss_ct_.poles)
+    np.testing.assert_allclose(est_3.ss_ct_.poles, est_1.ss_ct_.poles)
+    # Check zeros
+    np.testing.assert_allclose(est_1.ss_ct_.zeros, est_2.ss_ct_.zeros)
+    np.testing.assert_allclose(est_2.ss_ct_.zeros, est_3.ss_ct_.zeros)
+    np.testing.assert_allclose(est_3.ss_ct_.zeros, est_1.ss_ct_.zeros)
