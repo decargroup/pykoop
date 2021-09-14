@@ -2129,6 +2129,10 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
     ----------
     hinf_regressor_ : koopman_pipeline.KoopmanRegressor
         Fit internal regressor.
+    ss_ct_ : scipy.signal.lti
+        Continuous-times state space weight.
+    ss_dt_ : scipy.signal.dlti
+        Discrete-times state space weight.
     n_features_in_ : int
         Number of features input, including episode feature.
     n_states_in_ : int
@@ -2150,6 +2154,7 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         gain: float = 1,
         discretization: str = 'bilinear',
         t_step: float = 1,
+        units: str = 'rad/s',
     ) -> None:
         """Instantiate :class:`LmiHinfZpkMeta`.
 
@@ -2189,6 +2194,13 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         t_step : float
             Timestep beween samples. Used for discretization.
 
+        units : str
+            Units of poles and zeros. Possible values are
+
+            - ``'rad/s'`` -- radians per second,
+            - ``'hz'`` -- Hertz, or
+            - ``'normalized'`` -- normalized, where 1 is the Nyquist frequency.
+
         Notes
         -----
         The zeros and poles in the weight should usually have negative real
@@ -2224,6 +2236,7 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         self.gain = gain
         self.discretization = discretization
         self.t_step = t_step
+        self.units = units
 
     def fit(self,
             X: np.ndarray,
@@ -2260,19 +2273,34 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         ValueError
             If constructor or fit parameters are incorrect.
         """
-        z = np.atleast_1d(self.zeros) if self.zeros is not None else []
-        p = np.atleast_1d(self.poles) if self.poles is not None else []
-        ss_ct = scipy.signal.ZerosPolesGain(z, p, self.gain).to_ss()
-        ss_dt = ss_ct.to_discrete(
+        z_in = np.atleast_1d(self.zeros if self.zeros is not None else [])
+        p_in = np.atleast_1d(self.poles if self.poles is not None else [])
+        if self.units == 'rad/s':
+            z = z_in
+            p = p_in
+        elif self.units == 'hz':
+            z = 2 * np.pi * z_in
+            p = 2 * np.pi * p_in
+        elif self.units == 'normalized':
+            sampling_freq = 1 / self.t_step
+            nyquist_freq_hz = sampling_freq / 2
+            nyquist_freq_rads = 2 * np.pi * nyquist_freq_hz
+            z = nyquist_freq_rads * z_in
+            p = nyquist_freq_rads * p_in
+        else:
+            valid_units = ['rad/s', 'hz', 'normalized']
+            raise ValueError(f'`units` must be one of {valid_units}.')
+        self.ss_ct_ = scipy.signal.ZerosPolesGain(z, p, self.gain).to_ss()
+        self.ss_dt_ = self.ss_ct_.to_discrete(
             self.t_step,
             self.discretization,
         )
         weight = (
             self.type,
-            ss_dt.A,
-            ss_dt.B,
-            ss_dt.C,
-            ss_dt.D,
+            self.ss_dt_.A,
+            self.ss_dt_.B,
+            self.ss_dt_.C,
+            self.ss_dt_.D,
         )
         self.hinf_regressor_ = sklearn.base.clone(self.hinf_regressor)
         self.hinf_regressor_.set_params(weight=weight)
