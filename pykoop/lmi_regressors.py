@@ -2310,6 +2310,11 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
             n_inputs=n_inputs,
             episode_feature=episode_feature,
         )
+        self.n_features_in_ = self.hinf_regressor_.n_features_in_
+        self.n_states_in_ = self.hinf_regressor_.n_states_in_
+        self.n_inputs_in_ = self.hinf_regressor_.n_inputs_in_
+        self.episode_feature_ = self.hinf_regressor_.episode_feature_
+        self.coef_ = self.hinf_regressor_.coef_
         return self
 
     @sklearn.utils.metaestimators.if_delegate_has_method('hinf_regressor_')
@@ -2327,6 +2332,12 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
             Predicted data matrix.
         """
         return self.hinf_regressor_.predict(X)
+
+    def _more_tags(self):
+        return {
+            'multioutput': True,
+            'multioutput_only': True,
+        }
 
 
 def _create_ss(
