@@ -2333,6 +2333,12 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         """
         return self.hinf_regressor_.predict(X)
 
+    def _more_tags(self):
+        return {
+            'multioutput': True,
+            'multioutput_only': True,
+        }
+
 
 def _create_ss(
     U: np.ndarray,

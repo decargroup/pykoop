@@ -24,6 +24,8 @@ import pykoop.lmi_regressors
     pykoop.lmi_regressors.LmiDmdc(alpha=1e-3, reg_method='nuclear', ratio=1),
     pykoop.lmi_regressors.LmiDmdcSpectralRadiusConstr(iter_atol=100),
     pykoop.lmi_regressors.LmiDmdcHinfReg(alpha=1, ratio=1, iter_atol=100),
+    pykoop.lmi_regressors.LmiHinfZpkMeta(
+        pykoop.lmi_regressors.LmiEdmdHinfReg(alpha=1, ratio=1, iter_atol=100)),
     pykoop.AnglePreprocessor(),
     pykoop.PolynomialLiftingFn(),
     pykoop.DelayLiftingFn(),
