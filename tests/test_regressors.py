@@ -400,3 +400,9 @@ def test_hinf_zpk_units():
     np.testing.assert_allclose(est_1.ss_ct_.zeros, est_2.ss_ct_.zeros)
     np.testing.assert_allclose(est_2.ss_ct_.zeros, est_3.ss_ct_.zeros)
     np.testing.assert_allclose(est_3.ss_ct_.zeros, est_1.ss_ct_.zeros)
+    # Check parameters
+    assert est_1.n_features_in_ == est_1.hinf_regressor_.n_features_in_
+    assert est_1.n_states_in_ == est_1.hinf_regressor_.n_states_in_
+    assert est_1.n_inputs_in_ == est_1.hinf_regressor_.n_inputs_in_
+    assert est_1.episode_feature_ == est_1.hinf_regressor_.episode_feature_
+    np.testing.assert_allclose(est_1.coef_, est_1.hinf_regressor_.coef_)
