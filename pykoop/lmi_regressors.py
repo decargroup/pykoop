@@ -2376,17 +2376,17 @@ def _create_ss(
         Weighted state space matrices (``A``, ``B``, ``C``, ``D``).
     """
     p_theta = U.shape[0]
-    if Q_hat is None:
-        Q_hat = np.eye(p_theta)
     if weight is None:
         A = U[:, :p_theta]
         B = U[:, p_theta:]
-        C = picos.Constant('C', np.eye(p_theta) @ Q_hat)
+        C = picos.Constant('C',
+                           Q_hat if Q_hat is not None else np.eye(p_theta))
         D = picos.Constant('D', np.zeros((C.shape[0], B.shape[1])))
     else:
         Am = U[:, :p_theta]
         Bm = U[:, p_theta:]
-        Cm = picos.Constant('Cm', np.eye(p_theta) @ Q_hat)
+        Cm = picos.Constant('Cm',
+                            Q_hat if Q_hat is not None else np.eye(p_theta))
         Dm = picos.Constant('Dm', np.zeros((Cm.shape[0], Bm.shape[1])))
         if weight[0] == 'pre':
             n_u = Bm.shape[1]
