@@ -1781,7 +1781,11 @@ class LmiDmdcHinfReg(LmiRegressor):
         P = picos.Constant('P', P)
         gamma = picos.RealVariable('gamma', 1)
         # Get weighted state space matrices
-        A, B, C, D = _create_ss(U_hat, self.weight)
+        A, B, C, D = _create_ss(
+            U_hat,
+            self.weight,
+            Q_hat=self.tsvd_shifted_.left_singular_vectors_,
+        )
         gamma_33 = picos.diag(gamma, D.shape[1])
         gamma_44 = picos.diag(gamma, D.shape[0])
         problem_a.add_constraint(
@@ -1814,7 +1818,11 @@ class LmiDmdcHinfReg(LmiRegressor):
         U_hat = picos.Constant('U_hat', U_hat)
         gamma = picos.Constant('gamma', gamma)
         # Get weighted state space matrices
-        A, B, C, D = _create_ss(U_hat, self.weight)
+        A, B, C, D = _create_ss(
+            U_hat,
+            self.weight,
+            Q_hat=self.tsvd_shifted_.left_singular_vectors_,
+        )
         # Create variables
         P = picos.SymmetricVariable('P', A.shape[0])
         # Add constraints
@@ -2344,6 +2352,7 @@ def _create_ss(
     U: np.ndarray,
     weight: Optional[Tuple[str, np.ndarray, np.ndarray, np.ndarray,
                            np.ndarray]],
+    Q_hat: np.ndarray = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Augment Koopman system with weight if present.
 
@@ -2357,6 +2366,9 @@ def _create_ss(
         Tuple containing weight type (``'pre'`` or ``'post'``), and the
         weight state space matrices (``A``, ``B``, ``C``, and ``D``). If
         ``None``, no weighting is used.
+    Q_hat : np.ndarray
+        Left singular vectors of shifted data matrix. Used to construct ``C``
+        matrix. Should only be used with DMDc methods.
 
     Returns
     -------
@@ -2364,15 +2376,17 @@ def _create_ss(
         Weighted state space matrices (``A``, ``B``, ``C``, ``D``).
     """
     p_theta = U.shape[0]
+    if Q_hat is None:
+        Q_hat = np.eye(p_theta)
     if weight is None:
         A = U[:, :p_theta]
         B = U[:, p_theta:]
-        C = picos.Constant('C', np.eye(p_theta))
+        C = picos.Constant('C', np.eye(p_theta) @ Q_hat)
         D = picos.Constant('D', np.zeros((C.shape[0], B.shape[1])))
     else:
         Am = U[:, :p_theta]
         Bm = U[:, p_theta:]
-        Cm = picos.Constant('Cm', np.eye(p_theta))
+        Cm = picos.Constant('Cm', np.eye(p_theta) @ Q_hat)
         Dm = picos.Constant('Dm', np.zeros((Cm.shape[0], Bm.shape[1])))
         if weight[0] == 'pre':
             n_u = Bm.shape[1]
