@@ -2411,7 +2411,7 @@ def _create_ss(
             ])
             D = Dm * Dw
         elif weight[0] == 'post':
-            n_x = Bm.shape[0]
+            n_x = Cm.shape[0]
             Aw_blk = linalg.block_diag(*([weight[1]] * n_x))
             Bw_blk = linalg.block_diag(*([weight[2]] * n_x))
             Cw_blk = linalg.block_diag(*([weight[3]] * n_x))
