@@ -1670,7 +1670,7 @@ class LmiDmdcHinfReg(LmiRegressor):
             p_upsilon = p - p_theta
             P = np.eye(r_hat + p_upsilon * self.weight[1].shape[0])
         elif self.weight[0] == 'post':
-            P = np.eye(r_hat + r_hat * self.weight[1].shape[0])
+            P = np.eye(r_hat + p_theta * self.weight[1].shape[0])
         else:
             # Already checked. Should never get here.
             assert False
