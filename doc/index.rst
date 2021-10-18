@@ -6,6 +6,13 @@
 pykoop
 ======
 
+.. image:: https://zenodo.org/badge/392435742.svg
+   :target: https://zenodo.org/badge/latestdoi/392435742
+    :alt: DOI
+.. image:: https://readthedocs.org/projects/pykoop/badge/?version=latest
+    :target: https://pykoop.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
 ``pykoop`` is a Koopman operator identification library written in Python. It
 allows the user to specify Koopman lifting functions and regressors in order to
 learn a linear model of a given system in the lifted space.
@@ -145,7 +152,7 @@ Library      Unique features
 `pykoopman`_ - Continuous-time Koopman operator identification
              - Built-in numerical differentiation
              - Detailed DMD outputs
-             - DMDc with known control
+             - DMDc with known control matrix
 `PyDMD`_     - Extensive library containing pretty much every variant of DMD
 `PySINDy`_   - Python implementation of the famous (SINDy) method
              - Related to, but not the same as, Koopman operator approximation
@@ -172,6 +179,22 @@ References
    Koopman realizations for the modeling and control of systems with unknown
    dynamics." arXiv:2010.09961v3 [cs.RO] (2020).
    https://arxiv.org/abs/2010.09961v3
+
+Citation
+========
+
+If you use this software in your research, please cite it as below or see
+``CITATION.cff``.
+
+.. code-block:: bibtex
+
+    @article{dahdah_pykoop_2021,
+        title={decarsg/pykoop},
+        DOI={10.5281/zenodo.5576490},
+        publisher={Zenodo},
+        author={Steven Dahdah and James Richard Forbes},
+        year={2021},
+    }
 
 License
 =======
