@@ -5,14 +5,13 @@ with open('README.rst', 'r') as f:
 
 setuptools.setup(
     name='pykoop',
-    version='0.1.0',
+    version='1.0.0',
     description='Koopman operator identification library in Python',
     long_description=readme,
-    author='Steven Dahdah, Vassili Korotkine',
-    author_email=('steven.dahdah@mail.mcgill.ca, '
-                  'vassili.korotkine@mail.mcgill.ca'),
-    url='https://bitbucket.org/decargroup/pykoop',
-    packages=setuptools.find_packages(exclude=('tests', 'examples')),
+    author='Steven Dahdah',
+    author_email='steven.dahdah@mail.mcgill.ca',
+    url='https://github.com/decarsg/pykoop',
+    packages=setuptools.find_packages(exclude=('tests', 'examples', 'doc')),
     python_requires='>=3.7',
     install_requires=[
         'numpy>=1.2.1',
