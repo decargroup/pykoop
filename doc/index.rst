@@ -188,9 +188,9 @@ If you use this software in your research, please cite it as below or see
 
 .. code-block:: bibtex
 
-    @article{dahdah_pykoop_2021,
-        title={decarsg/pykoop},
-        DOI={10.5281/zenodo.5576490},
+    @software{dahdah_pykoop_2021,
+        title={{decarsg/pykoop}},
+        doi={10.5281/zenodo.5576490},
         publisher={Zenodo},
         author={Steven Dahdah and James Richard Forbes},
         year={2021},
