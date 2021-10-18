@@ -11,6 +11,12 @@ setuptools.setup(
     author='Steven Dahdah',
     author_email='steven.dahdah@mail.mcgill.ca',
     url='https://github.com/decarsg/pykoop',
+    classifiers=[
+        'Programming Language :: Python :: 3',
+        'License :: OSI Approved :: MIT License',
+        'Operating System :: OS Independent',
+        'Topic :: Scientific/Engineering',
+    ],
     packages=setuptools.find_packages(exclude=('tests', 'examples', 'doc')),
     python_requires='>=3.7',
     install_requires=[

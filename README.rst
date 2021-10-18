@@ -1,6 +1,9 @@
 pykoop
 ======
 
+.. image:: https://zenodo.org/badge/392435742.svg
+   :target: https://zenodo.org/badge/latestdoi/392435742
+
 ``pykoop`` is a Koopman operator identification library written in Python. It
 allows the user to specify Koopman lifting functions and regressors in order to
 learn a linear model of a given system in the lifted space.
