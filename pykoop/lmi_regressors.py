@@ -1670,7 +1670,7 @@ class LmiDmdcHinfReg(LmiRegressor):
             p_upsilon = p - p_theta
             P = np.eye(r_hat + p_upsilon * self.weight[1].shape[0])
         elif self.weight[0] == 'post':
-            P = np.eye(r_hat + r_hat * self.weight[1].shape[0])
+            P = np.eye(r_hat + p_theta * self.weight[1].shape[0])
         else:
             # Already checked. Should never get here.
             assert False
@@ -1781,7 +1781,11 @@ class LmiDmdcHinfReg(LmiRegressor):
         P = picos.Constant('P', P)
         gamma = picos.RealVariable('gamma', 1)
         # Get weighted state space matrices
-        A, B, C, D = _create_ss(U_hat, self.weight)
+        A, B, C, D = _create_ss(
+            U_hat,
+            self.weight,
+            Q_hat=self.tsvd_shifted_.left_singular_vectors_,
+        )
         gamma_33 = picos.diag(gamma, D.shape[1])
         gamma_44 = picos.diag(gamma, D.shape[0])
         problem_a.add_constraint(
@@ -1814,7 +1818,11 @@ class LmiDmdcHinfReg(LmiRegressor):
         U_hat = picos.Constant('U_hat', U_hat)
         gamma = picos.Constant('gamma', gamma)
         # Get weighted state space matrices
-        A, B, C, D = _create_ss(U_hat, self.weight)
+        A, B, C, D = _create_ss(
+            U_hat,
+            self.weight,
+            Q_hat=self.tsvd_shifted_.left_singular_vectors_,
+        )
         # Create variables
         P = picos.SymmetricVariable('P', A.shape[0])
         # Add constraints
@@ -2310,6 +2318,11 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
             n_inputs=n_inputs,
             episode_feature=episode_feature,
         )
+        self.n_features_in_ = self.hinf_regressor_.n_features_in_
+        self.n_states_in_ = self.hinf_regressor_.n_states_in_
+        self.n_inputs_in_ = self.hinf_regressor_.n_inputs_in_
+        self.episode_feature_ = self.hinf_regressor_.episode_feature_
+        self.coef_ = self.hinf_regressor_.coef_
         return self
 
     @sklearn.utils.metaestimators.if_delegate_has_method('hinf_regressor_')
@@ -2328,11 +2341,18 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         """
         return self.hinf_regressor_.predict(X)
 
+    def _more_tags(self):
+        return {
+            'multioutput': True,
+            'multioutput_only': True,
+        }
+
 
 def _create_ss(
     U: np.ndarray,
     weight: Optional[Tuple[str, np.ndarray, np.ndarray, np.ndarray,
                            np.ndarray]],
+    Q_hat: np.ndarray = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Augment Koopman system with weight if present.
 
@@ -2346,6 +2366,9 @@ def _create_ss(
         Tuple containing weight type (``'pre'`` or ``'post'``), and the
         weight state space matrices (``A``, ``B``, ``C``, and ``D``). If
         ``None``, no weighting is used.
+    Q_hat : np.ndarray
+        Left singular vectors of shifted data matrix. Used to construct ``C``
+        matrix. Should only be used with DMDc methods.
 
     Returns
     -------
@@ -2356,12 +2379,14 @@ def _create_ss(
     if weight is None:
         A = U[:, :p_theta]
         B = U[:, p_theta:]
-        C = picos.Constant('C', np.eye(p_theta))
+        C = picos.Constant('C',
+                           Q_hat if Q_hat is not None else np.eye(p_theta))
         D = picos.Constant('D', np.zeros((C.shape[0], B.shape[1])))
     else:
         Am = U[:, :p_theta]
         Bm = U[:, p_theta:]
-        Cm = picos.Constant('Cm', np.eye(p_theta))
+        Cm = picos.Constant('Cm',
+                            Q_hat if Q_hat is not None else np.eye(p_theta))
         Dm = picos.Constant('Dm', np.zeros((Cm.shape[0], Bm.shape[1])))
         if weight[0] == 'pre':
             n_u = Bm.shape[1]
@@ -2386,7 +2411,7 @@ def _create_ss(
             ])
             D = Dm * Dw
         elif weight[0] == 'post':
-            n_x = Bm.shape[0]
+            n_x = Cm.shape[0]
             Aw_blk = linalg.block_diag(*([weight[1]] * n_x))
             Bw_blk = linalg.block_diag(*([weight[2]] * n_x))
             Cw_blk = linalg.block_diag(*([weight[3]] * n_x))
