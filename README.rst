@@ -149,7 +149,7 @@ Library      Unique features
              - Detailed DMD outputs
              - DMDc with known control matrix
 `PyDMD`_     - Extensive library containing pretty much every variant of DMD
-`PySINDy`_   - Python implementation of the famous (SINDy) method
+`PySINDy`_   - Python implementation of the famous SINDy method
              - Related to, but not the same as, Koopman operator approximation
 ============ ==================================================================
 
