@@ -5,7 +5,7 @@ with open('README.rst', 'r') as f:
 
 setuptools.setup(
     name='pykoop',
-    version='1.0.1',
+    version='1.0.2',
     description='Koopman operator identification library in Python',
     long_description=readme,
     author='Steven Dahdah',
@@ -17,6 +17,13 @@ setuptools.setup(
         'Operating System :: OS Independent',
         'Topic :: Scientific/Engineering',
     ],
+    project_urls={
+        'Documentation': 'https://pykoop.readthedocs.io/en/latest',
+        'Source': 'https://github.com/decarsg/pykoop',
+        'Tracker': 'https://github.com/decarsg/pykoop/issues',
+        'PyPI': 'https://pypi.org/project/pykoop/',
+        'DOI': 'https://doi.org/10.5281/zenodo.5576490',
+    },
     packages=setuptools.find_packages(exclude=('tests', 'examples', 'doc')),
     python_requires='>=3.7',
     install_requires=[

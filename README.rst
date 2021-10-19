@@ -3,6 +3,10 @@ pykoop
 
 .. image:: https://zenodo.org/badge/392435742.svg
    :target: https://zenodo.org/badge/latestdoi/392435742
+    :alt: DOI
+.. image:: https://readthedocs.org/projects/pykoop/badge/?version=latest
+    :target: https://pykoop.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
 
 ``pykoop`` is a Koopman operator identification library written in Python. It
 allows the user to specify Koopman lifting functions and regressors in order to
@@ -145,7 +149,7 @@ Library      Unique features
              - Detailed DMD outputs
              - DMDc with known control matrix
 `PyDMD`_     - Extensive library containing pretty much every variant of DMD
-`PySINDy`_   - Python implementation of the famous (SINDy) method
+`PySINDy`_   - Python implementation of the famous SINDy method
              - Related to, but not the same as, Koopman operator approximation
 ============ ==================================================================
 
@@ -160,6 +164,23 @@ References
 .. [lmikoop] Steven Dahdah and James Richard Forbes. "Linear matrix inequality
    approaches to Koopman operator approximation." arXiv:2102.03613 [eess.SY]
    (2021). https://arxiv.org/abs/2102.03613
+
+Citation
+========
+
+If you use this software in your research, please cite it as below or see
+``CITATION.cff``.
+
+.. code-block:: bibtex
+
+    @software{dahdah_pykoop_2021,
+        title={{decarsg/pykoop}},
+        doi={10.5281/zenodo.5576490},
+        url={https://github.com/decarsg/pykoop},
+        publisher={Zenodo},
+        author={Steven Dahdah and James Richard Forbes},
+        year={2021},
+    }
 
 License
 =======

@@ -1,0 +1,12 @@
+cff-version: 1.1.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Dahdah
+    given-names: Steven
+    orcid: https://orcid.org/0000-0003-4930-9634
+  - family-names: Forbes
+    given-names: James Richard
+    orcid: https://orcid.org/0000-0002-1987-9268
+title: decarsg/pykoop: v1.0.2
+version: v1.0.2
+date-released: 2017-12-18
