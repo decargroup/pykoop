@@ -1,8 +1,8 @@
 pykoop
 ======
 
-.. image:: https://zenodo.org/badge/392435742.svg
-   :target: https://zenodo.org/badge/latestdoi/392435742
+.. image:: https://zenodo.org/badge/5576490.svg
+   :target: https://zenodo.org/badge/latestdoi/5576490
    :alt: DOI
 .. image:: https://readthedocs.org/projects/pykoop/badge/?version=latest
     :target: https://pykoop.readthedocs.io/en/latest/?badge=latest
