@@ -11,3 +11,6 @@ authors:
     affiliation: "McGill University"
 title: "decarsg/pykoop"
 version: "v1.0.3"
+doi: 10.5281/zenodo.5576490
+date-released: 2021-10-19
+url: "https://github.com/decarsg/pykoop"
