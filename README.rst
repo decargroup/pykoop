@@ -4,8 +4,8 @@ pykoop
 .. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.5576490.svg
     :target: https://doi.org/10.5281/zenodo.5576490
     :alt: DOI
-.. image:: https://readthedocs.org/projects/pykoop/badge/?version=latest
-    :target: https://pykoop.readthedocs.io/en/latest/?badge=latest
+.. image:: https://readthedocs.org/projects/pykoop/badge/?version=stable
+    :target: https://pykoop.readthedocs.io/en/stable/?badge=stable
     :alt: Documentation status
 
 ``pykoop`` is a Koopman operator identification library written in Python. It
