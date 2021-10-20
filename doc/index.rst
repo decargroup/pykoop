@@ -176,8 +176,8 @@ References
 .. [lmikoop] Steven Dahdah and James Richard Forbes. "Linear matrix inequality
    approaches to Koopman operator approximation." arXiv:2102.03613 [eess.SY]
    (2021). https://arxiv.org/abs/2102.03613
-.. [sysnorm] Steven Dahdah and James Richard Forbes. "System Norm Regularization
-   Methods for Koopman Operator Approximation." arXiv:2110.09658 [eess.SY]
+.. [sysnorm] Steven Dahdah and James Richard Forbes. "System norm regularization
+   methods for Koopman operator approximation." arXiv:2110.09658 [eess.SY]
    (2021). https://arxiv.org/abs/2110.09658
 .. [bilinear] Daniel Bruder, Xun Fu, and Ram Vasudevan. "Advantages of bilinear
    Koopman realizations for the modeling and control of systems with unknown
