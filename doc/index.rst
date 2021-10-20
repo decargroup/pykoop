@@ -25,7 +25,8 @@ leveraging ``scikit-learn``'s existing cross-validation infrastructure.
 at every stage of the pipeline.
 
 ``pykoop`` also includes several experimental regressors that use linear matrix
-inequalities to regularize or constrain the Koopman matrix [lmikoop]_.
+inequalities to regularize or constrain the Koopman matrix from [lmikoop]_
+and [sysnorm]_.
 
 Example
 =======
@@ -175,6 +176,9 @@ References
 .. [lmikoop] Steven Dahdah and James Richard Forbes. "Linear matrix inequality
    approaches to Koopman operator approximation." arXiv:2102.03613 [eess.SY]
    (2021). https://arxiv.org/abs/2102.03613
+.. [sysnorm] Steven Dahdah and James Richard Forbes. "System Norm Regularization
+   Methods for Koopman Operator Approximation." arXiv:2110.09658 [eess.SY]
+   (2021). https://arxiv.org/abs/2110.09658
 .. [bilinear] Daniel Bruder, Xun Fu, and Ram Vasudevan. "Advantages of bilinear
    Koopman realizations for the modeling and control of systems with unknown
    dynamics." arXiv:2010.09961v3 [cs.RO] (2020).
