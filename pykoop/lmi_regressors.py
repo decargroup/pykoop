@@ -337,41 +337,41 @@ class LmiEdmd(LmiRegressor):
             problem.add_constraint(picos.block([
                 [Z, U],
                 [U.T, H_inv],
-            ]) >> 0)
+            ]) >> picos_eps)
         elif inv_method == 'pinv':
             H_inv = picos.Constant('H^+', _calc_Hpinv(H))
             problem.add_constraint(picos.block([
                 [Z, U],
                 [U.T, H_inv],
-            ]) >> 0)
+            ]) >> picos_eps)
         elif inv_method == 'eig':
             VsqrtLmb = picos.Constant('(V Lambda^(1/2))', _calc_VsqrtLmb(H))
             problem.add_constraint(
                 picos.block([
                     [Z, U * VsqrtLmb],
                     [VsqrtLmb.T * U.T, 'I'],
-                ]) >> 0)
+                ]) >> picos_eps)
         elif inv_method == 'ldl':
             LsqrtD = picos.Constant('(L D^(1/2))', _calc_LsqrtD(H))
             problem.add_constraint(
                 picos.block([
                     [Z, U * LsqrtD],
                     [LsqrtD.T * U.T, 'I'],
-                ]) >> 0)
+                ]) >> picos_eps)
         elif inv_method == 'chol':
             L = picos.Constant('L', _calc_L(H))
             problem.add_constraint(
                 picos.block([
                     [Z, U * L],
                     [L.T * U.T, 'I'],
-                ]) >> 0)
+                ]) >> picos_eps)
         elif inv_method == 'sqrt':
             sqrtH = picos.Constant('sqrt(H)', _calc_sqrtH(H))
             problem.add_constraint(
                 picos.block([
                     [Z, U * sqrtH],
                     [sqrtH.T * U.T, 'I'],
-                ]) >> 0)
+                ]) >> picos_eps)
         elif inv_method == 'svd':
             QSig = picos.Constant(
                 'Q Sigma', _calc_QSig(X_unshifted, alpha_tikhonov, tsvd))
@@ -379,7 +379,7 @@ class LmiEdmd(LmiRegressor):
                 picos.block([
                     [Z, U * QSig],
                     [QSig.T * U.T, 'I'],
-                ]) >> 0)
+                ]) >> picos_eps)
         else:
             # Should never, ever get here.
             assert False
@@ -2473,7 +2473,7 @@ def _add_twonorm(problem: picos.Problem, U: picos.RealVariable,
     gamma = picos.RealVariable('gamma', 1)
     problem.add_constraint(
         picos.block([[picos.diag(gamma, p), U.T],
-                     [U, picos.diag(gamma, p_theta)]]) >> 0)
+                     [U, picos.diag(gamma, p_theta)]]) >> picos_eps)
     # Add term to cost function
     alpha_scaled = picos.Constant('alpha_scaled_2', alpha_other)
     if square_norm:
