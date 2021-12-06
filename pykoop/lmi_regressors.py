@@ -37,9 +37,14 @@ polite_stop = False
 
 def _sigint_handler(sig, frame):
     """Signal handler for ^C."""
-    print('Stop requested. Regression will terminate at next iteration...')
     global polite_stop
-    polite_stop = True
+    if not polite_stop:
+        print('Stop requested. Regression will stop safely at next iteration. '
+              'Press ^C again to force quit.')
+        polite_stop = True
+    else:
+        print('Force quitting now.')
+        exit()
 
 
 signal.signal(signal.SIGINT, _sigint_handler)
