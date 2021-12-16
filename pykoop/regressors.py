@@ -338,5 +338,6 @@ class Dmd(koopman_pipeline.KoopmanRegressor):
                 'check_fit_idempotent': reason,
                 'check_n_features_in': reason,
                 'check_fit2d_predict1d': reason,
+                'check_fit_check_is_fitted': reason,
             }
         }
