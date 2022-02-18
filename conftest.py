@@ -21,6 +21,15 @@ def remote(request) -> bool:
     return request.config.getoption('--remote')
 
 
+@pytest.fixture
+def remote_url() -> str:
+    """Return URL for MOSEK OptServer service.
+
+    See http://solve.mosek.com/web/index.html
+    """
+    return 'http://solve.mosek.com:30080'
+
+
 @pytest.fixture(autouse=True)
 def add_np(doctest_namespace):
     """Add numpy to namespace."""

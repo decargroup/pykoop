@@ -50,5 +50,11 @@ import pykoop.lmi_regressors
     ),
     pykoop.Tsvd(),
 ])
-def test_sklearn_compatible_estimator(estimator, check):
+def test_sklearn_compatible_estimator(estimator, check, remote, remote_url):
+    # Set MOSEK solver to remote server if needed
+    if remote and hasattr(estimator, 'solver_params'):
+        if estimator.solver_params is None:
+            estimator.solver_params = {'mosek_server': remote_url}
+        else:
+            estimator.solver_params['mosek_server'] = remote_url
     check(estimator)

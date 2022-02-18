@@ -9,8 +9,6 @@ import pykoop.lmi_regressors
 
 # TODO This file is a nightmare
 
-# URL for MOSEK OptServer service. See http://solve.mosek.com/web/index.html
-MOSEK_URL = 'http://solve.mosek.com:30080'
 
 
 @pytest.fixture(
@@ -154,14 +152,14 @@ MOSEK_URL = 'http://solve.mosek.com:30080'
             marks=pytest.mark.slow),
     ],
     ids=lambda value: f'{value[0]}-{value[1]}')  # Formatting for test IDs
-def scenario(request, remote):
+def scenario(request, remote, remote_url):
     regressor, system, fit_tol, predict_tol, soln = request.param
     # Set MOSEK solver to remote server if needed
     if remote and hasattr(regressor, 'solver_params'):
         if regressor.solver_params is None:
-            regressor.solver_params = {'mosek_server': MOSEK_URL}
+            regressor.solver_params = {'mosek_server': remote_url}
         else:
-            regressor.solver_params['mosek_server'] = MOSEK_URL
+            regressor.solver_params['mosek_server'] = remote_url
     # Simulate or load data
     # Not all systems and solutions are compatible.
     # For `exact` to work, `t_step`, `A`, and `y` must be defined.
@@ -285,7 +283,7 @@ def test_predict(scenario):
     pykoop.lmi_regressors.LmiEdmdHinfReg,
     pykoop.lmi_regressors.LmiDmdcHinfReg,
 ])
-def test_hinf_zpk_meta(cls, remote):
+def test_hinf_zpk_meta(cls, remote, remote_url):
     # Specify duration
     t_range = (0, 10)
     t_step = 0.1
@@ -340,8 +338,8 @@ def test_hinf_zpk_meta(cls, remote):
     )
     # Set MOSEK solver to remote server if needed
     if remote:
-        est_expected.solver_params = {'mosek_server': MOSEK_URL}
-        est_actual.solver_params = {'mosek_server': MOSEK_URL}
+        est_expected.solver_params = {'mosek_server': remote_url}
+        est_actual.solver_params = {'mosek_server': remote_url}
     # Fit regressors
     est_expected.fit(X_msd, n_inputs=1, episode_feature=True)
     est_actual.fit(X_msd, n_inputs=1, episode_feature=True)
@@ -357,7 +355,7 @@ def test_hinf_zpk_meta(cls, remote):
 
 
 @pytest.mark.slow
-def test_hinf_zpk_units(remote):
+def test_hinf_zpk_units(remote, remote_url):
     # Specify duration
     t_range = (0, 10)
     t_step = 0.1
@@ -416,9 +414,9 @@ def test_hinf_zpk_units(remote):
     )
     # Set MOSEK solver to remote server if needed
     if remote:
-        est_1.solver_params = {'mosek_server': MOSEK_URL}
-        est_2.solver_params = {'mosek_server': MOSEK_URL}
-        est_3.solver_params = {'mosek_server': MOSEK_URL}
+        est_1.solver_params = {'mosek_server': remote_url}
+        est_2.solver_params = {'mosek_server': remote_url}
+        est_3.solver_params = {'mosek_server': remote_url}
     # Fit estimators
     est_1.fit(X_msd, n_inputs=1, episode_feature=True)
     est_2.fit(X_msd, n_inputs=1, episode_feature=True)
