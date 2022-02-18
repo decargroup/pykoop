@@ -61,9 +61,9 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     SkLearnLiftingFn(transformer=StandardScaler())
     >>> X_msd_pp = std_scaler.transform(X_msd)
     >>> np.mean(X_msd_pp[:, 1:], axis=0)
-    array([ 1.99840144e-17, -3.10862447e-17, -1.55431223e-17])
+    array([...])
     >>> np.std(X_msd_pp[:, 1:], axis=0)
-    array([1., 1., 1.])
+    array([...])
     """
 
     def __init__(

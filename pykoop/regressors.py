@@ -113,9 +113,8 @@ class Dmdc(koopman_pipeline.KoopmanRegressor):
     ...     tsvd_shifted=pykoop.Tsvd('rank', 2)))
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=Dmdc(tsvd_shifted=Tsvd(truncation='rank',
-                                                     truncation_param=2),
-                                   tsvd_unshifted=Tsvd(truncation='rank',
-                                                       truncation_param=1)))
+    truncation_param=2), tsvd_unshifted=Tsvd(truncation='rank',
+    truncation_param=1)))
     """
 
     def __init__(
@@ -232,7 +231,7 @@ class Dmd(koopman_pipeline.KoopmanRegressor):
     ...     tsvd=pykoop.Tsvd('known_noise', 1)))
     >>> kp.fit(X_msd_no_input, n_inputs=0, episode_feature=True)
     KoopmanPipeline(regressor=Dmd(tsvd=Tsvd(truncation='known_noise',
-                                            truncation_param=1)))
+    truncation_param=1)))
     """
 
     # Override check parameters to skip ``check_fit2d_1sample`` sklearn test.

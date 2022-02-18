@@ -1226,8 +1226,8 @@ class LmiEdmdHinfReg(LmiRegressor):
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
     KoopmanPipeline(regressor=LmiEdmdHinfReg(alpha=0.001,
-    weight=('pre', array([[0.66666667]]), array([[0.08333333]]),
-    array([[-3.33333333]]), array([[0.83333333]]))))
+    weight=('pre', array([[...]]), array([[...]]), array([[...]]),
+    array([[...]]))))
     """
 
     def __init__(
@@ -1561,8 +1561,8 @@ class LmiDmdcHinfReg(LmiRegressor):
     KoopmanPipeline(regressor=LmiDmdcHinfReg(alpha=0.001,
     tsvd_shifted=Tsvd(truncation='cutoff', truncation_param=0.001),
     tsvd_unshifted=Tsvd(truncation='cutoff', truncation_param=0.001),
-    weight=('pre', array([[0.66666667]]), array([[0.08333333]]),
-    array([[-3.33333333]]), array([[0.83333333]]))))
+    weight=('pre', array([[...]]), array([[...]]), array([[...]]),
+    array([[...]]))))
 
     """
 
@@ -2239,8 +2239,8 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         LmiHinfZpkMeta(hinf_regressor=LmiEdmdHinfReg(), poles=-5, t_step=0.1,
         zeros=0)
         >>> est.hinf_regressor_
-        LmiEdmdHinfReg(weight=('post', array([[0.6]]), array([[0.08]]),
-        array([[-4.]]), array([[0.8]])))
+        LmiEdmdHinfReg(weight=('post', array([[...]]), array([[...]]),
+        array([[...]]), array([[...]])))
         """
         self.hinf_regressor = hinf_regressor
         self.type = type

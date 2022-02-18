@@ -76,7 +76,7 @@ class Tsvd(sklearn.base.BaseEstimator):
         >>> tsvd.fit(X_msd)
         Tsvd()
         >>> tsvd.singular_values_
-        array([1.18030132, 0.97073582, 0.12584536, 0.        ])
+        array([...])
 
         SVD with cutoff truncation
 
@@ -84,7 +84,7 @@ class Tsvd(sklearn.base.BaseEstimator):
         >>> tsvd.fit(X_msd)
         Tsvd(truncation='cutoff', truncation_param=0.001)
         >>> tsvd.singular_values_
-        array([1.18030132, 0.97073582, 0.12584536])
+        array([...])
 
         SVD with manual rank truncation
 
@@ -92,7 +92,7 @@ class Tsvd(sklearn.base.BaseEstimator):
         >>> tsvd.fit(X_msd)
         Tsvd(truncation='rank', truncation_param=2)
         >>> tsvd.singular_values_
-        array([1.18030132, 0.97073582])
+        array([...])
         """
         self.truncation = truncation
         self.truncation_param = truncation_param
