@@ -6,6 +6,30 @@ import sklearn
 import pykoop
 
 
+def pytest_addoption(parser) -> None:
+    """Add ``--remote`` command line flag to run regressions remotely."""
+    parser.addoption(
+        '--remote',
+        action='store_true',
+        help='run regressions on MOSEK OptServer instead of locally',
+    )
+
+
+@pytest.fixture
+def remote(request) -> bool:
+    """Get ``--remote`` flag value."""
+    return request.config.getoption('--remote')
+
+
+@pytest.fixture
+def remote_url() -> str:
+    """Return URL for MOSEK OptServer service.
+
+    See http://solve.mosek.com/web/index.html
+    """
+    return 'http://solve.mosek.com:30080'
+
+
 @pytest.fixture(autouse=True)
 def add_np(doctest_namespace):
     """Add numpy to namespace."""

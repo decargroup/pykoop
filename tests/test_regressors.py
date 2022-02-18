@@ -10,23 +10,45 @@ import pykoop.lmi_regressors
 # TODO This file is a nightmare
 
 
+
 @pytest.fixture(
     params=[
         (pykoop.Edmd(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
         (pykoop.Dmdc(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
         (pykoop.Dmd(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
-        (pykoop.Dmdc(tsvd_unshifted=pykoop.Tsvd('known_noise', 1),
-                     tsvd_shifted=pykoop.Tsvd('known_noise', 1)),
-         'msd-no-input', None, None, 'exact'),
-        (pykoop.Dmd(tsvd=pykoop.Tsvd('known_noise', 1)), 'msd-no-input', None,
-         None, 'exact'),
-        (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='eig'),
-         'msd-no-input', 1e-4, 1e-5, 'exact'),
-        (pykoop.lmi_regressors.LmiEdmd(
-            alpha=0,
-            inv_method='inv',
-            solver_params={'dualize': False},
-        ), 'msd-no-input', 1e-3, 1e-4, 'exact'),
+        (
+            pykoop.Dmdc(tsvd_unshifted=pykoop.Tsvd('known_noise', 1),
+                        tsvd_shifted=pykoop.Tsvd('known_noise', 1)),
+            'msd-no-input',
+            None,
+            None,
+            'exact',
+        ),
+        (
+            pykoop.Dmd(tsvd=pykoop.Tsvd('known_noise', 1)),
+            'msd-no-input',
+            None,
+            None,
+            'exact',
+        ),
+        (
+            pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='eig'),
+            'msd-no-input',
+            1e-4,
+            1e-5,
+            'exact',
+        ),
+        (
+            pykoop.lmi_regressors.LmiEdmd(
+                alpha=0,
+                inv_method='inv',
+                solver_params={'dualize': False},
+            ),
+            'msd-no-input',
+            1e-3,
+            1e-4,
+            'exact',
+        ),
         (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='ldl'),
          'msd-no-input', 1e-4, 1e-5, 'exact'),
         (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='chol'),
@@ -35,49 +57,51 @@ import pykoop.lmi_regressors
          'msd-no-input', 1e-4, 1e-5, 'exact'),
         (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='svd'),
          'msd-no-input', 1e-4, 1e-5, 'exact'),
-        (pykoop.lmi_regressors.LmiDmdc(alpha=0), 'msd-no-input', 1e-4, 1e-5,
-         'exact'),
-        (pykoop.lmi_regressors.LmiEdmd(alpha=1, inv_method='chol'),
-         'msd-no-input', 1e-4, None, 'sklearn-ridge'),
+        (
+            pykoop.lmi_regressors.LmiDmdc(alpha=0),
+            'msd-no-input',
+            1e-4,
+            1e-5,
+            'exact',
+        ),
+        (
+            pykoop.lmi_regressors.LmiEdmd(alpha=1, inv_method='chol'),
+            'msd-no-input',
+            1e-4,
+            None,
+            'sklearn-ridge',
+        ),
         # (pykoop.lmi_regressors.LmiDmdc(alpha=2.29), 'msd-no-input', 1e-4,
         #  None, 'sklearn-ridge-1'),  # I don't think this is the same
         (
-            pykoop.lmi_regressors.LmiEdmd(alpha=1,
-                                          reg_method='twonorm',
-                                          inv_method='chol',
-                                          solver_params={'dualize': False}),
+            pykoop.lmi_regressors.LmiEdmd(
+                alpha=1,
+                reg_method='twonorm',
+                inv_method='chol',
+                solver_params={'dualize': False},
+            ),
             'msd-no-input',
             1e-3,
             None,
             # Regression test! Not unit test!
-            # If regularizing using the norm squared, use:
-            # np.array([
-            #     [ 0.89995985, 0.07048035],  # noqa: E201
-            #     [-0.07904385, 0.89377084]
-            # ])
-            # If regularizing using the norm alone, use:
             np.array([
-                [0.929949, 0.065987],  # noqa: E201
-                [-0.102050, 0.893498]
+                [0.929949, 0.065987],
+                [-0.102050, 0.893498],
             ])),
         (
-            pykoop.lmi_regressors.LmiEdmd(alpha=1,
-                                          reg_method='nuclear',
-                                          inv_method='chol',
-                                          solver_params={'dualize': False}),
+            pykoop.lmi_regressors.LmiEdmd(
+                alpha=1,
+                reg_method='nuclear',
+                inv_method='chol',
+                solver_params={'dualize': False},
+            ),
             'msd-no-input',
             1e-3,
             None,
             # Regression test! Not unit test!
-            # If regularizing using the norm squared, use:
-            # np.array([
-            #     [ 0.70623152, -0.17749238],  # noqa: E201
-            #     [-0.32354638,  0.50687639]
-            # ])
-            # If regularizing using the norm alone, use:
             np.array([
-                [0.875848, -0.017190],  # noqa: E201
-                [-0.210071, 0.727786]
+                [0.875848, -0.017190],
+                [-0.210071, 0.727786],
             ])),
         pytest.param(
             (
@@ -121,12 +145,6 @@ import pykoop.lmi_regressors
                 1e-3,
                 None,
                 # Regression test! Not unit test!
-                # If regularizing using the norm squared, use:
-                # np.array([
-                #     [ 0.54830794, -0.29545739, 0.48111973],  # noqa: E201
-                #     [-0.31602199,  0.17028950, 0.86402040]
-                # ])
-                # If regularizing using the norm alone, use:
                 np.array([
                     [0.509525, -0.279917, 0.471535],
                     [-0.296477, 0.162875, 0.831542],
@@ -134,8 +152,14 @@ import pykoop.lmi_regressors
             marks=pytest.mark.slow),
     ],
     ids=lambda value: f'{value[0]}-{value[1]}')  # Formatting for test IDs
-def scenario(request):
+def scenario(request, remote, remote_url):
     regressor, system, fit_tol, predict_tol, soln = request.param
+    # Set MOSEK solver to remote server if needed
+    if remote and hasattr(regressor, 'solver_params'):
+        if regressor.solver_params is None:
+            regressor.solver_params = {'mosek_server': remote_url}
+        else:
+            regressor.solver_params['mosek_server'] = remote_url
     # Simulate or load data
     # Not all systems and solutions are compatible.
     # For `exact` to work, `t_step`, `A`, and `y` must be defined.
@@ -201,13 +225,6 @@ def scenario(request):
                                  tol=1e-8)
         clf.fit(X_train.T, Xp_train.T)
         U_valid = clf.coef_
-    # elif soln == 'sklearn-ridge-1':
-    #     clf = linear_model.Ridge(alpha=1,
-    #                              fit_intercept=False,
-    #                              solver='cholesky',
-    #                              tol=1e-8)
-    #     clf.fit(X_train.T, Xp_train.T)
-    #     U_valid = clf.coef_
     # Return fixture dictionary
     return {
         'X_train': X_train,
@@ -239,10 +256,12 @@ def test_fit(scenario):
     if scenario['fit_tol'] is None:
         pytest.skip()
     # Test value of Koopman operator
-    np.testing.assert_allclose(scenario['regressor'].coef_.T,
-                               scenario['U_valid'],
-                               atol=scenario['fit_tol'],
-                               rtol=0)
+    np.testing.assert_allclose(
+        scenario['regressor'].coef_.T,
+        scenario['U_valid'],
+        atol=scenario['fit_tol'],
+        rtol=0,
+    )
 
 
 def test_predict(scenario):
@@ -251,11 +270,12 @@ def test_predict(scenario):
     if scenario['predict_tol'] is None:
         pytest.skip()
     # Test prediction
-    np.testing.assert_allclose(scenario['regressor'].predict(
-        scenario['X_valid'].T).T,
-                               scenario['Xp_valid'],
-                               atol=scenario['predict_tol'],
-                               rtol=0)
+    np.testing.assert_allclose(
+        scenario['regressor'].predict(scenario['X_valid'].T).T,
+        scenario['Xp_valid'],
+        atol=scenario['predict_tol'],
+        rtol=0,
+    )
 
 
 @pytest.mark.slow
@@ -263,7 +283,7 @@ def test_predict(scenario):
     pykoop.lmi_regressors.LmiEdmdHinfReg,
     pykoop.lmi_regressors.LmiDmdcHinfReg,
 ])
-def test_hinf_zpk_meta(cls):
+def test_hinf_zpk_meta(cls, remote, remote_url):
     # Specify duration
     t_range = (0, 10)
     t_step = 0.1
@@ -316,6 +336,10 @@ def test_hinf_zpk_meta(cls):
         discretization='bilinear',
         t_step=t_step,
     )
+    # Set MOSEK solver to remote server if needed
+    if remote:
+        est_expected.solver_params = {'mosek_server': remote_url}
+        est_actual.solver_params = {'mosek_server': remote_url}
     # Fit regressors
     est_expected.fit(X_msd, n_inputs=1, episode_feature=True)
     est_actual.fit(X_msd, n_inputs=1, episode_feature=True)
@@ -331,7 +355,7 @@ def test_hinf_zpk_meta(cls):
 
 
 @pytest.mark.slow
-def test_hinf_zpk_units():
+def test_hinf_zpk_units(remote, remote_url):
     # Specify duration
     t_range = (0, 10)
     t_step = 0.1
@@ -366,7 +390,7 @@ def test_hinf_zpk_units():
         gain=1,
         discretization='bilinear',
         t_step=t_step,
-        units='rad/s'
+        units='rad/s',
     )
     est_2 = pykoop.lmi_regressors.LmiHinfZpkMeta(
         hinf_regressor=pykoop.lmi_regressors.LmiEdmdHinfReg(),
@@ -376,7 +400,7 @@ def test_hinf_zpk_units():
         gain=1,
         discretization='bilinear',
         t_step=t_step,
-        units='hz'
+        units='hz',
     )
     est_3 = pykoop.lmi_regressors.LmiHinfZpkMeta(
         hinf_regressor=pykoop.lmi_regressors.LmiEdmdHinfReg(),
@@ -386,8 +410,13 @@ def test_hinf_zpk_units():
         gain=1,
         discretization='bilinear',
         t_step=t_step,
-        units='normalized'
+        units='normalized',
     )
+    # Set MOSEK solver to remote server if needed
+    if remote:
+        est_1.solver_params = {'mosek_server': remote_url}
+        est_2.solver_params = {'mosek_server': remote_url}
+        est_3.solver_params = {'mosek_server': remote_url}
     # Fit estimators
     est_1.fit(X_msd, n_inputs=1, episode_feature=True)
     est_2.fit(X_msd, n_inputs=1, episode_feature=True)
