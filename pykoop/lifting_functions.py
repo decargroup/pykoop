@@ -236,10 +236,10 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
 
         psi = np.array([
             [x],
+            [u],
             [x * u1],
             [x * u2],
             [x * u3],
-            [u].
         ])
 
     where the products are element-wise.
@@ -286,17 +286,16 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
         states = X[:, :self.n_states_in_]
         inputs = X[:, self.n_states_in_:]
-        features = [states]
+        features = [states, inputs]
         for k in range(self.n_inputs_in_):
             features.append(states * inputs[:, [k]])
-        features.append(inputs)
         Xt = np.hstack(features)
         return Xt
 
     def _inverse_transform_one_ep(self, X: np.ndarray) -> np.ndarray:
         Xt = np.hstack((
             X[:, :self.n_states_in_],
-            X[:, self.n_states_out_ + self.n_inputs_out_ - self.n_inputs_in_:],
+            X[:, self.n_states_in_:self.n_states_in_ + self.n_inputs_in_],
         ))
         return Xt
 
