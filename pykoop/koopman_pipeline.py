@@ -102,112 +102,9 @@ import sklearn.metrics
 from ._sklearn_metaestimators import metaestimators
 
 
-class KoopmanLiftingFn(sklearn.base.BaseEstimator,
-                       sklearn.base.TransformerMixin,
-                       metaclass=abc.ABCMeta):
-    """Base class for Koopman lifting functions.
-
-    All attributes with a trailing underscore must be set in the subclass'
-    :func:`fit`.
-
-    Attributes
-    ----------
-    n_features_in_ : int
-        Number of features before transformation, including episode feature.
-    n_states_in_ : int
-        Number of states before transformation.
-    n_inputs_in_ : int
-        Number of inputs before transformation.
-    n_features_out_ : int
-        Number of features after transformation, including episode feature.
-    n_states_out_ : int
-        Number of states after transformation.
-    n_inputs_out_ : int
-        Number of inputs after transformation.
-    min_samples_ : int
-        Minimum number of samples needed to use the transformer.
-    episode_feature_ : bool
-        Indicates if episode feature was present during :func:`fit`.
-    """
-
-    @abc.abstractmethod
-    def fit(self,
-            X: np.ndarray,
-            y: np.ndarray = None,
-            n_inputs: int = 0,
-            episode_feature: bool = False) -> 'KoopmanLiftingFn':
-        """Fit the lifting function.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Data matrix.
-        y : np.ndarray
-            Ignored.
-        n_inputs : int
-            Number of input features at the end of ``X``.
-        episode_feature : bool
-            True if first feature indicates which episode a timestep is from.
-
-        Returns
-        -------
-        KoopmanLiftingFn
-            Instance of itself.
-
-        Raises
-        -----
-        ValueError
-            If constructor or fit parameters are incorrect.
-        """
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def transform(self, X: np.ndarray) -> np.ndarray:
-        """Transform data.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Data matrix.
-
-        Returns
-        -------
-        np.ndarray
-            Transformed data matrix.
-        """
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def inverse_transform(self, X: np.ndarray) -> np.ndarray:
-        """Invert transformed data.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Transformed data matrix.
-
-        Returns
-        -------
-        np.ndarray
-            Inverted transformed data matrix.
-        """
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def n_samples_in(self, n_samples_out: int = 1) -> int:
-        """Calculate number of input samples required for given output length.
-
-        Parameters
-        ----------
-        n_samples_out : int
-            Number of samples needed at the output.
-
-        Returns
-        -------
-        int
-            Number of samples needed at the input.
-        """
-        raise NotImplementedError()
+# TODO Formalize a little
+class LiftRetractMixin():
+    """Mixin providing more convenient lift/retract functions."""
 
     def lift(self, X: np.ndarray, episode_feature: bool = None) -> np.ndarray:
         """Lift state and input.
@@ -442,6 +339,115 @@ class KoopmanLiftingFn(sklearn.base.BaseEstimator,
         else:
             Xt = Xt_pad[:, self.n_states_in_:]
         return Xt
+
+
+class KoopmanLiftingFn(sklearn.base.BaseEstimator,
+                       sklearn.base.TransformerMixin,
+                       LiftRetractMixin,
+                       metaclass=abc.ABCMeta):
+    """Base class for Koopman lifting functions.
+
+    All attributes with a trailing underscore must be set in the subclass'
+    :func:`fit`.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    """
+
+    @abc.abstractmethod
+    def fit(self,
+            X: np.ndarray,
+            y: np.ndarray = None,
+            n_inputs: int = 0,
+            episode_feature: bool = False) -> 'KoopmanLiftingFn':
+        """Fit the lifting function.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+        y : np.ndarray
+            Ignored.
+        n_inputs : int
+            Number of input features at the end of ``X``.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+
+        Returns
+        -------
+        KoopmanLiftingFn
+            Instance of itself.
+
+        Raises
+        -----
+        ValueError
+            If constructor or fit parameters are incorrect.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        """Transform data.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Transformed data matrix.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def inverse_transform(self, X: np.ndarray) -> np.ndarray:
+        """Invert transformed data.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Transformed data matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Inverted transformed data matrix.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def n_samples_in(self, n_samples_out: int = 1) -> int:
+        """Calculate number of input samples required for given output length.
+
+        Parameters
+        ----------
+        n_samples_out : int
+            Number of samples needed at the output.
+
+        Returns
+        -------
+        int
+            Number of samples needed at the input.
+        """
+        raise NotImplementedError()
 
 
 class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
@@ -1345,7 +1351,8 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
 class KoopmanPipeline(metaestimators._BaseComposition,
                       sklearn.base.BaseEstimator,
-                      sklearn.base.TransformerMixin):
+                      sklearn.base.TransformerMixin,
+                      LiftRetractMixin):
     """Meta-estimator for chaining lifting functions with an estimator.
 
     Attributes
