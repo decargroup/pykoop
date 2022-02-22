@@ -102,9 +102,29 @@ import sklearn.metrics
 from ._sklearn_metaestimators import metaestimators
 
 
-# TODO Formalize a little
-class LiftRetractMixin():
-    """Mixin providing more convenient lift/retract functions."""
+class _LiftRetractMixin(metaclass=abc.ABCMeta):
+    """Mixin providing more convenient lift/retract functions.
+
+    Assumes child class implements :func:``transform`` and
+    :func:``inverse_transform``. See :class:``KoopmanLiftingFn`` and
+    :class:``KoopmanPipeline`` for details concerning the class methods and
+    attributes.
+    """
+
+    # Attribues that must be defined in :func:``fit`` of child class.
+    n_states_in_: int
+    n_inputs_in_: int
+    n_states_out_: int
+    n_inputs_out_: int
+    episode_feature_: bool
+
+    @abc.abstractmethod
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def inverse_transform(self, X: np.ndarray) -> np.ndarray:
+        raise NotImplementedError()
 
     def lift(self, X: np.ndarray, episode_feature: bool = None) -> np.ndarray:
         """Lift state and input.
@@ -343,7 +363,7 @@ class LiftRetractMixin():
 
 class KoopmanLiftingFn(sklearn.base.BaseEstimator,
                        sklearn.base.TransformerMixin,
-                       LiftRetractMixin,
+                       _LiftRetractMixin,
                        metaclass=abc.ABCMeta):
     """Base class for Koopman lifting functions.
 
@@ -1352,7 +1372,7 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 class KoopmanPipeline(metaestimators._BaseComposition,
                       sklearn.base.BaseEstimator,
                       sklearn.base.TransformerMixin,
-                      LiftRetractMixin):
+                      _LiftRetractMixin):
     """Meta-estimator for chaining lifting functions with an estimator.
 
     Attributes
