@@ -209,6 +209,240 @@ class KoopmanLiftingFn(sklearn.base.BaseEstimator,
         """
         raise NotImplementedError()
 
+    def lift(self, X: np.ndarray, episode_feature: bool = None) -> np.ndarray:
+        """Lift state and input.
+
+        Potentially more convenient alternative to calling :func:``transform``.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            State and input.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
+
+        Returns
+        -------
+        np.ndarray
+            Lifted state and input.
+        """
+        if ((episode_feature == self.episode_feature_)
+                or (episode_feature is None)):
+            # Can use ``transform`` without modification because
+            # ``episode_feature`` is either ``None``, or it's the same as
+            # ``self.episode_feature_``.
+            Xt = self.transform(X)
+        else:
+            # ``episode_feature`` and ``self.episode_feature_`` differ, so the
+            # input and output need to be padded and/or stripped.
+            if self.episode_feature_:
+                # Estimator was fit with an episode feature, but the input does
+                # not have one. Need to add a fake one and them remove it after
+                # transforming.
+                X_ep = np.hstack((np.zeros((X.shape[0], 1)), X))
+                Xt_ep = self.transform(X_ep)
+                Xt = Xt_ep[:, 1:]
+            else:
+                # Estimator was fit without an episode feature, but the input
+                # has one. Need to break up and recombine episodes.
+                eps = split_episodes(X, episode_feature=episode_feature)
+                eps_t = []
+                for (i, X_i) in eps:
+                    Xt_i = self.transform(X_i)
+                    eps_t.append((i, Xt_i))
+                Xt = combine_episodes(eps_t, episode_feature=episode_feature)
+        return Xt
+
+    def retract(
+        self,
+        X: np.ndarray,
+        episode_feature: bool = None,
+    ) -> np.ndarray:
+        """Retract lifted state and input.
+
+        Potentially more convenient alternative to calling
+        :func:``inverse_transform``.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Lifted state and input.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
+
+        Returns
+        -------
+        np.ndarray
+            State and input.
+        """
+        if ((episode_feature == self.episode_feature_)
+                or (episode_feature is None)):
+            # Can use ``inverse_transform`` without modification because
+            # ``episode_feature`` is either ``None``, or it's the same as
+            # ``self.episode_feature_``.
+            Xt = self.inverse_transform(X)
+        else:
+            # ``episode_feature`` and ``self.episode_feature_`` differ, so the
+            # input and output need to be padded and/or stripped.
+            if self.episode_feature_:
+                # Estimator was fit with an episode feature, but the input does
+                # not have one. Need to add a fake one and them remove it after
+                # inverse-transforming.
+                X_ep = np.hstack((np.zeros((X.shape[0], 1)), X))
+                Xt_ep = self.inverse_transform(X_ep)
+                Xt = Xt_ep[:, 1:]
+            else:
+                # Estimator was fit without an episode feature, but the input
+                # has one. Need to break up and recombine episodes.
+                eps = split_episodes(X, episode_feature=episode_feature)
+                eps_t = []
+                for (i, X_i) in eps:
+                    Xt_i = self.inverse_transform(X_i)
+                    eps_t.append((i, Xt_i))
+                Xt = combine_episodes(eps_t, episode_feature=episode_feature)
+        return Xt
+
+    def lift_state(
+        self,
+        X: np.ndarray,
+        episode_feature: bool = None,
+    ) -> np.ndarray:
+        """Lift state only.
+
+        More convenient alternative to padding the state with dummy inputs,
+        calling :func:``transform``, then stripping the unwanted lifted inputs.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            State.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
+
+        Returns
+        -------
+        np.ndarray
+            Lifted state.
+        """
+        # Pad fake inputs
+        X_pad = np.hstack((X, np.zeros((X.shape[0], self.n_inputs_in_))))
+        # Lift states with fake inputs
+        Xt_pad = self.lift(X_pad, episode_feature=episode_feature)
+        # Strip fake lifted inputs
+        Xt = Xt_pad[:, :self.n_states_out_ + (1 if episode_feature else 0)]
+        return Xt
+
+    def retract_state(
+        self,
+        X: np.ndarray,
+        episode_feature: bool = None,
+    ) -> np.ndarray:
+        """Retract lifted state only.
+
+        More convenient alternative to padding the lifted state with dummy
+        lifted inputs, calling :func:``inverse_transform``.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Lifted state.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
+
+        Returns
+        -------
+        np.ndarray
+            State.
+        """
+        # Pad fake lifted inputs
+        X_pad = np.hstack((X, np.zeros((X.shape[0], self.n_inputs_out_))))
+        # Retract states with fake inputs
+        Xt_pad = self.retract(X_pad, episode_feature=episode_feature)
+        # Strip fake inputs
+        Xt = Xt_pad[:, :self.n_states_in_ + (1 if episode_feature else 0)]
+        return Xt
+
+    def lift_input(
+        self,
+        X: np.ndarray,
+        episode_feature: bool = None,
+    ) -> np.ndarray:
+        """Lift input only.
+
+        More convenient alternative to calling :func:``transform``, then
+        stripping the unwanted lifted states.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            State and input.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
+
+        Returns
+        -------
+        np.ndarray
+            Lifted input.
+        """
+        # Lift states and inputs
+        Xt_pad = self.lift(X, episode_feature=episode_feature)
+        # Strip lifted states while retaining episode feature as needed
+        if episode_feature:
+            Xt = np.hstack((
+                Xt_pad[:, [0]],
+                Xt_pad[:, self.n_states_out_ + 1:],
+            ))
+        else:
+            Xt = Xt_pad[:, self.n_states_out_:]
+        return Xt
+
+    def retract_input(
+        self,
+        X: np.ndarray,
+        episode_feature: bool = None,
+    ) -> np.ndarray:
+        """Retract lifted input only.
+
+        More convenient alternative to padding the lifted state with dummy
+        lifted states, calling :func:``inverse_transform``, then stripping the
+        unwanted states.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Lifted input.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
+
+        Returns
+        -------
+        np.ndarray
+            Input.
+        """
+        # Pad fake lifted states
+        if episode_feature:
+            X_pad = np.hstack((
+                X[:, [0]],
+                np.zeros((X.shape[0], self.n_states_out_)),
+                X[:, 1:],
+            ))
+        else:
+            X_pad = np.hstack((np.zeros((X.shape[0], self.n_states_out_)), X))
+        # Retract inputs with fake states
+        Xt_pad = self.retract(X_pad, episode_feature=episode_feature)
+        # Strip fake states
+        if episode_feature:
+            Xt = np.hstack((Xt_pad[:, [0]], Xt_pad[:, self.n_states_in_ + 1:]))
+        else:
+            Xt = Xt_pad[:, self.n_states_in_:]
+        return Xt
+
 
 class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
     """Base class for Koopman lifting functions that are episode-independent.
@@ -1772,7 +2006,7 @@ def shift_episodes(
 
 def split_episodes(
         X: np.ndarray,
-        episode_feature: bool = False) -> List[Tuple[int, np.ndarray]]:
+        episode_feature: bool = False) -> List[Tuple[float, np.ndarray]]:
     """Split a data matrix into episodes.
 
     Parameters
@@ -1784,7 +2018,7 @@ def split_episodes(
 
     Returns
     -------
-    List[Tuple[int, np.ndarray]]
+    List[Tuple[float, np.ndarray]]
         List of episode tuples. The first element of each tuple contains the
         episode index. The second element contains the episode data.
     """
@@ -1804,13 +2038,13 @@ def split_episodes(
     return episodes
 
 
-def combine_episodes(episodes: List[Tuple[int, np.ndarray]],
+def combine_episodes(episodes: List[Tuple[float, np.ndarray]],
                      episode_feature: bool = False) -> np.ndarray:
     """Combine episodes into a data matrix.
 
     Parameters
     ----------
-    episodes : List[Tuple[int, np.ndarray]]
+    episodes : List[Tuple[float, np.ndarray]]
         List of episode tuples. The first element of each tuple contains the
         episode index. The second element contains the episode data.
     episode_feature : bool
