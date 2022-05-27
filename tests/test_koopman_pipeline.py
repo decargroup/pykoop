@@ -661,17 +661,15 @@ def test_strip_initial_conditons():
     np.testing.assert_allclose(X1s, X2s)
 
 
-@pytest.fixture(
-    params=[
-        pykoop.PolynomialLiftingFn(order=2),
-        pykoop.KoopmanPipeline(
-            lifting_functions=[
-                ('p', pykoop.PolynomialLiftingFn(order=2)),
-            ],
-            regressor=pykoop.Edmd(),
-        )
-    ]
-)
+@pytest.fixture(params=[
+    pykoop.PolynomialLiftingFn(order=2),
+    pykoop.KoopmanPipeline(
+        lifting_functions=[
+            ('p', pykoop.PolynomialLiftingFn(order=2)),
+        ],
+        regressor=pykoop.Edmd(),
+    )
+])
 def lift_retract_fixture(request):
     lf = request.param
     X = np.array([

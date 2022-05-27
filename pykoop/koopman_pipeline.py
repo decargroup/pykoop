@@ -1395,8 +1395,7 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
 class KoopmanPipeline(metaestimators._BaseComposition,
                       sklearn.base.BaseEstimator,
-                      sklearn.base.TransformerMixin,
-                      _LiftRetractMixin):
+                      sklearn.base.TransformerMixin, _LiftRetractMixin):
     """Meta-estimator for chaining lifting functions with an estimator.
 
     Attributes

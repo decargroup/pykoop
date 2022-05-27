@@ -339,16 +339,18 @@ class LmiEdmd(LmiRegressor):
         # Choose method to handle inverse of H
         if inv_method == 'inv':
             H_inv = picos.Constant('H^-1', _calc_Hinv(H))
-            problem.add_constraint(picos.block([
-                [Z, U],
-                [U.T, H_inv],
-            ]) >> picos_eps)
+            problem.add_constraint(
+                picos.block([
+                    [Z, U],
+                    [U.T, H_inv],
+                ]) >> picos_eps)
         elif inv_method == 'pinv':
             H_inv = picos.Constant('H^+', _calc_Hpinv(H))
-            problem.add_constraint(picos.block([
-                [Z, U],
-                [U.T, H_inv],
-            ]) >> picos_eps)
+            problem.add_constraint(
+                picos.block([
+                    [Z, U],
+                    [U.T, H_inv],
+                ]) >> picos_eps)
         elif inv_method == 'eig':
             VsqrtLmb = picos.Constant('(V Lambda^(1/2))', _calc_VsqrtLmb(H))
             problem.add_constraint(
