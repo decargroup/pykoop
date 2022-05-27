@@ -659,3 +659,163 @@ def test_strip_initial_conditons():
     X1s = pykoop.strip_initial_conditions(X1, 1, True)
     X2s = pykoop.strip_initial_conditions(X2, 1, True)
     np.testing.assert_allclose(X1s, X2s)
+
+
+@pytest.fixture(
+    params=[
+        pykoop.PolynomialLiftingFn(order=2),
+        pykoop.KoopmanPipeline(
+            lifting_functions=[
+                ('p', pykoop.PolynomialLiftingFn(order=2)),
+            ],
+            regressor=pykoop.Edmd(),
+        )
+    ]
+)
+def lift_retract_fixture(request):
+    lf = request.param
+    X = np.array([
+        [0, 1, 2, 3, 4, 5],
+        [0, 2, 4, 5, 6, 10],
+    ]).T
+    Xt = np.array([
+        [0, 1, 2, 3, 4, 5],
+        [0, 1, 4, 9, 16, 25],
+        [0, 2, 4, 5, 6, 10],
+        [0, 2, 8, 15, 24, 50],
+        [0, 4, 16, 25, 36, 100],
+    ]).T
+    return (lf, X, Xt)
+
+
+def test_lift_retract_ff(lift_retract_fixture):
+    """Test with no episode feature during fit or lift/retract."""
+    lf, X, Xt = lift_retract_fixture
+    lf.fit(X, n_inputs=1, episode_feature=False)
+    # Test lift
+    Xt_l = lf.lift(X, episode_feature=False)
+    np.testing.assert_allclose(Xt_l, Xt)
+    # Test retract
+    X_r = lf.retract(Xt_l, episode_feature=False)
+    np.testing.assert_allclose(X_r, X)
+    # Test lift state
+    Xt_l = lf.lift_state(X[:, :lf.n_states_in_], episode_feature=False)
+    np.testing.assert_allclose(Xt_l, Xt[:, :lf.n_states_out_])
+    # # Test retract state
+    X_r = lf.retract_state(Xt_l, episode_feature=False)
+    np.testing.assert_allclose(X_r, X[:, :lf.n_states_in_])
+    # Test lift input
+    Xt_l = lf.lift_input(X, episode_feature=False)
+    np.testing.assert_allclose(Xt_l, Xt[:, lf.n_states_out_:])
+    # Test retract input
+    X_r = lf.retract_input(Xt_l, episode_feature=False)
+    np.testing.assert_allclose(X_r, X[:, lf.n_states_in_:])
+
+
+def test_lift_retract_tt(lift_retract_fixture):
+    """Test with episode feature during fit and lift/retract."""
+    lf, X_noep, Xt_noep = lift_retract_fixture
+    # Add episode features
+    X = np.hstack((
+        np.array([0, 0, 0, 1, 1, 1]).reshape((-1, 1)),
+        X_noep,
+    ))
+    Xt = np.hstack((
+        np.array([0, 0, 0, 1, 1, 1]).reshape((-1, 1)),
+        Xt_noep,
+    ))
+    lf.fit(X, n_inputs=1, episode_feature=True)
+    # Test lift
+    Xt_l = lf.lift(X, episode_feature=True)
+    np.testing.assert_allclose(Xt_l, Xt)
+    # Test retract
+    X_r = lf.retract(Xt_l, episode_feature=True)
+    np.testing.assert_allclose(X_r, X)
+    # Test lift state
+    Xt_l = lf.lift_state(X[:, :lf.n_states_in_ + 1], episode_feature=True)
+    np.testing.assert_allclose(Xt_l, Xt[:, :lf.n_states_out_ + 1])
+    # # Test retract state
+    X_r = lf.retract_state(Xt_l, episode_feature=True)
+    np.testing.assert_allclose(X_r, X[:, :lf.n_states_in_ + 1])
+    # Test lift input
+    Xt_l = lf.lift_input(X, episode_feature=True)
+    np.testing.assert_allclose(Xt_l[:, 0], Xt[:, 0])
+    np.testing.assert_allclose(
+        Xt_l[:, 1:],
+        Xt[:, lf.n_states_out_ + 1:],
+    )
+    # Test retract input
+    X_r = lf.retract_input(Xt_l, episode_feature=True)
+    np.testing.assert_allclose(X_r[:, 0], X[:, 0])
+    np.testing.assert_allclose(X_r[:, 1:], X[:, lf.n_states_in_ + 1:])
+
+
+def test_lift_retract_ft(lift_retract_fixture):
+    """Test with episode feature during fit but not lift/retract."""
+    lf, X_noep, Xt_noep = lift_retract_fixture
+    # Add episode features
+    X = np.hstack((
+        np.array([0, 0, 0, 1, 1, 1]).reshape((-1, 1)),
+        X_noep,
+    ))
+    Xt = np.hstack((
+        np.array([0, 0, 0, 1, 1, 1]).reshape((-1, 1)),
+        Xt_noep,
+    ))
+    lf.fit(X, n_inputs=1, episode_feature=True)
+    # Test lift
+    Xt_l = lf.lift(X_noep, episode_feature=False)
+    np.testing.assert_allclose(Xt_l, Xt_noep)
+    # Test retract
+    X_r = lf.retract(Xt_l, episode_feature=False)
+    np.testing.assert_allclose(X_r, X_noep)
+    # Test lift state
+    Xt_l = lf.lift_state(X_noep[:, :lf.n_states_in_], episode_feature=False)
+    np.testing.assert_allclose(Xt_l, Xt_noep[:, :lf.n_states_out_])
+    # # Test retract state
+    X_r = lf.retract_state(Xt_l, episode_feature=False)
+    np.testing.assert_allclose(X_r, X_noep[:, :lf.n_states_in_])
+    # Test lift input
+    Xt_l = lf.lift_input(X_noep, episode_feature=False)
+    np.testing.assert_allclose(Xt_l, Xt_noep[:, lf.n_states_out_:])
+    # Test retract input
+    X_r = lf.retract_input(Xt_l, episode_feature=False)
+    np.testing.assert_allclose(X_r, X_noep[:, lf.n_states_in_:])
+
+
+def test_lift_retract_tf(lift_retract_fixture):
+    """Test with no episode feature during fit but with one in lift/retract."""
+    lf, X_noep, Xt_noep = lift_retract_fixture
+    # Add episode features
+    X = np.hstack((
+        np.array([0, 0, 0, 1, 1, 1]).reshape((-1, 1)),
+        X_noep,
+    ))
+    Xt = np.hstack((
+        np.array([0, 0, 0, 1, 1, 1]).reshape((-1, 1)),
+        Xt_noep,
+    ))
+    lf.fit(X_noep, n_inputs=1, episode_feature=False)
+    # Test lift
+    Xt_l = lf.lift(X, episode_feature=True)
+    np.testing.assert_allclose(Xt_l, Xt)
+    # Test retract
+    X_r = lf.retract(Xt_l, episode_feature=True)
+    np.testing.assert_allclose(X_r, X)
+    # Test lift state
+    Xt_l = lf.lift_state(X[:, :lf.n_states_in_ + 1], episode_feature=True)
+    np.testing.assert_allclose(Xt_l, Xt[:, :lf.n_states_out_ + 1])
+    # # Test retract state
+    X_r = lf.retract_state(Xt_l, episode_feature=True)
+    np.testing.assert_allclose(X_r, X[:, :lf.n_states_in_ + 1])
+    # Test lift input
+    Xt_l = lf.lift_input(X, episode_feature=True)
+    np.testing.assert_allclose(Xt_l[:, 0], Xt[:, 0])
+    np.testing.assert_allclose(
+        Xt_l[:, 1:],
+        Xt[:, lf.n_states_out_ + 1:],
+    )
+    # Test retract input
+    X_r = lf.retract_input(Xt_l, episode_feature=True)
+    np.testing.assert_allclose(X_r[:, 0], X[:, 0])
+    np.testing.assert_allclose(X_r[:, 1:], X[:, lf.n_states_in_ + 1:])
