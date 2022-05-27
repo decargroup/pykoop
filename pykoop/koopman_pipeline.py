@@ -120,10 +120,34 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def transform(self, X: np.ndarray) -> np.ndarray:
+        """Transform data.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Transformed data matrix.
+        """
         raise NotImplementedError()
 
     @abc.abstractmethod
     def inverse_transform(self, X: np.ndarray) -> np.ndarray:
+        """Invert transformed data.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Transformed data matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Inverted transformed data matrix.
+        """
         raise NotImplementedError()
 
     def lift(self, X: np.ndarray, episode_feature: bool = None) -> np.ndarray:
