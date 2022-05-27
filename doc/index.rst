@@ -127,7 +127,7 @@ To skip slow unit tests, including all doctests and examples, run
 
 .. code-block:: sh
 
-    $ pytest ./tests -k-slow
+    $ pytest ./tests -k "not slow"
 
 The documentation can be compiled using
 
