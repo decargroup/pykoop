@@ -193,6 +193,9 @@ References
    Koopman realizations for the modeling and control of systems with unknown
    dynamics." arXiv:2010.09961v3 [cs.RO] (2020).
    https://arxiv.org/abs/2010.09961v3
+.. [local] Giorgos Mamakoukas, Ian Abraham, and Todd D. Murphey. "Learning
+   Stable Models for Prediction and Control." arXiv:2005.04291v2 [cs.RO]
+   (2022). https://arxiv.org/abs/2005.04291v2
 
 Citation
 ========
