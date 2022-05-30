@@ -620,55 +620,55 @@ test_split_lf_params = [
         ],
         regressor=pykoop.Edmd(),
     ),
-    # pykoop.KoopmanPipeline(
-    #     lifting_functions=[
-    #         ('dla', pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2)),
-    #         ('dlb', pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2)),
-    #     ],
-    #     regressor=pykoop.Edmd(),
-    # ),
-    # pykoop.KoopmanPipeline(
-    #     lifting_functions=[
-    #         ('dla', pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=1)),
-    #         ('ply', pykoop.PolynomialLiftingFn(order=2)),
-    #         ('dlb', pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=2)),
-    #     ],
-    #     regressor=pykoop.Edmd(),
-    # ),
-    # pykoop.KoopmanPipeline(
-    #     lifting_functions=[
-    #         (
-    #             'sp',
-    #             pykoop.SplitPipeline(
-    #                 lifting_functions_state=[
-    #                     ('pl', pykoop.PolynomialLiftingFn(order=2)),
-    #                 ],
-    #                 lifting_functions_input=None,
-    #             ),
-    #         ),
-    #         ('dl', pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2)),
-    #     ],
-    #     regressor=pykoop.Edmd(),
-    # ),
-    # pykoop.KoopmanPipeline(
-    #     lifting_functions=[
-    #         ('dla', pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1)),
-    #         (
-    #             'sp',
-    #             pykoop.SplitPipeline(
-    #                 lifting_functions_state=[
-    #                     ('pla', pykoop.PolynomialLiftingFn(order=2)),
-    #                     ('plb', pykoop.PolynomialLiftingFn(order=2)),
-    #                 ],
-    #                 lifting_functions_input=[
-    #                     ('plc', pykoop.PolynomialLiftingFn(order=2)),
-    #                 ],
-    #             ),
-    #         ),
-    #         ('dlb', pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1)),
-    #     ],
-    #     regressor=pykoop.Edmd(),
-    # ),
+    pykoop.KoopmanPipeline(
+        lifting_functions=[
+            ('dla', pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2)),
+            ('dlb', pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2)),
+        ],
+        regressor=pykoop.Edmd(),
+    ),
+    pykoop.KoopmanPipeline(
+        lifting_functions=[
+            ('dla', pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=1)),
+            ('ply', pykoop.PolynomialLiftingFn(order=2)),
+            ('dlb', pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=2)),
+        ],
+        regressor=pykoop.Edmd(),
+    ),
+    pykoop.KoopmanPipeline(
+        lifting_functions=[
+            (
+                'sp',
+                pykoop.SplitPipeline(
+                    lifting_functions_state=[
+                        ('pl', pykoop.PolynomialLiftingFn(order=2)),
+                    ],
+                    lifting_functions_input=None,
+                ),
+            ),
+            ('dl', pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2)),
+        ],
+        regressor=pykoop.Edmd(),
+    ),
+    pykoop.KoopmanPipeline(
+        lifting_functions=[
+            ('dla', pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1)),
+            (
+                'sp',
+                pykoop.SplitPipeline(
+                    lifting_functions_state=[
+                        ('pla', pykoop.PolynomialLiftingFn(order=2)),
+                        ('plb', pykoop.PolynomialLiftingFn(order=2)),
+                    ],
+                    lifting_functions_input=[
+                        ('plc', pykoop.PolynomialLiftingFn(order=2)),
+                    ],
+                ),
+            ),
+            ('dlb', pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1)),
+        ],
+        regressor=pykoop.Edmd(),
+    ),
 ])
 def test_predict_state(kp):
     # Set up problem
@@ -699,7 +699,7 @@ def test_predict_state(kp):
         x[:n_samp, :],
         u_sim,
         episode_feature=False,
-        relift_state=False,
+        relift_state=True,
     )
 
     # Predict manually

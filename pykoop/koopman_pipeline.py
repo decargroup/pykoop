@@ -1899,8 +1899,6 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                 raise ValueError(f'Input in episode {i} has {U_i.shape[0]} '
                                  'samples but at least `min_samples_`='
                                  f'{self.min_samples_} samples are required.')
-            # Index where prediction blows up (if it does)
-            crash_index = None
             # Iterate over episode and make predictions
             if relift_state:
                 # Number of steps in episode
@@ -1930,13 +1928,20 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                             episode_feature=False,
                         )[[-1], :]
                     except ValueError:
-                        crash_index = k
+                        # Set all entries after crash to NaN
+                        X_i[k:, :] = np.nan
                         break
+                Theta_i = self.lift_state(X_i, episode_feature=False)
+                Upsilon_i = self.lift_input(
+                    np.hstack((X_i, U_i)),
+                    episode_feature=False,
+                )
             else:
                 # Number of steps in episode
                 n_steps_i = U_i.shape[0] - self.min_samples_ + 1
                 # Initial conditions
                 Theta_i = np.zeros((n_steps_i, self.n_states_out_))
+                Upsilon_i = np.zeros((n_steps_i, self.n_inputs_out_))
                 Theta_i[[0], :] = self.lift_state(X0_i, episode_feature=False)
                 for k in range(1, n_steps_i):
                     try:
@@ -1945,27 +1950,36 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                             episode_feature=False,
                         )
                         window = np.s_[k:(k + self.min_samples_)]
-                        Upsilon_ikm1 = self.lift_input(
+                        Upsilon_i[[k - 1], :] = self.lift_input(
                             np.hstack((X_ikm1, U_i[window, :])),
                             episode_feature=False,
                         )
                         # Predict
                         Theta_i[[k], :] = (Theta_i[[k - 1], :] @ A.T
-                                           + Upsilon_ikm1 @ B.T)
+                                           + Upsilon_i[[k - 1], :] @ B.T)
                     except ValueError:
-                        crash_index = k
+                        # Set all entries after crash to NaN
+                        Theta_i[k:, :] = np.nan
+                        Upsilon_i[k:, :] = np.nan
                         break
                 X_i = self.retract_state(Theta_i, episode_feature=False)
-            # TODO IMPLEMENT RETURNING LIFTED AND RETURNING INPUT
-            # TODO MOVE CRASH INDEX INSIDE LOOP -> INDEX IS DIFFERENT IN EACH CASE
-            # Set NaN output after crash index
-            if crash_index is not None:
-                X_i[crash_index:, :] = np.nan
-            # Append prediction to list
-            predictions.append((i, X_i))
+            # Choose what to return
+            if return_lifted:
+                if return_input:
+                    predictions.append((i, np.hstack((Theta_i, Upsilon_i))))
+                else:
+                    predictions.append((i, Theta_i))
+            else:
+                if return_input:
+                    predictions.append((i, np.hstack((X_i, U_i))))
+                else:
+                    predictions.append((i, X_i))
         # Combine episodes
-        X_p = combine_episodes(predictions, episode_feature=episode_feature)
-        return X_p
+        combined_episodes = combine_episodes(
+            predictions,
+            episode_feature=episode_feature,
+        )
+        return combined_episodes
 
     @staticmethod
     def make_scorer(
