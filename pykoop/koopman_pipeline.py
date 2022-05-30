@@ -1830,6 +1830,143 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                                episode_feature=self.episode_feature_)
         return X_p
 
+    def predict_state(
+        self,
+        X_initial: np.ndarray,
+        U: np.ndarray,
+        relift_state: bool = True,
+        return_lifted: bool = False,
+        return_input: bool = False,
+        episode_feature: bool = None,
+    ) -> np.ndarray:
+        """Predict state given input for each episode.
+
+        Parameters
+        ----------
+        X_initial : np.ndarray
+            Initial state.
+        U : np.ndarray
+            Input. Length of prediction is governed by length of input.
+        relift_state : bool
+            If true, retract and re-lift state between prediction steps
+            (default). Otherwise, only retract the state after all predictions
+            are made. Correspond to the local and global error definitions of
+            [local]_.
+        return_lifted : bool
+            If true, return the lifted state. If false, return the original
+            state (default).
+        return_input : bool
+            If true, return the input as well as the state. If false, return
+            only the original state (default).
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
+
+        Returns
+        -------
+        np.ndarray
+            Predicted state. If ``return_input``, input is appended to the
+            array. If ``return_lifted``, the predicted state (and input) are
+            returned in the lifted space.
+
+        Raises
+        ------
+        ValueError
+            If an episode is shorter than ``min_samples_``.
+        """
+        # Check fit
+        sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
+        # Set episode feature if unspecified
+        if episode_feature is None:
+            episode_feature = self.episode_feature_
+        # Get Koopman ``A`` and ``B`` matrices
+        koop_mat = self.regressor_.coef_.T
+        A = koop_mat[:, :koop_mat.shape[0]]
+        B = koop_mat[:, koop_mat.shape[0]:]
+        # Split episodes
+        ep_X0 = split_episodes(X_initial, episode_feature=episode_feature)
+        ep_U = split_episodes(U, episode_feature=episode_feature)
+        episodes = [(ex[0], ex[1], eu[1]) for (ex, eu) in zip(ep_X0, ep_U)]
+        # Predict for each episode
+        predictions: List[Tuple[float, np.ndarray]] = []
+        for (i, X0_i, U_i) in episodes:
+            # Check length of episode.
+            if X0_i.shape[0] != self.min_samples_:
+                raise ValueError(f'Initial condition in episode {i} has '
+                                 f'{X0_i.shape[0]} samples but `min_samples_`='
+                                 f'{self.min_samples_} samples are required.')
+            if U_i.shape[0] < self.min_samples_:
+                raise ValueError(f'Input in episode {i} has {U_i.shape[0]} '
+                                 'samples but at least `min_samples_`='
+                                 f'{self.min_samples_} samples are required.')
+            # Index where prediction blows up (if it does)
+            crash_index = None
+            # Iterate over episode and make predictions
+            if relift_state:
+                # Number of steps in episode
+                n_steps_i = U_i.shape[0]
+                # Initial conditions
+                X_i = np.zeros((n_steps_i, self.n_states_in_))
+                X_i[:self.min_samples_, :] = X0_i
+                for k in range(self.min_samples_, n_steps_i):
+                    try:
+                        # Lift state and input
+                        window = np.s_[(k - self.min_samples_):k]
+                        Theta_ikm1 = self.lift_state(
+                            X_i[window, :],
+                            episode_feature=False,
+                        )
+                        Upsilon_ikm1 = self.lift_input(
+                            np.hstack((X_i[window, :], U_i[window, :])),
+                            episode_feature=False,
+                        )
+                        # Predict
+                        Theta_ik = Theta_ikm1 @ A.T + Upsilon_ikm1 @ B.T
+                        # Retract. If more than one sample is returned by
+                        # ``retract_state``, take only the last one. This will
+                        # happen if there's a delay lifting function.
+                        X_i[[k], :] = self.retract_state(
+                            Theta_ik,
+                            episode_feature=False,
+                        )[[-1], :]
+                    except ValueError:
+                        crash_index = k
+                        break
+            else:
+                # Number of steps in episode
+                n_steps_i = U_i.shape[0] - self.min_samples_ + 1
+                # Initial conditions
+                Theta_i = np.zeros((n_steps_i, self.n_states_out_))
+                Theta_i[[0], :] = self.lift_state(X0_i, episode_feature=False)
+                for k in range(1, n_steps_i):
+                    try:
+                        X_ikm1 = self.retract_state(
+                            Theta_i[[k - 1], :],
+                            episode_feature=False,
+                        )
+                        window = np.s_[k:(k + self.min_samples_)]
+                        Upsilon_ikm1 = self.lift_input(
+                            np.hstack((X_ikm1, U_i[window, :])),
+                            episode_feature=False,
+                        )
+                        # Predict
+                        Theta_i[[k], :] = (Theta_i[[k - 1], :] @ A.T
+                                           + Upsilon_ikm1 @ B.T)
+                    except ValueError:
+                        crash_index = k
+                        break
+                X_i = self.retract_state(Theta_i, episode_feature=False)
+            # TODO IMPLEMENT RETURNING LIFTED AND RETURNING INPUT
+            # TODO MOVE CRASH INDEX INSIDE LOOP -> INDEX IS DIFFERENT IN EACH CASE
+            # Set NaN output after crash index
+            if crash_index is not None:
+                X_i[crash_index:, :] = np.nan
+            # Append prediction to list
+            predictions.append((i, X_i))
+        # Combine episodes
+        X_p = combine_episodes(predictions, episode_feature=episode_feature)
+        return X_p
+
     @staticmethod
     def make_scorer(
         n_steps: int = None,
