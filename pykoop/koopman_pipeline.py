@@ -1753,9 +1753,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         score = scorer(self, X, None)
         return score
 
-    def predict_multistep(self,
-                          X: np.ndarray,
-                          local: bool = True) -> np.ndarray:
+    def predict_multistep(self, X: np.ndarray) -> np.ndarray:
         """Perform a multi-step prediction for the first state of each episode.
 
         This function takes the first ``min_samples_`` states of the input,
@@ -1771,13 +1769,6 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         ----------
         X : np.ndarray
             Data matrix.
-        local : bool
-            If true (default), the original state is recovered and re-lifted
-            at every timestep, before the next application of the Koopman
-            operator. If false, the Koopman operator is repeatedly applied, and
-            the original state is recovered only after the full prediction is
-            performed. These correspond to the local and global error
-            definitions of [local]_.
 
         Returns
         -------
@@ -1806,50 +1797,32 @@ class KoopmanPipeline(metaestimators._BaseComposition,
             # Extract initial state and input
             x0 = X_i[:self.min_samples_, :self.n_states_in_]
             u = X_i[:, self.n_states_in_:]
-            if local:
-                # Create array to hold predicted states
-                X_pred_i = np.zeros((X_i.shape[0], self.n_states_in_))
-                # Set the initial condition
-                X_pred_i[:self.min_samples_, :] = x0
-                # Predict all time steps
-                for k in range(self.min_samples_, X_i.shape[0]):
-                    # Stack episode feature, previous predictions, and input
-                    window = np.s_[k - self.min_samples_:k]
-                    X_ik = combine_episodes(
-                        [(
-                            i,
-                            np.hstack((
-                                X_pred_i[window, :],
-                                X_i[window, self.n_states_in_:],
-                            )),
-                        )],
-                        episode_feature=self.episode_feature_)
-                    # Predict next step
-                    try:
-                        X_pred_ik = self.predict(X_ik)[[-1], :]
-                    except ValueError:
-                        crash_index = k
-                        break
-                    # Extract data matrix from prediction
-                    X_pred_i[[k], :] = split_episodes(
-                        X_pred_ik, episode_feature=self.episode_feature_)[0][1]
-                if crash_index is not None:
-                    X_pred_i[crash_index:, :] = np.nan
-                predictions.append((i, X_pred_i))
-            else:
-                raise NotImplementedError()  # TODO
-                # # Create array to hold predicted lifted states
-                # Xt_pred_i = np.zeros((X_i.shape[0], self.n_states_out_))
-                # # Set the initial condition
-                # xt0 = self.lift_state(x0, episode_feature=False)
-                # Xt_pred_i[:self.min_samples_, :] = xt0
-                # # Get Koopman operator
-                # U = self.regressor_.coef_.T
-                # A = U[:, :U.shape[0]]
-                # B = U[:, U.shape[0]:]
-                # # Predict all time steps
-                # for k in range(1, X_i.shape[0]):
-                #     pass
+            # Create array to hold predicted states
+            X_pred_i = np.zeros((X_i.shape[0], self.n_states_in_))
+            # Set the initial condition
+            X_pred_i[:self.min_samples_, :] = x0
+            # Predict all time steps
+            for k in range(self.min_samples_, X_i.shape[0]):
+                # Stack episode feature, previous predictions, and input
+                X_ik = combine_episodes(
+                    [(i,
+                      np.hstack((
+                          X_pred_i[(k - self.min_samples_):k, :],
+                          X_i[(k - self.min_samples_):k, self.n_states_in_:],
+                      )))],
+                    episode_feature=self.episode_feature_)
+                # Predict next step
+                try:
+                    X_pred_ik = self.predict(X_ik)[[-1], :]
+                except ValueError:
+                    crash_index = k
+                    break
+                # Extract data matrix from prediction
+                X_pred_i[[k], :] = split_episodes(
+                    X_pred_ik, episode_feature=self.episode_feature_)[0][1]
+            if crash_index is not None:
+                X_pred_i[crash_index:, :] = np.nan
+            predictions.append((i, X_pred_i))
         # Combine episodes
         X_p = combine_episodes(predictions,
                                episode_feature=self.episode_feature_)
