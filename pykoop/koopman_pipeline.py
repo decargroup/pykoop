@@ -98,6 +98,7 @@ import numpy as np
 import pandas
 import sklearn.base
 import sklearn.metrics
+from deprecated import deprecated
 
 from ._sklearn_metaestimators import metaestimators
 
@@ -1753,6 +1754,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         score = scorer(self, X, None)
         return score
 
+    @deprecated('Use `predict_state` instead')
     def predict_multistep(self, X: np.ndarray) -> np.ndarray:
         """Perform a multi-step prediction for the first state of each episode.
 

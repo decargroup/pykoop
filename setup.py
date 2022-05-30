@@ -33,6 +33,7 @@ setuptools.setup(
         'picos>=2.2.52',
         'pandas>=1.3.1',
         'optht>=0.2.0',
+        'Deprecated>=1.2.13',
     ],
     extra_require={
         'MOSEK solver': ['mosek>=9.2.49'],
