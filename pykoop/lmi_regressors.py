@@ -25,6 +25,7 @@ from . import koopman_pipeline, regressors, tsvd
 
 # Create logger
 log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 # Create temporary cache directory for memoized computations
 _cachedir = tempfile.TemporaryDirectory(prefix='pykoop_')

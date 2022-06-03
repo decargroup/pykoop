@@ -92,6 +92,7 @@ episode feature.
 """
 
 import abc
+import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -101,6 +102,10 @@ import sklearn.metrics
 from deprecated import deprecated
 
 from ._sklearn_metaestimators import metaestimators
+
+# Create logger
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 
 class _LiftRetractMixin(metaclass=abc.ABCMeta):
