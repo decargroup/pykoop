@@ -1904,6 +1904,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                 raise ValueError(f'Input in episode {i} has {U_i.shape[0]} '
                                  'samples but at least `min_samples_`='
                                  f'{self.min_samples_} samples are required.')
+            crash_index = None
             # Iterate over episode and make predictions
             if relift_state:
                 # Number of steps in episode
@@ -1932,10 +1933,17 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                             Theta_ik,
                             episode_feature=False,
                         )[[-1], :]
-                    except ValueError:
-                        # Set all entries after crash to NaN
-                        X_i[k:, :] = np.nan
-                        break
+                    except ValueError as ve:
+                        if (np.all(np.isfinite(Theta_ikm1))
+                                and np.all(np.isfinite(X_i))
+                                and np.all(np.isfinite(U_i))
+                                and np.all(np.isfinite(Upsilon_ikm1))
+                                and np.all(np.isfinite(Theta_ik))):
+                            raise ve
+                        else:
+                            crash_index = k - 1
+                            X_i[crash_index:, :] = 0
+                            break
                 Theta_i = self.lift_state(X_i, episode_feature=False)
                 Upsilon_i = self.lift_input(
                     np.hstack((X_i, U_i)),
@@ -1943,12 +1951,12 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                 )
             else:
                 # Number of steps in episode
-                n_steps_i = U_i.shape[0] - self.min_samples_ + 1
+                n_steps_i = U_i.shape[0] - self.min_samples_
                 # Initial conditions
                 Theta_i = np.zeros((n_steps_i, self.n_states_out_))
                 Upsilon_i = np.zeros((n_steps_i, self.n_inputs_out_))
                 Theta_i[[0], :] = self.lift_state(X0_i, episode_feature=False)
-                for k in range(1, n_steps_i):
+                for k in range(1, n_steps_i + 1):
                     try:
                         X_ikm1 = self.retract_state(
                             Theta_i[[k - 1], :],
@@ -1960,14 +1968,29 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                             episode_feature=False,
                         )
                         # Predict
-                        Theta_i[[k], :] = (Theta_i[[k - 1], :] @ A.T
-                                           + Upsilon_i[[k - 1], :] @ B.T)
-                    except ValueError:
-                        # Set all entries after crash to NaN
-                        Theta_i[k:, :] = np.nan
-                        Upsilon_i[k:, :] = np.nan
-                        break
+                        if k < n_steps_i:
+                            Theta_i[[k], :] = (Theta_i[[k - 1], :] @ A.T
+                                               + Upsilon_i[[k - 1], :] @ B.T)
+                    except ValueError as ve:
+                        if (np.all(np.isfinite(X_ikm1))
+                                and np.all(np.isfinite(Theta_i))
+                                and np.all(np.isfinite(Upsilon_i))
+                                and np.all(np.isfinite(U_i))):
+                            raise ve
+                        else:
+                            crash_index = k - 1
+                            Theta_i[crash_index:, :] = 0
+                            Upsilon_i[crash_index:, :] = 0
+                            break
                 X_i = self.retract_state(Theta_i, episode_feature=False)
+            # If prediction crashed, set remaining entries to NaN
+            if crash_index is not None:
+                log.warning(f'Prediction diverged at index {crash_index}. '
+                            'Remaining entries set to `NaN`.')
+                # Don't set ``U_i`` to NaN since it's a known input
+                X_i[crash_index:, :] = np.nan
+                Theta_i[crash_index:, :] = np.nan
+                Upsilon_i[crash_index:, :] = np.nan
             # Choose what to return
             if return_lifted:
                 if return_input:
