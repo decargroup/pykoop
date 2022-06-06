@@ -2014,7 +2014,8 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         n_steps: int = None,
         discount_factor: float = 1,
         regression_metric: str = 'neg_mean_squared_error',
-        multistep: bool = True
+        multistep: bool = True,
+        relift_state: bool = True,
     ) -> Callable[['KoopmanPipeline', np.ndarray, Optional[np.ndarray]],
                   float]:
         """Make a Koopman pipeline scorer.
@@ -2044,11 +2045,16 @@ class KoopmanPipeline(metaestimators._BaseComposition,
             'neg_mean_squared_log_error', 'neg_median_absolute_error', 'r2',
             'neg_mean_absolute_percentage_error']. See [scorers]_.
         multistep : bool
-            If true, predict using :func:`predict_multistep`. Otherwise,
+            If true, predict using :func:`predict_state`. Otherwise,
             predict using :func:`predict` (one-step-ahead prediction).
             Multistep prediction is highly recommended unless debugging. If
             one-step-ahead prediciton is used, `n_steps` and `discount_factor`
             are ignored.
+        relift_state : bool
+            If true, retract and re-lift state between prediction steps
+            (default). Otherwise, only retract the state after all predictions
+            are made. Correspond to the local and global error definitions of
+            [local]_. Ignored if ``multistep`` is false.
 
         Returns
         -------
@@ -2068,7 +2074,10 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         if (discount_factor < 0) or (discount_factor > 1):
             raise ValueError('`discount_factor` must be positive and less '
                              'than one.')
-
+        # Check other args
+        if not multistep:
+            if not relift_state:
+                log.info('Ignoring `relift_state` since `multistep` is false.')
         # Valid ``regression_metric`` values:
         regression_metrics = {
             'explained_variance':
@@ -2089,9 +2098,11 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         # Scores that do not need inversion
         greater_is_better = ['explained_variance', 'r2']
 
-        def koopman_pipeline_scorer(estimator: KoopmanPipeline,
-                                    X: np.ndarray,
-                                    y: np.ndarray = None) -> float:
+        def koopman_pipeline_scorer(
+            estimator: KoopmanPipeline,
+            X: np.ndarray,
+            y: np.ndarray = None,
+        ) -> float:
             # Shift episodes
             X_unshifted, X_shifted = shift_episodes(
                 X,
@@ -2099,22 +2110,35 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                 episode_feature=estimator.episode_feature_)
             # Predict
             if multistep:
-                X_predicted = estimator.predict_multistep(X_unshifted)
+                x0 = X_unshifted[  # TODO BUG: Can't handle multiple episodes
+                    :estimator.min_samples_,
+                    :estimator.n_states_in_
+                ]  # yapf: disable
+                u = X_unshifted[:, estimator.n_states_in_:]
+                X_predicted = estimator.predict_state(
+                    x0,
+                    u,
+                    relift_state=relift_state,
+                )  # TODO BUG: Test with multiple episodes
             else:
                 X_predicted = estimator.predict(X_unshifted)
             # Strip episode feature and initial conditions
-            X_shifted = strip_initial_conditions(X_shifted,
-                                                 estimator.min_samples_,
-                                                 estimator.episode_feature_)
-            X_predicted = strip_initial_conditions(X_predicted,
-                                                   estimator.min_samples_,
-                                                   estimator.episode_feature_)
+            X_shifted = strip_initial_conditions(
+                X_shifted,
+                estimator.min_samples_,
+                estimator.episode_feature_,
+            )
+            X_predicted = strip_initial_conditions(
+                X_predicted,
+                estimator.min_samples_,
+                estimator.episode_feature_,
+            )
             # Strip episode feature if present
             if estimator.episode_feature_:
                 X_shifted = X_shifted[:, 1:]
                 X_predicted = X_predicted[:, 1:]
             # Compute weights
-            weights: Optional[np.ndarray]
+            weights: Optional[np.ndarray]  # TODO BUG: Can't handle multiple episodes
             if multistep:
                 # Compute number of weights needed
                 n_samples = X_shifted.shape[0]
