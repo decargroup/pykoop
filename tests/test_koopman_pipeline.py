@@ -4,6 +4,7 @@ from scipy import integrate, linalg
 
 import pykoop
 import pykoop.dynamic_models
+import pykoop.koopman_pipeline
 
 
 def test_kp_transform_no_lf():
@@ -320,6 +321,225 @@ def test_combine_episodes(X, episodes, episode_feature):
     X_actual = pykoop.combine_episodes(episodes,
                                        episode_feature=episode_feature)
     np.testing.assert_allclose(X_actual, X)
+
+
+@pytest.mark.parametrize('X, min_samples, n_inputs, episode_feature, ic_exp', [
+    (
+        np.array([
+            [1, 2, 3, 4],
+            [4, 5, 6, 7],
+        ]).T,
+        1,
+        0,
+        False,
+        np.array([
+            [1],
+            [4],
+        ]).T,
+    ),
+    (
+        np.array([
+            [1, 2, 3, 4],
+            [4, 5, 6, 7],
+        ]).T,
+        2,
+        0,
+        False,
+        np.array([
+            [1, 2],
+            [4, 5],
+        ]).T,
+    ),
+    (
+        np.array([
+            [1, 2, 3, 4],
+            [4, 5, 6, 7],
+            [5, 5, 5, 5],
+        ]).T,
+        1,
+        1,
+        False,
+        np.array([
+            [1],
+            [4],
+        ]).T,
+    ),
+    (
+        np.array([
+            [0, 0, 1, 1],
+            [1, 2, 3, 4],
+            [4, 5, 6, 7],
+        ]).T,
+        1,
+        0,
+        True,
+        np.array([
+            [0, 1],
+            [1, 3],
+            [4, 6],
+        ]).T,
+    ),
+    (
+        np.array([
+            [0, 0, 1, 1],
+            [1, 2, 3, 4],
+            [4, 5, 6, 7],
+            [9, 9, 9, 9],
+        ]).T,
+        1,
+        1,
+        True,
+        np.array([
+            [0, 1],
+            [1, 3],
+            [4, 6],
+        ]).T,
+    ),
+    (
+        np.array([
+            [0, 0, 0, 1, 1, 1],
+            [1, 2, 2, 3, 4, 5],
+            [4, 5, 5, 6, 7, 6],
+            [9, 9, 9, 9, 9, 6],
+        ]).T,
+        2,
+        1,
+        True,
+        np.array([
+            [0, 0, 1, 1],
+            [1, 2, 3, 4],
+            [4, 5, 6, 7],
+        ]).T,
+    ),
+])
+def test_extract_initial_conditions(
+    X,
+    min_samples,
+    n_inputs,
+    episode_feature,
+    ic_exp,
+):
+    ic = pykoop.extract_initial_conditions(
+        X,
+        min_samples,
+        n_inputs,
+        episode_feature,
+    )
+    np.testing.assert_allclose(ic, ic_exp)
+
+
+@pytest.mark.parametrize('X, n_inputs, episode_feature, u_exp', [
+    (
+        np.array([
+            [1, 2, 3, 4],
+            [6, 7, 8, 9],
+        ]).T,
+        1,
+        False,
+        np.array([
+            [6, 7, 8, 9],
+        ]).T,
+    ),
+    (
+        np.array([
+            [1, 2, 3, 4],
+            [6, 7, 8, 9],
+        ]).T,
+        0,
+        False,
+        np.array([]).reshape((0, 4)).T,
+    ),
+    (
+        np.array([
+            [0, 0, 1, 1],
+            [1, 2, 3, 4],
+            [6, 7, 8, 9],
+        ]).T,
+        1,
+        True,
+        np.array([
+            [0, 0, 1, 1],
+            [6, 7, 8, 9],
+        ]).T,
+    ),
+])
+def test_extract_input(X, n_inputs, episode_feature, u_exp):
+    u = pykoop.extract_input(X, n_inputs, episode_feature)
+    np.testing.assert_allclose(u, u_exp)
+
+
+@pytest.mark.parametrize(
+    'X, n_steps, discount_factor, episode_feature, w_exp',
+    [
+        (
+            np.array([
+                [1, 2, 3, 4],
+                [5, 6, 7, 8],
+            ]).T,
+            2,
+            1,
+            False,
+            np.array([1, 1, 0, 0]),
+        ),
+        (
+            np.array([
+                [1, 2, 3, 4],
+                [5, 6, 7, 8],
+            ]).T,
+            3,
+            0.5,
+            False,
+            np.array([1, 0.5, 0.25, 0]),
+        ),
+        (
+            np.array([
+                [0, 0, 0, 1, 1, 1, 1],
+                [1, 2, 3, 4, 5, 6, 7],
+                [5, 6, 7, 8, 9, 10, 11],
+            ]).T,
+            2,
+            0.5,
+            True,
+            np.array([1, 0.5, 0, 1, 0.5, 0, 0]),
+        ),
+        (
+            np.array([
+                [0, 0, 0, 1, 1, 1, 1],
+                [1, 2, 3, 4, 5, 6, 7],
+                [5, 6, 7, 8, 9, 10, 11],
+            ]).T,
+            10,
+            1,
+            True,
+            np.array([1, 1, 1, 1, 1, 1, 1]),
+        ),
+        (
+            np.array([
+                [0, 0, 0, 1, 1, 1, 1],
+                [1, 2, 3, 4, 5, 6, 7],
+                [5, 6, 7, 8, 9, 10, 11],
+            ]).T,
+            10,
+            0.1,
+            True,
+            np.array([1, 0.1, 0.01, 1, 0.1, 0.01, 0.001]),
+        ),
+    ],
+)
+def test_weights_from_data_matrix(
+    X,
+    n_steps,
+    discount_factor,
+    episode_feature,
+    w_exp,
+):
+    w = pykoop.koopman_pipeline._weights_from_data_matrix(
+        X,
+        n_steps,
+        discount_factor,
+        episode_feature,
+    )
+    np.testing.assert_allclose(w, w_exp)
 
 
 @pytest.mark.parametrize('kp', [

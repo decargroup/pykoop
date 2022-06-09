@@ -2070,14 +2070,9 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         ----------
         .. [scorers] https://scikit-learn.org/stable/modules/model_evaluation.html  # noqa: E501
         """
-        # Check discount factor
-        if (discount_factor < 0) or (discount_factor > 1):
-            raise ValueError('`discount_factor` must be positive and less '
-                             'than one.')
         # Check other args
-        if not multistep:
-            if not relift_state:
-                log.info('Ignoring `relift_state` since `multistep` is false.')
+        if (not multistep) and (not relift_state):
+            log.info('Ignoring `relift_state` since `multistep` is false.')
         # Valid ``regression_metric`` values:
         regression_metrics = {
             'explained_variance':
@@ -2107,51 +2102,53 @@ class KoopmanPipeline(metaestimators._BaseComposition,
             X_unshifted, X_shifted = shift_episodes(
                 X,
                 n_inputs=estimator.n_inputs_in_,
-                episode_feature=estimator.episode_feature_)
+                episode_feature=estimator.episode_feature_,
+            )
             # Predict
             if multistep:
-                x0 = X_unshifted[  # TODO BUG: Can't handle multiple episodes
-                    :estimator.min_samples_,
-                    :estimator.n_states_in_
-                ]  # yapf: disable
-                u = X_unshifted[:, estimator.n_states_in_:]
+                # Get initial conditions for each episode
+                x0 = extract_initial_conditions(
+                    X_unshifted,
+                    min_samples=estimator.min_samples_,
+                    n_inputs=estimator.n_inputs_in_,
+                    episode_feature=estimator.episode_feature_,
+                )
+                # Get inputs for each episode
+                u = extract_input(
+                    X_unshifted,
+                    n_inputs=estimator.n_inputs_in_,
+                    episode_feature=estimator.episode_feature_,
+                )
+                # Predict state for each episode
                 X_predicted = estimator.predict_state(
                     x0,
                     u,
                     relift_state=relift_state,
-                )  # TODO BUG: Test with multiple episodes
+                )
             else:
                 X_predicted = estimator.predict(X_unshifted)
             # Strip episode feature and initial conditions
             X_shifted = strip_initial_conditions(
                 X_shifted,
-                estimator.min_samples_,
-                estimator.episode_feature_,
+                min_samples=estimator.min_samples_,
+                episode_feature=estimator.episode_feature_,
             )
             X_predicted = strip_initial_conditions(
                 X_predicted,
-                estimator.min_samples_,
-                estimator.episode_feature_,
+                min_samples=estimator.min_samples_,
+                episode_feature=estimator.episode_feature_,
             )
+            # Compute weights
+            weights = _weights_from_data_matrix(
+                X_shifted,
+                n_steps=n_steps,
+                discount_factor=discount_factor,
+                episode_feature=estimator.episode_feature_,
+            ) if multistep else None
             # Strip episode feature if present
             if estimator.episode_feature_:
                 X_shifted = X_shifted[:, 1:]
                 X_predicted = X_predicted[:, 1:]
-            # Compute weights
-            weights: Optional[np.ndarray]  # TODO BUG: Can't handle multiple episodes
-            if multistep:
-                # Compute number of weights needed
-                n_samples = X_shifted.shape[0]
-                if (n_steps is None) or (n_steps > n_samples):
-                    n_weights = n_samples
-                else:
-                    n_weights = n_steps
-                # Compute weights. Weights after ``n_steps`` are 0.
-                weights = np.array(
-                    [discount_factor**k for k in range(n_weights)]
-                    + [0] * (n_samples - n_weights))
-            else:
-                weights = None
             # Calculate score
             score = regression_metrics[regression_metric](
                 X_shifted,
@@ -2176,6 +2173,80 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         return self
 
 
+def extract_initial_conditions(
+    X: np.ndarray,
+    min_samples: int = 1,
+    n_inputs: int = 0,
+    episode_feature: bool = False,
+) -> np.ndarray:
+    """Extract initial conditions from each episode.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Data matrix.
+    min_samples : int
+        Number of samples in initial condition.
+    n_inputs : int
+        Number of input features at the end of ``X``.
+    episode_feature : bool
+        True if first feature indicates which episode a timestep is from.
+
+    Returns
+    -------
+    np.ndarray
+        Initial conditions from each episode.
+    """
+    episodes = split_episodes(X, episode_feature=episode_feature)
+    # Strip each episode
+    initial_conditions = []
+    for (i, X_i) in episodes:
+        if n_inputs == 0:
+            initial_condition = X_i[:min_samples, :]
+        else:
+            initial_condition = X_i[:min_samples, :-n_inputs]
+        initial_conditions.append((i, initial_condition))
+    # Concatenate the initial conditions
+    X0 = combine_episodes(initial_conditions, episode_feature=episode_feature)
+    return X0
+
+
+def extract_input(
+    X: np.ndarray,
+    n_inputs: int = 0,
+    episode_feature: bool = False,
+) -> np.ndarray:
+    """Extract input from a data matrix.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Data matrix.
+    n_inputs : int
+        Number of input features at the end of ``X``.
+    episode_feature : bool
+        True if first feature indicates which episode a timestep is from.
+
+    Returns
+    -------
+    np.ndarray
+        Input extracted from data matrix.
+    """
+    episodes = split_episodes(X, episode_feature=episode_feature)
+    # Strip each episode
+    inputs = []
+    for (i, X_i) in episodes:
+        if n_inputs == 0:
+            input_ = np.zeros((X_i.shape[0], 0))
+        else:
+            n_states = X_i.shape[1] - n_inputs
+            input_ = X_i[:, n_states:]
+        inputs.append((i, input_))
+    # Concatenate the inputs
+    u = combine_episodes(inputs, episode_feature=episode_feature)
+    return u
+
+
 def strip_initial_conditions(X: np.ndarray,
                              min_samples: int = 1,
                              episode_feature: bool = False) -> np.ndarray:
@@ -2189,6 +2260,11 @@ def strip_initial_conditions(X: np.ndarray,
         Number of samples in initial condition.
     episode_feature : bool
         True if first feature indicates which episode a timestep is from.
+
+    Returns
+    -------
+    np.ndarray
+        Data matrix with initial conditions removed.
     """
     episodes = split_episodes(X, episode_feature=episode_feature)
     # Strip each episode
@@ -2321,3 +2397,58 @@ def combine_episodes(episodes: List[Tuple[float, np.ndarray]],
     # Concatenate the combined episodes
     Xc = np.vstack(combined_episodes)
     return Xc
+
+
+def _weights_from_data_matrix(
+    X: np.ndarray,
+    n_steps: int = None,
+    discount_factor: float = 1,
+    episode_feature: bool = False,
+) -> np.ndarray:
+    """Create an array of scoring weights from a data matrix.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Data matrix
+    n_steps : int
+        Number of steps ahead to predict. If ``None`` or longer than the
+        episode, will weight the entire episode.
+    discount_factor : float
+        Discount factor used to weight the error timeseries. Should be
+        positive, with magnitude 1 or slightly less. The error at each
+        timestep is weighted by ``discount_factor**k``, where ``k`` is the
+        timestep.
+    episode_feature : bool
+        True if first feature indicates which episode a timestep is from.
+
+    Returns
+    -------
+    np.ndarray
+        Array of weights use for scoring.
+
+    Raises
+    ------
+    ValueError
+        If ``discount_factor`` is not in [0, 1].
+    """
+    # Check discount factor
+    if (discount_factor < 0) or (discount_factor > 1):
+        raise ValueError('`discount_factor` must be positive and less '
+                         'than one.')
+    weights_list = []
+    episodes = split_episodes(X, episode_feature=episode_feature)
+    for i, X_i in episodes:
+        # Compute number of nonzero weights needed
+        n_samples_i = X_i.shape[0]
+        if n_steps is None:
+            n_nonzero_weights_i = n_samples_i
+        else:
+            n_nonzero_weights_i = min(n_steps, n_samples_i)
+        # Compute weights. Weights after ``n_steps`` are 0.
+        weights_i = np.array(
+            [discount_factor**k for k in range(n_nonzero_weights_i)]
+            + [0] * (n_samples_i - n_nonzero_weights_i))
+        weights_list.append(weights_i)
+    weights = np.concatenate(weights_list)
+    return weights
