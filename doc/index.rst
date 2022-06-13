@@ -195,6 +195,7 @@ References
 .. [local] Giorgos Mamakoukas, Ian Abraham, and Todd D. Murphey. "Learning
    Stable Models for Prediction and Control." arXiv:2005.04291v2 [cs.RO]
    (2022). https://arxiv.org/abs/2005.04291v2  https://arxiv.org/abs/2010.09961v3
+.. [scorers] https://scikit-learn.org/stable/modules/model_evaluation.html
 
 Citation
 ========

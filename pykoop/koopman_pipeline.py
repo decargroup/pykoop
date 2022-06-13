@@ -1540,9 +1540,11 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         ValueError
             If constructor or fit parameters are incorrect.
         """
-        X = sklearn.utils.validation.check_array(X,
-                                                 ensure_min_samples=2,
-                                                 **self._check_array_params)
+        X = sklearn.utils.validation.check_array(
+            X,
+            ensure_min_samples=2,
+            **self._check_array_params,
+        )
         if self.regressor is None:
             raise ValueError(
                 '`regressor` must be specified in order to use `fit()`.')
@@ -2065,33 +2067,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         ------
         ValueError
             If ``discount_factor`` is negative or greater than one.
-
-        References
-        ----------
-        .. [scorers] https://scikit-learn.org/stable/modules/model_evaluation.html  # noqa: E501
         """
-        # Check other args
-        if (not multistep) and (not relift_state):
-            log.info('Ignoring `relift_state` since `multistep` is false.')
-        # Valid ``regression_metric`` values:
-        regression_metrics = {
-            'explained_variance':
-            sklearn.metrics.explained_variance_score,
-            'r2':
-            sklearn.metrics.r2_score,
-            'neg_mean_absolute_error':
-            sklearn.metrics.mean_absolute_error,
-            'neg_mean_squared_error':
-            sklearn.metrics.mean_squared_error,
-            'neg_mean_squared_log_error':
-            sklearn.metrics.mean_squared_log_error,
-            'neg_median_absolute_error':
-            sklearn.metrics.median_absolute_error,
-            'neg_mean_absolute_percentage_error':
-            sklearn.metrics.mean_absolute_percentage_error,
-        }
-        # Scores that do not need inversion
-        greater_is_better = ['explained_variance', 'r2']
 
         def koopman_pipeline_scorer(
             estimator: KoopmanPipeline,
@@ -2125,40 +2101,38 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                     u,
                     relift_state=relift_state,
                 )
+                # Score prediction
+                score = score_state(
+                    X_predicted,
+                    X_shifted,
+                    n_steps=n_steps,
+                    discount_factor=discount_factor,
+                    regression_metric=regression_metric,
+                    min_samples=estimator.min_samples_,
+                    episode_feature=estimator.episode_feature_,
+                )
             else:
+                # Warn about ignored non-default arguments
+                if not relift_state:
+                    log.info('Ignoring `relift_state` since `multistep` is '
+                             'false.')
+                if n_steps is not None:
+                    log.info('Ignoring `n_steps` since `multistep` is false.')
+                if discount_factor != 1:
+                    log.info('Ignoring `discount_factor` since `multistep` is '
+                             'false.')
+                # Perform single-step prediction
                 X_predicted = estimator.predict(X_unshifted)
-            # Strip episode feature and initial conditions
-            X_shifted = strip_initial_conditions(
-                X_shifted,
-                min_samples=estimator.min_samples_,
-                episode_feature=estimator.episode_feature_,
-            )
-            X_predicted = strip_initial_conditions(
-                X_predicted,
-                min_samples=estimator.min_samples_,
-                episode_feature=estimator.episode_feature_,
-            )
-            # Compute weights
-            weights = _weights_from_data_matrix(
-                X_shifted,
-                n_steps=n_steps,
-                discount_factor=discount_factor,
-                episode_feature=estimator.episode_feature_,
-            ) if multistep else None
-            # Strip episode feature if present
-            if estimator.episode_feature_:
-                X_shifted = X_shifted[:, 1:]
-                X_predicted = X_predicted[:, 1:]
-            # Calculate score
-            score = regression_metrics[regression_metric](
-                X_shifted,
-                X_predicted,
-                sample_weight=weights,
-                multioutput='uniform_average',
-            )
-            # Invert losses
-            if regression_metric not in greater_is_better:
-                score *= -1
+                # Score prediction
+                score = score_state(
+                    X_predicted,
+                    X_shifted,
+                    n_steps=None,
+                    discount_factor=1,
+                    regression_metric=regression_metric,
+                    min_samples=estimator.min_samples_,
+                    episode_feature=estimator.episode_feature_,
+                )
             return score
 
         return koopman_pipeline_scorer
@@ -2171,6 +2145,100 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         # noqa: D102
         self._set_params('lifting_functions', **kwargs)
         return self
+
+
+def score_state(
+    X_predicted: np.ndarray,
+    X_expected: np.ndarray,
+    n_steps: int = None,
+    discount_factor: float = 1,
+    regression_metric: str = 'neg_mean_squared_error',
+    min_samples: int = 1,
+    episode_feature: bool = False,
+) -> float:
+    """Score a predicted data matrix compared to an expected data matrix.
+
+    Parameters
+    ----------
+    X_predicted : np.ndarray
+        Predicted state data matrix.
+    X_expected : np.ndarray
+        Expected state data matrix.
+    n_steps : int
+        Number of steps ahead to predict. If ``None`` or longer than the
+        episode, will score the entire episode.
+    discount_factor : float
+        Discount factor used to weight the error timeseries. Should be
+        positive, with magnitude 1 or slightly less. The error at each
+        timestep is weighted by ``discount_factor**k``, where ``k`` is the
+        timestep.
+    regression_metric : str
+        Regression metric to use. One of ['explained_variance',
+        'neg_mean_absolute_error', 'neg_mean_squared_error',
+        'neg_mean_squared_log_error', 'neg_median_absolute_error', 'r2',
+        'neg_mean_absolute_percentage_error']. See [scorers]_.
+    min_samples : int
+        Number of samples in initial condition.
+    episode_feature : bool
+        True if first feature indicates which episode a timestep is from.
+
+    Returns
+    -------
+    float
+        Score (greater is better).
+    """
+    # Valid ``regression_metric`` values:
+    regression_metrics = {
+        'explained_variance':
+        sklearn.metrics.explained_variance_score,
+        'r2':
+        sklearn.metrics.r2_score,
+        'neg_mean_absolute_error':
+        sklearn.metrics.mean_absolute_error,
+        'neg_mean_squared_error':
+        sklearn.metrics.mean_squared_error,
+        'neg_mean_squared_log_error':
+        sklearn.metrics.mean_squared_log_error,
+        'neg_median_absolute_error':
+        sklearn.metrics.median_absolute_error,
+        'neg_mean_absolute_percentage_error':
+        sklearn.metrics.mean_absolute_percentage_error,
+    }
+    # Scores that do not need inversion
+    greater_is_better = ['explained_variance', 'r2']
+    # Strip episode feature and initial conditions
+    X_expected = strip_initial_conditions(
+        X_expected,
+        min_samples=min_samples,
+        episode_feature=episode_feature,
+    )
+    X_predicted = strip_initial_conditions(
+        X_predicted,
+        min_samples=min_samples,
+        episode_feature=episode_feature,
+    )
+    # Compute weights
+    weights = _weights_from_data_matrix(
+        X_expected,
+        n_steps=n_steps,
+        discount_factor=discount_factor,
+        episode_feature=episode_feature,
+    )
+    # Strip episode feature if present
+    if episode_feature:
+        X_expected = X_expected[:, 1:]
+        X_predicted = X_predicted[:, 1:]
+    # Calculate score
+    score = regression_metrics[regression_metric](
+        X_expected,
+        X_predicted,
+        sample_weight=weights,
+        multioutput='uniform_average',
+    )
+    # Invert losses
+    if regression_metric not in greater_is_better:
+        score *= -1
+    return score
 
 
 def extract_initial_conditions(
