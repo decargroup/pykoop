@@ -10,7 +10,6 @@ import pykoop.lmi_regressors
 # TODO This file is a nightmare
 
 
-
 @pytest.fixture(
     params=[
         (pykoop.Edmd(), 'msd-no-input', 1e-5, 1e-5, 'exact'),

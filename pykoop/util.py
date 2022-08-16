@@ -289,3 +289,46 @@ def example_data_msd() -> np.ndarray:
     # Stack data and return
     X_msd = np.vstack(X_msd_lst)
     return X_msd
+
+
+def example_data_vdp() -> np.ndarray:
+    """Get example Van der Pol oscillator data.
+
+    Returns
+    -------
+    np.ndarray
+        Sample Van der Pol oscillator data.
+    """
+    # Create Van der Pol object
+    t_step = 0.01
+    vdp = dynamic_models.DiscreteVanDerPol(t_step, mu=2)
+    # Initial conditions and inputs
+    t_range = (0, 10)
+    t = np.arange(*t_range, t_step)
+    conditions = [
+        (0, np.array([1, 0]), 0.1 * np.sin(t)),
+        (1, np.array([0, 1]), 0.2 * np.cos(t)),
+        (2, np.array([-1, 0]), -0.2 * np.sin(t)),
+        (3, np.array([0, -1]), -0.1 * np.cos(t)),
+        (4, np.array([0.5, 0]), 0.1 * np.cos(t)),
+    ]
+    X_vdp_lst = []
+    # Loop over initial conditions and inputs
+    for ep, x0, u in conditions:
+        # Simulate ODE
+        t, x = vdp.simulate(
+            t_range=t_range,
+            t_step=t_step,
+            x0=vdp.x0(x0),
+            u=u,
+        )
+        # Format the data
+        X_vdp_lst.append(
+            np.hstack((
+                ep * np.ones((t.shape[0], 1)),
+                x,
+                np.reshape(u, (-1, 1)),
+            )))
+    # Stack data and return
+    X_vdp = np.vstack(X_vdp_lst)
+    return X_vdp

@@ -4,6 +4,7 @@ from scipy import integrate, linalg
 
 import pykoop
 import pykoop.dynamic_models
+import pykoop.koopman_pipeline
 
 
 def test_kp_transform_no_lf():
@@ -322,6 +323,411 @@ def test_combine_episodes(X, episodes, episode_feature):
     np.testing.assert_allclose(X_actual, X)
 
 
+@pytest.mark.parametrize(
+    'params',
+    [
+        {
+            'X_predicted': np.array([
+                [1, 2, 3, 4],
+                [2, 3, 3, 2],
+            ]).T,
+            'X_expected': np.array([
+                [1, 2, 3, 4],
+                [2, 3, 3, 2],
+            ]).T,
+            'n_steps': None,
+            'discount_factor': 1,
+            'regression_metric': 'neg_mean_squared_error',
+            'min_samples': 1,
+            'episode_feature': False,
+            'score_exp': 0,
+        },
+        {
+            'X_predicted': np.array([
+                [1, 2],
+                [2, 3],
+            ]).T,
+            'X_expected': np.array([
+                [1, 4],
+                [2, 2],
+            ]).T,
+            'n_steps': None,
+            'discount_factor': 1,
+            'regression_metric': 'neg_mean_squared_error',
+            'min_samples': 1,
+            'episode_feature': False,
+            'score_exp': -np.mean([2**2, 1]),
+        },
+        {
+            'X_predicted': np.array([
+                [1, 2, 3, 5],
+            ]).T,
+            'X_expected': np.array([
+                [1, 2, 3, 3],
+            ]).T,
+            'n_steps': None,
+            'discount_factor': 1,
+            'regression_metric': 'neg_mean_squared_error',
+            'multistep': True,
+            'min_samples': 1,
+            'episode_feature': False,
+            'score_exp': -np.mean([0, 0, 2**2]),
+        },
+        {
+            'X_predicted': np.array([
+                [1, 2, 3, 5],
+            ]).T,
+            'X_expected': np.array([
+                [1, 2, 3, 3],
+            ]).T,
+            'n_steps': None,
+            'discount_factor': 1,
+            'regression_metric': 'neg_mean_absolute_error',
+            'multistep': True,
+            'min_samples': 1,
+            'episode_feature': False,
+            'score_exp': -np.mean([0, 0, 2]),
+        },
+        {
+            'X_predicted': np.array([
+                [1, 2, 3, 5],
+            ]).T,
+            'X_expected': np.array([
+                [1, 2, 3, 4],
+            ]).T,
+            'n_steps': None,
+            'discount_factor': 1,
+            'regression_metric': 'neg_mean_squared_error',
+            'min_samples': 2,
+            'episode_feature': False,
+            'score_exp': -np.mean([0, 1]),
+        },
+        {
+            'X_predicted': np.array([
+                [1, 2, 3, 5],
+            ]).T,
+            'X_expected': np.array([
+                [1, 2, 3, 4],
+            ]).T,
+            'n_steps': 2,
+            'discount_factor': 1,
+            'regression_metric': 'neg_mean_squared_error',
+            'min_samples': 1,
+            'episode_feature': False,
+            'score_exp': 0,
+        },
+        {
+            'X_predicted': np.array([
+                [1, 2, 3, 5],
+            ]).T,
+            'X_expected': np.array([
+                [1, 2, 3, 4],
+            ]).T,
+            'n_steps': None,
+            'discount_factor': 0.5,
+            'regression_metric': 'neg_mean_squared_error',
+            'min_samples': 1,
+            'episode_feature': False,
+            # (0 * 1 + 0 * 0.5 + 1 * 0.25) / (1 + 0.5 + 0.25)
+            'score_exp': -0.25 / 1.75,
+        },
+        {
+            'X_predicted': np.array([
+                [0, 0, 0, 1, 1, 1],
+                [1, 2, 3, 4, 5, 6],
+            ]).T,
+            'X_expected': np.array([
+                [0, 0, 0, 1, 1, 1],
+                [1, 2, 4, 4, 6, 6],
+            ]).T,
+            'n_steps': None,
+            'discount_factor': 1,
+            'regression_metric': 'neg_mean_squared_error',
+            'min_samples': 1,
+            'episode_feature': True,
+            'score_exp': -np.mean([0, 1, 1, 0]),
+        },
+        {
+            'X_predicted': np.array([
+                [0, 0, 0, 1, 1, 1],
+                [1, 2, 3, 4, 5, 6],
+            ]).T,
+            'X_expected': np.array([
+                [0, 0, 0, 1, 1, 1],
+                [1, 2, 4, 4, 6, 6],
+            ]).T,
+            'n_steps': 1,
+            'discount_factor': 1,
+            'regression_metric': 'neg_mean_squared_error',
+            'min_samples': 1,
+            'episode_feature': True,
+            'score_exp': -np.mean([0, 1]),
+        },
+        {
+            'X_predicted': np.array([
+                [0, 0, 0, 1, 1, 1],
+                [1, 2, 3, 4, 5, 6],
+            ]).T,
+            'X_expected': np.array([
+                [0, 0, 0, 1, 1, 1],
+                [1, 2, 4, 4, 6, 6],
+            ]).T,
+            'n_steps': None,
+            'discount_factor': 0.5,
+            'regression_metric': 'neg_mean_squared_error',
+            'min_samples': 1,
+            'episode_feature': True,
+            'score_exp': -(0.5 + 1) / (1 + 0.5 + 1 + 0.5),
+        },
+        {
+            'X_predicted': np.array([
+                [0, 0, 0, 1, 1, 1],
+                [1, 2, 3, 4, 5, 6],
+            ]).T,
+            'X_expected': np.array([
+                [0, 0, 0, 1, 1, 1],
+                [1, 2, 4, 4, 6, 6],
+            ]).T,
+            'n_steps': 1,
+            'discount_factor': 0.5,
+            'regression_metric': 'neg_mean_squared_error',
+            'min_samples': 1,
+            'episode_feature': True,
+            'score_exp': -(0 + 1) / (1 + 0 + 1 + 0),
+        },
+    ])
+def test_score_state(params):
+    score = pykoop.score_state(
+        params['X_predicted'],
+        params['X_expected'],
+        params['n_steps'],
+        params['discount_factor'],
+        params['regression_metric'],
+        params['min_samples'],
+        params['episode_feature'],
+    )
+    np.testing.assert_allclose(score, params['score_exp'])
+
+
+@pytest.mark.parametrize('X, min_samples, n_inputs, episode_feature, ic_exp', [
+    (
+        np.array([
+            [1, 2, 3, 4],
+            [4, 5, 6, 7],
+        ]).T,
+        1,
+        0,
+        False,
+        np.array([
+            [1],
+            [4],
+        ]).T,
+    ),
+    (
+        np.array([
+            [1, 2, 3, 4],
+            [4, 5, 6, 7],
+        ]).T,
+        2,
+        0,
+        False,
+        np.array([
+            [1, 2],
+            [4, 5],
+        ]).T,
+    ),
+    (
+        np.array([
+            [1, 2, 3, 4],
+            [4, 5, 6, 7],
+            [5, 5, 5, 5],
+        ]).T,
+        1,
+        1,
+        False,
+        np.array([
+            [1],
+            [4],
+        ]).T,
+    ),
+    (
+        np.array([
+            [0, 0, 1, 1],
+            [1, 2, 3, 4],
+            [4, 5, 6, 7],
+        ]).T,
+        1,
+        0,
+        True,
+        np.array([
+            [0, 1],
+            [1, 3],
+            [4, 6],
+        ]).T,
+    ),
+    (
+        np.array([
+            [0, 0, 1, 1],
+            [1, 2, 3, 4],
+            [4, 5, 6, 7],
+            [9, 9, 9, 9],
+        ]).T,
+        1,
+        1,
+        True,
+        np.array([
+            [0, 1],
+            [1, 3],
+            [4, 6],
+        ]).T,
+    ),
+    (
+        np.array([
+            [0, 0, 0, 1, 1, 1],
+            [1, 2, 2, 3, 4, 5],
+            [4, 5, 5, 6, 7, 6],
+            [9, 9, 9, 9, 9, 6],
+        ]).T,
+        2,
+        1,
+        True,
+        np.array([
+            [0, 0, 1, 1],
+            [1, 2, 3, 4],
+            [4, 5, 6, 7],
+        ]).T,
+    ),
+])
+def test_extract_initial_conditions(
+    X,
+    min_samples,
+    n_inputs,
+    episode_feature,
+    ic_exp,
+):
+    ic = pykoop.extract_initial_conditions(
+        X,
+        min_samples,
+        n_inputs,
+        episode_feature,
+    )
+    np.testing.assert_allclose(ic, ic_exp)
+
+
+@pytest.mark.parametrize('X, n_inputs, episode_feature, u_exp', [
+    (
+        np.array([
+            [1, 2, 3, 4],
+            [6, 7, 8, 9],
+        ]).T,
+        1,
+        False,
+        np.array([
+            [6, 7, 8, 9],
+        ]).T,
+    ),
+    (
+        np.array([
+            [1, 2, 3, 4],
+            [6, 7, 8, 9],
+        ]).T,
+        0,
+        False,
+        np.array([]).reshape((0, 4)).T,
+    ),
+    (
+        np.array([
+            [0, 0, 1, 1],
+            [1, 2, 3, 4],
+            [6, 7, 8, 9],
+        ]).T,
+        1,
+        True,
+        np.array([
+            [0, 0, 1, 1],
+            [6, 7, 8, 9],
+        ]).T,
+    ),
+])
+def test_extract_input(X, n_inputs, episode_feature, u_exp):
+    u = pykoop.extract_input(X, n_inputs, episode_feature)
+    np.testing.assert_allclose(u, u_exp)
+
+
+@pytest.mark.parametrize(
+    'X, n_steps, discount_factor, episode_feature, w_exp',
+    [
+        (
+            np.array([
+                [1, 2, 3, 4],
+                [5, 6, 7, 8],
+            ]).T,
+            2,
+            1,
+            False,
+            np.array([1, 1, 0, 0]),
+        ),
+        (
+            np.array([
+                [1, 2, 3, 4],
+                [5, 6, 7, 8],
+            ]).T,
+            3,
+            0.5,
+            False,
+            np.array([1, 0.5, 0.25, 0]),
+        ),
+        (
+            np.array([
+                [0, 0, 0, 1, 1, 1, 1],
+                [1, 2, 3, 4, 5, 6, 7],
+                [5, 6, 7, 8, 9, 10, 11],
+            ]).T,
+            2,
+            0.5,
+            True,
+            np.array([1, 0.5, 0, 1, 0.5, 0, 0]),
+        ),
+        (
+            np.array([
+                [0, 0, 0, 1, 1, 1, 1],
+                [1, 2, 3, 4, 5, 6, 7],
+                [5, 6, 7, 8, 9, 10, 11],
+            ]).T,
+            10,
+            1,
+            True,
+            np.array([1, 1, 1, 1, 1, 1, 1]),
+        ),
+        (
+            np.array([
+                [0, 0, 0, 1, 1, 1, 1],
+                [1, 2, 3, 4, 5, 6, 7],
+                [5, 6, 7, 8, 9, 10, 11],
+            ]).T,
+            10,
+            0.1,
+            True,
+            np.array([1, 0.1, 0.01, 1, 0.1, 0.01, 0.001]),
+        ),
+    ],
+)
+def test_weights_from_data_matrix(
+    X,
+    n_steps,
+    discount_factor,
+    episode_feature,
+    w_exp,
+):
+    w = pykoop.koopman_pipeline._weights_from_data_matrix(
+        X,
+        n_steps,
+        discount_factor,
+        episode_feature,
+    )
+    np.testing.assert_allclose(w, w_exp)
+
+
 @pytest.mark.parametrize('kp', [
     pykoop.KoopmanPipeline(
         lifting_functions=[
@@ -613,6 +1019,110 @@ test_split_lf_params = [
 ]
 
 
+@pytest.mark.parametrize('kp', [
+    pykoop.KoopmanPipeline(
+        lifting_functions=[
+            ('dl', pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1))
+        ],
+        regressor=pykoop.Edmd(),
+    ),
+    pykoop.KoopmanPipeline(
+        lifting_functions=[
+            ('dla', pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2)),
+            ('dlb', pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2)),
+        ],
+        regressor=pykoop.Edmd(),
+    ),
+    pykoop.KoopmanPipeline(
+        lifting_functions=[
+            ('dla', pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=1)),
+            ('ply', pykoop.PolynomialLiftingFn(order=2)),
+            ('dlb', pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=2)),
+        ],
+        regressor=pykoop.Edmd(),
+    ),
+    pykoop.KoopmanPipeline(
+        lifting_functions=[
+            (
+                'sp',
+                pykoop.SplitPipeline(
+                    lifting_functions_state=[
+                        ('pl', pykoop.PolynomialLiftingFn(order=2)),
+                    ],
+                    lifting_functions_input=None,
+                ),
+            ),
+            ('dl', pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2)),
+        ],
+        regressor=pykoop.Edmd(),
+    ),
+    pykoop.KoopmanPipeline(
+        lifting_functions=[
+            ('dla', pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1)),
+            (
+                'sp',
+                pykoop.SplitPipeline(
+                    lifting_functions_state=[
+                        ('pla', pykoop.PolynomialLiftingFn(order=2)),
+                        ('plb', pykoop.PolynomialLiftingFn(order=2)),
+                    ],
+                    lifting_functions_input=[
+                        ('plc', pykoop.PolynomialLiftingFn(order=2)),
+                    ],
+                ),
+            ),
+            ('dlb', pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1)),
+        ],
+        regressor=pykoop.Edmd(),
+    ),
+])
+def test_predict_state(kp):
+    # Set up problem
+    t_range = (0, 5)
+    t_step = 0.1
+    msd = pykoop.dynamic_models.MassSpringDamper(0.5, 0.7, 0.6)
+
+    def u(t):
+        return 0.1 * np.sin(t)
+
+    # Solve ODE for training data
+    x0 = np.array([0, 0])
+    t, x = msd.simulate(t_range, t_step, x0, u, rtol=1e-8, atol=1e-8)
+
+    # Compute input at every training point
+    u_sim = np.reshape(u(t), (-1, 1))
+    # Format data
+    X = np.hstack((
+        np.zeros((t.shape[0] - 1, 1)),
+        x[:-1, :],
+        u_sim[:-1, :],
+    ))
+    # Fit estimator
+    kp.fit(X, n_inputs=1, episode_feature=True)
+    n_samp = kp.min_samples_
+
+    X_sim = kp.predict_state(
+        x[:n_samp, :],
+        u_sim,
+        episode_feature=False,
+        relift_state=True,
+    )
+
+    # Predict manually
+    X_sim_exp = np.empty(x.shape)
+    X_sim_exp[:, :n_samp] = x[:, :n_samp]
+    for k in range(n_samp, t.shape[0]):
+        X = np.hstack((
+            np.zeros((n_samp, 1)),
+            X_sim_exp[(k - n_samp):k, :],
+            u_sim[(k - n_samp):k, :],
+        ))
+        Xp = kp.predict(X)
+        X_sim_exp[[k], :] = Xp[[-1], 1:]
+
+    np.testing.assert_allclose(X_sim, X_sim_exp)
+
+
 @pytest.mark.parametrize('lf, X, Xt_exp, n_inputs, episode_feature, attr_exp',
                          test_split_lf_params)
 def test_split_lifting_fn_attrs(lf, X, Xt_exp, n_inputs, episode_feature,
@@ -661,17 +1171,15 @@ def test_strip_initial_conditons():
     np.testing.assert_allclose(X1s, X2s)
 
 
-@pytest.fixture(
-    params=[
-        pykoop.PolynomialLiftingFn(order=2),
-        pykoop.KoopmanPipeline(
-            lifting_functions=[
-                ('p', pykoop.PolynomialLiftingFn(order=2)),
-            ],
-            regressor=pykoop.Edmd(),
-        )
-    ]
-)
+@pytest.fixture(params=[
+    pykoop.PolynomialLiftingFn(order=2),
+    pykoop.KoopmanPipeline(
+        lifting_functions=[
+            ('p', pykoop.PolynomialLiftingFn(order=2)),
+        ],
+        regressor=pykoop.Edmd(),
+    )
+])
 def lift_retract_fixture(request):
     lf = request.param
     X = np.array([

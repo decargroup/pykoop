@@ -130,6 +130,16 @@ The documentation can be compiled using
     $ cd doc
     $ make html
 
+If you want a hook to check source code formatting before allowing a commit,
+you can use
+
+.. code-block:: sh
+
+   $ cd .git/hooks/
+   $ ln -s ../../.githooks/pre-commit.sh .
+   $ chmod +x ./pre-commit.sh
+
+You will need ``yapf`` installed for this.
 
 Related packages
 ================

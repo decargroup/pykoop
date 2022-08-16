@@ -92,14 +92,20 @@ episode feature.
 """
 
 import abc
+import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas
 import sklearn.base
 import sklearn.metrics
+from deprecated import deprecated
 
 from ._sklearn_metaestimators import metaestimators
+
+# Create logger
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 
 class _LiftRetractMixin(metaclass=abc.ABCMeta):
@@ -1395,8 +1401,7 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
 class KoopmanPipeline(metaestimators._BaseComposition,
                       sklearn.base.BaseEstimator,
-                      sklearn.base.TransformerMixin,
-                      _LiftRetractMixin):
+                      sklearn.base.TransformerMixin, _LiftRetractMixin):
     """Meta-estimator for chaining lifting functions with an estimator.
 
     Attributes
@@ -1535,9 +1540,11 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         ValueError
             If constructor or fit parameters are incorrect.
         """
-        X = sklearn.utils.validation.check_array(X,
-                                                 ensure_min_samples=2,
-                                                 **self._check_array_params)
+        X = sklearn.utils.validation.check_array(
+            X,
+            ensure_min_samples=2,
+            **self._check_array_params,
+        )
         if self.regressor is None:
             raise ValueError(
                 '`regressor` must be specified in order to use `fit()`.')
@@ -1754,6 +1761,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         score = scorer(self, X, None)
         return score
 
+    @deprecated('Use `predict_state` instead')
     def predict_multistep(self, X: np.ndarray) -> np.ndarray:
         """Perform a multi-step prediction for the first state of each episode.
 
@@ -1829,12 +1837,187 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                                episode_feature=self.episode_feature_)
         return X_p
 
+    def predict_state(
+        self,
+        X_initial: np.ndarray,
+        U: np.ndarray,
+        relift_state: bool = True,
+        return_lifted: bool = False,
+        return_input: bool = False,
+        episode_feature: bool = None,
+    ) -> np.ndarray:
+        """Predict state given input for each episode.
+
+        Parameters
+        ----------
+        X_initial : np.ndarray
+            Initial state.
+        U : np.ndarray
+            Input. Length of prediction is governed by length of input.
+        relift_state : bool
+            If true, retract and re-lift state between prediction steps
+            (default). Otherwise, only retract the state after all predictions
+            are made. Correspond to the local and global error definitions of
+            [local]_.
+        return_lifted : bool
+            If true, return the lifted state. If false, return the original
+            state (default).
+        return_input : bool
+            If true, return the input as well as the state. If false, return
+            only the original state (default).
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
+
+        Returns
+        -------
+        np.ndarray
+            Predicted state. If ``return_input``, input is appended to the
+            array. If ``return_lifted``, the predicted state (and input) are
+            returned in the lifted space.
+
+        Raises
+        ------
+        ValueError
+            If an episode is shorter than ``min_samples_``.
+        """
+        # Check fit
+        sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
+        # Set episode feature if unspecified
+        if episode_feature is None:
+            episode_feature = self.episode_feature_
+        # Get Koopman ``A`` and ``B`` matrices
+        koop_mat = self.regressor_.coef_.T
+        A = koop_mat[:, :koop_mat.shape[0]]
+        B = koop_mat[:, koop_mat.shape[0]:]
+        # Split episodes
+        ep_X0 = split_episodes(X_initial, episode_feature=episode_feature)
+        ep_U = split_episodes(U, episode_feature=episode_feature)
+        episodes = [(ex[0], ex[1], eu[1]) for (ex, eu) in zip(ep_X0, ep_U)]
+        # Predict for each episode
+        predictions: List[Tuple[float, np.ndarray]] = []
+        for (i, X0_i, U_i) in episodes:
+            # Check length of episode.
+            if X0_i.shape[0] != self.min_samples_:
+                raise ValueError(f'Initial condition in episode {i} has '
+                                 f'{X0_i.shape[0]} samples but `min_samples_`='
+                                 f'{self.min_samples_} samples are required.')
+            if U_i.shape[0] < self.min_samples_:
+                raise ValueError(f'Input in episode {i} has {U_i.shape[0]} '
+                                 'samples but at least `min_samples_`='
+                                 f'{self.min_samples_} samples are required.')
+            crash_index = None
+            # Iterate over episode and make predictions
+            if relift_state:
+                # Number of steps in episode
+                n_steps_i = U_i.shape[0]
+                # Initial conditions
+                X_i = np.zeros((n_steps_i, self.n_states_in_))
+                X_i[:self.min_samples_, :] = X0_i
+                for k in range(self.min_samples_, n_steps_i):
+                    try:
+                        # Lift state and input
+                        window = np.s_[(k - self.min_samples_):k]
+                        Theta_ikm1 = self.lift_state(
+                            X_i[window, :],
+                            episode_feature=False,
+                        )
+                        Upsilon_ikm1 = self.lift_input(
+                            np.hstack((X_i[window, :], U_i[window, :])),
+                            episode_feature=False,
+                        )
+                        # Predict
+                        Theta_ik = Theta_ikm1 @ A.T + Upsilon_ikm1 @ B.T
+                        # Retract. If more than one sample is returned by
+                        # ``retract_state``, take only the last one. This will
+                        # happen if there's a delay lifting function.
+                        X_i[[k], :] = self.retract_state(
+                            Theta_ik,
+                            episode_feature=False,
+                        )[[-1], :]
+                    except ValueError as ve:
+                        if (np.all(np.isfinite(Theta_ikm1))
+                                and np.all(np.isfinite(X_i))
+                                and np.all(np.isfinite(U_i))
+                                and np.all(np.isfinite(Upsilon_ikm1))
+                                and np.all(np.isfinite(Theta_ik))):
+                            raise ve
+                        else:
+                            crash_index = k - 1
+                            X_i[crash_index:, :] = 0
+                            break
+                Theta_i = self.lift_state(X_i, episode_feature=False)
+                Upsilon_i = self.lift_input(
+                    np.hstack((X_i, U_i)),
+                    episode_feature=False,
+                )
+            else:
+                # Number of steps in episode
+                n_steps_i = U_i.shape[0] - self.min_samples_
+                # Initial conditions
+                Theta_i = np.zeros((n_steps_i, self.n_states_out_))
+                Upsilon_i = np.zeros((n_steps_i, self.n_inputs_out_))
+                Theta_i[[0], :] = self.lift_state(X0_i, episode_feature=False)
+                for k in range(1, n_steps_i + 1):
+                    try:
+                        X_ikm1 = self.retract_state(
+                            Theta_i[[k - 1], :],
+                            episode_feature=False,
+                        )
+                        window = np.s_[k:(k + self.min_samples_)]
+                        Upsilon_i[[k - 1], :] = self.lift_input(
+                            np.hstack((X_ikm1, U_i[window, :])),
+                            episode_feature=False,
+                        )
+                        # Predict
+                        if k < n_steps_i:
+                            Theta_i[[k], :] = (Theta_i[[k - 1], :] @ A.T
+                                               + Upsilon_i[[k - 1], :] @ B.T)
+                    except ValueError as ve:
+                        if (np.all(np.isfinite(X_ikm1))
+                                and np.all(np.isfinite(Theta_i))
+                                and np.all(np.isfinite(Upsilon_i))
+                                and np.all(np.isfinite(U_i))):
+                            raise ve
+                        else:
+                            crash_index = k - 1
+                            Theta_i[crash_index:, :] = 0
+                            Upsilon_i[crash_index:, :] = 0
+                            break
+                X_i = self.retract_state(Theta_i, episode_feature=False)
+            # If prediction crashed, set remaining entries to NaN
+            if crash_index is not None:
+                log.warning(f'Prediction diverged at index {crash_index}. '
+                            'Remaining entries set to `NaN`.')
+                # Don't set ``U_i`` to NaN since it's a known input
+                X_i[crash_index:, :] = np.nan
+                Theta_i[crash_index:, :] = np.nan
+                Upsilon_i[crash_index:, :] = np.nan
+            # Choose what to return
+            if return_lifted:
+                if return_input:
+                    predictions.append((i, np.hstack((Theta_i, Upsilon_i))))
+                else:
+                    predictions.append((i, Theta_i))
+            else:
+                if return_input:
+                    predictions.append((i, np.hstack((X_i, U_i))))
+                else:
+                    predictions.append((i, X_i))
+        # Combine episodes
+        combined_episodes = combine_episodes(
+            predictions,
+            episode_feature=episode_feature,
+        )
+        return combined_episodes
+
     @staticmethod
     def make_scorer(
         n_steps: int = None,
         discount_factor: float = 1,
         regression_metric: str = 'neg_mean_squared_error',
-        multistep: bool = True
+        multistep: bool = True,
+        relift_state: bool = True,
     ) -> Callable[['KoopmanPipeline', np.ndarray, Optional[np.ndarray]],
                   float]:
         """Make a Koopman pipeline scorer.
@@ -1864,11 +2047,16 @@ class KoopmanPipeline(metaestimators._BaseComposition,
             'neg_mean_squared_log_error', 'neg_median_absolute_error', 'r2',
             'neg_mean_absolute_percentage_error']. See [scorers]_.
         multistep : bool
-            If true, predict using :func:`predict_multistep`. Otherwise,
+            If true, predict using :func:`predict_state`. Otherwise,
             predict using :func:`predict` (one-step-ahead prediction).
             Multistep prediction is highly recommended unless debugging. If
             one-step-ahead prediciton is used, `n_steps` and `discount_factor`
             are ignored.
+        relift_state : bool
+            If true, retract and re-lift state between prediction steps
+            (default). Otherwise, only retract the state after all predictions
+            are made. Correspond to the local and global error definitions of
+            [local]_. Ignored if ``multistep`` is false.
 
         Returns
         -------
@@ -1879,85 +2067,72 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         ------
         ValueError
             If ``discount_factor`` is negative or greater than one.
-
-        References
-        ----------
-        .. [scorers] https://scikit-learn.org/stable/modules/model_evaluation.html  # noqa: E501
         """
-        # Check discount factor
-        if (discount_factor < 0) or (discount_factor > 1):
-            raise ValueError('`discount_factor` must be positive and less '
-                             'than one.')
 
-        # Valid ``regression_metric`` values:
-        regression_metrics = {
-            'explained_variance':
-            sklearn.metrics.explained_variance_score,
-            'r2':
-            sklearn.metrics.r2_score,
-            'neg_mean_absolute_error':
-            sklearn.metrics.mean_absolute_error,
-            'neg_mean_squared_error':
-            sklearn.metrics.mean_squared_error,
-            'neg_mean_squared_log_error':
-            sklearn.metrics.mean_squared_log_error,
-            'neg_median_absolute_error':
-            sklearn.metrics.median_absolute_error,
-            'neg_mean_absolute_percentage_error':
-            sklearn.metrics.mean_absolute_percentage_error,
-        }
-        # Scores that do not need inversion
-        greater_is_better = ['explained_variance', 'r2']
-
-        def koopman_pipeline_scorer(estimator: KoopmanPipeline,
-                                    X: np.ndarray,
-                                    y: np.ndarray = None) -> float:
+        def koopman_pipeline_scorer(
+            estimator: KoopmanPipeline,
+            X: np.ndarray,
+            y: np.ndarray = None,
+        ) -> float:
             # Shift episodes
             X_unshifted, X_shifted = shift_episodes(
                 X,
                 n_inputs=estimator.n_inputs_in_,
-                episode_feature=estimator.episode_feature_)
+                episode_feature=estimator.episode_feature_,
+            )
             # Predict
             if multistep:
-                X_predicted = estimator.predict_multistep(X_unshifted)
+                # Get initial conditions for each episode
+                x0 = extract_initial_conditions(
+                    X_unshifted,
+                    min_samples=estimator.min_samples_,
+                    n_inputs=estimator.n_inputs_in_,
+                    episode_feature=estimator.episode_feature_,
+                )
+                # Get inputs for each episode
+                u = extract_input(
+                    X_unshifted,
+                    n_inputs=estimator.n_inputs_in_,
+                    episode_feature=estimator.episode_feature_,
+                )
+                # Predict state for each episode
+                X_predicted = estimator.predict_state(
+                    x0,
+                    u,
+                    relift_state=relift_state,
+                )
+                # Score prediction
+                score = score_state(
+                    X_predicted,
+                    X_shifted,
+                    n_steps=n_steps,
+                    discount_factor=discount_factor,
+                    regression_metric=regression_metric,
+                    min_samples=estimator.min_samples_,
+                    episode_feature=estimator.episode_feature_,
+                )
             else:
+                # Warn about ignored non-default arguments
+                if not relift_state:
+                    log.info('Ignoring `relift_state` since `multistep` is '
+                             'false.')
+                if n_steps is not None:
+                    log.info('Ignoring `n_steps` since `multistep` is false.')
+                if discount_factor != 1:
+                    log.info('Ignoring `discount_factor` since `multistep` is '
+                             'false.')
+                # Perform single-step prediction
                 X_predicted = estimator.predict(X_unshifted)
-            # Strip episode feature and initial conditions
-            X_shifted = strip_initial_conditions(X_shifted,
-                                                 estimator.min_samples_,
-                                                 estimator.episode_feature_)
-            X_predicted = strip_initial_conditions(X_predicted,
-                                                   estimator.min_samples_,
-                                                   estimator.episode_feature_)
-            # Strip episode feature if present
-            if estimator.episode_feature_:
-                X_shifted = X_shifted[:, 1:]
-                X_predicted = X_predicted[:, 1:]
-            # Compute weights
-            weights: Optional[np.ndarray]
-            if multistep:
-                # Compute number of weights needed
-                n_samples = X_shifted.shape[0]
-                if (n_steps is None) or (n_steps > n_samples):
-                    n_weights = n_samples
-                else:
-                    n_weights = n_steps
-                # Compute weights. Weights after ``n_steps`` are 0.
-                weights = np.array(
-                    [discount_factor**k for k in range(n_weights)]
-                    + [0] * (n_samples - n_weights))
-            else:
-                weights = None
-            # Calculate score
-            score = regression_metrics[regression_metric](
-                X_shifted,
-                X_predicted,
-                sample_weight=weights,
-                multioutput='uniform_average',
-            )
-            # Invert losses
-            if regression_metric not in greater_is_better:
-                score *= -1
+                # Score prediction
+                score = score_state(
+                    X_predicted,
+                    X_shifted,
+                    n_steps=None,
+                    discount_factor=1,
+                    regression_metric=regression_metric,
+                    min_samples=estimator.min_samples_,
+                    episode_feature=estimator.episode_feature_,
+                )
             return score
 
         return koopman_pipeline_scorer
@@ -1970,6 +2145,174 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         # noqa: D102
         self._set_params('lifting_functions', **kwargs)
         return self
+
+
+def score_state(
+    X_predicted: np.ndarray,
+    X_expected: np.ndarray,
+    n_steps: int = None,
+    discount_factor: float = 1,
+    regression_metric: str = 'neg_mean_squared_error',
+    min_samples: int = 1,
+    episode_feature: bool = False,
+) -> float:
+    """Score a predicted data matrix compared to an expected data matrix.
+
+    Parameters
+    ----------
+    X_predicted : np.ndarray
+        Predicted state data matrix.
+    X_expected : np.ndarray
+        Expected state data matrix.
+    n_steps : int
+        Number of steps ahead to predict. If ``None`` or longer than the
+        episode, will score the entire episode.
+    discount_factor : float
+        Discount factor used to weight the error timeseries. Should be
+        positive, with magnitude 1 or slightly less. The error at each
+        timestep is weighted by ``discount_factor**k``, where ``k`` is the
+        timestep.
+    regression_metric : str
+        Regression metric to use. One of ['explained_variance',
+        'neg_mean_absolute_error', 'neg_mean_squared_error',
+        'neg_mean_squared_log_error', 'neg_median_absolute_error', 'r2',
+        'neg_mean_absolute_percentage_error']. See [scorers]_.
+    min_samples : int
+        Number of samples in initial condition.
+    episode_feature : bool
+        True if first feature indicates which episode a timestep is from.
+
+    Returns
+    -------
+    float
+        Score (greater is better).
+    """
+    # Valid ``regression_metric`` values:
+    regression_metrics = {
+        'explained_variance':
+        sklearn.metrics.explained_variance_score,
+        'r2':
+        sklearn.metrics.r2_score,
+        'neg_mean_absolute_error':
+        sklearn.metrics.mean_absolute_error,
+        'neg_mean_squared_error':
+        sklearn.metrics.mean_squared_error,
+        'neg_mean_squared_log_error':
+        sklearn.metrics.mean_squared_log_error,
+        'neg_median_absolute_error':
+        sklearn.metrics.median_absolute_error,
+        'neg_mean_absolute_percentage_error':
+        sklearn.metrics.mean_absolute_percentage_error,
+    }
+    # Scores that do not need inversion
+    greater_is_better = ['explained_variance', 'r2']
+    # Strip episode feature and initial conditions
+    X_expected = strip_initial_conditions(
+        X_expected,
+        min_samples=min_samples,
+        episode_feature=episode_feature,
+    )
+    X_predicted = strip_initial_conditions(
+        X_predicted,
+        min_samples=min_samples,
+        episode_feature=episode_feature,
+    )
+    # Compute weights
+    weights = _weights_from_data_matrix(
+        X_expected,
+        n_steps=n_steps,
+        discount_factor=discount_factor,
+        episode_feature=episode_feature,
+    )
+    # Strip episode feature if present
+    if episode_feature:
+        X_expected = X_expected[:, 1:]
+        X_predicted = X_predicted[:, 1:]
+    # Calculate score
+    score = regression_metrics[regression_metric](
+        X_expected,
+        X_predicted,
+        sample_weight=weights,
+        multioutput='uniform_average',
+    )
+    # Invert losses
+    if regression_metric not in greater_is_better:
+        score *= -1
+    return score
+
+
+def extract_initial_conditions(
+    X: np.ndarray,
+    min_samples: int = 1,
+    n_inputs: int = 0,
+    episode_feature: bool = False,
+) -> np.ndarray:
+    """Extract initial conditions from each episode.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Data matrix.
+    min_samples : int
+        Number of samples in initial condition.
+    n_inputs : int
+        Number of input features at the end of ``X``.
+    episode_feature : bool
+        True if first feature indicates which episode a timestep is from.
+
+    Returns
+    -------
+    np.ndarray
+        Initial conditions from each episode.
+    """
+    episodes = split_episodes(X, episode_feature=episode_feature)
+    # Strip each episode
+    initial_conditions = []
+    for (i, X_i) in episodes:
+        if n_inputs == 0:
+            initial_condition = X_i[:min_samples, :]
+        else:
+            initial_condition = X_i[:min_samples, :-n_inputs]
+        initial_conditions.append((i, initial_condition))
+    # Concatenate the initial conditions
+    X0 = combine_episodes(initial_conditions, episode_feature=episode_feature)
+    return X0
+
+
+def extract_input(
+    X: np.ndarray,
+    n_inputs: int = 0,
+    episode_feature: bool = False,
+) -> np.ndarray:
+    """Extract input from a data matrix.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Data matrix.
+    n_inputs : int
+        Number of input features at the end of ``X``.
+    episode_feature : bool
+        True if first feature indicates which episode a timestep is from.
+
+    Returns
+    -------
+    np.ndarray
+        Input extracted from data matrix.
+    """
+    episodes = split_episodes(X, episode_feature=episode_feature)
+    # Strip each episode
+    inputs = []
+    for (i, X_i) in episodes:
+        if n_inputs == 0:
+            input_ = np.zeros((X_i.shape[0], 0))
+        else:
+            n_states = X_i.shape[1] - n_inputs
+            input_ = X_i[:, n_states:]
+        inputs.append((i, input_))
+    # Concatenate the inputs
+    u = combine_episodes(inputs, episode_feature=episode_feature)
+    return u
 
 
 def strip_initial_conditions(X: np.ndarray,
@@ -1985,6 +2328,11 @@ def strip_initial_conditions(X: np.ndarray,
         Number of samples in initial condition.
     episode_feature : bool
         True if first feature indicates which episode a timestep is from.
+
+    Returns
+    -------
+    np.ndarray
+        Data matrix with initial conditions removed.
     """
     episodes = split_episodes(X, episode_feature=episode_feature)
     # Strip each episode
@@ -2117,3 +2465,58 @@ def combine_episodes(episodes: List[Tuple[float, np.ndarray]],
     # Concatenate the combined episodes
     Xc = np.vstack(combined_episodes)
     return Xc
+
+
+def _weights_from_data_matrix(
+    X: np.ndarray,
+    n_steps: int = None,
+    discount_factor: float = 1,
+    episode_feature: bool = False,
+) -> np.ndarray:
+    """Create an array of scoring weights from a data matrix.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Data matrix
+    n_steps : int
+        Number of steps ahead to predict. If ``None`` or longer than the
+        episode, will weight the entire episode.
+    discount_factor : float
+        Discount factor used to weight the error timeseries. Should be
+        positive, with magnitude 1 or slightly less. The error at each
+        timestep is weighted by ``discount_factor**k``, where ``k`` is the
+        timestep.
+    episode_feature : bool
+        True if first feature indicates which episode a timestep is from.
+
+    Returns
+    -------
+    np.ndarray
+        Array of weights use for scoring.
+
+    Raises
+    ------
+    ValueError
+        If ``discount_factor`` is not in [0, 1].
+    """
+    # Check discount factor
+    if (discount_factor < 0) or (discount_factor > 1):
+        raise ValueError('`discount_factor` must be positive and less '
+                         'than one.')
+    weights_list = []
+    episodes = split_episodes(X, episode_feature=episode_feature)
+    for i, X_i in episodes:
+        # Compute number of nonzero weights needed
+        n_samples_i = X_i.shape[0]
+        if n_steps is None:
+            n_nonzero_weights_i = n_samples_i
+        else:
+            n_nonzero_weights_i = min(n_steps, n_samples_i)
+        # Compute weights. Weights after ``n_steps`` are 0.
+        weights_i = np.array(
+            [discount_factor**k for k in range(n_nonzero_weights_i)]
+            + [0] * (n_samples_i - n_nonzero_weights_i))
+        weights_list.append(weights_i)
+    weights = np.concatenate(weights_list)
+    return weights
