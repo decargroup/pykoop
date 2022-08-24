@@ -1,4 +1,4 @@
-"""Collection of experimental LMI-based Koopman regressors from [lmikoop]_.
+"""Experimental LMI-based Koopman regressors from [lmikoop]_ and [sysnorm]_.
 
 Warning
 -------
@@ -2174,8 +2174,8 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
     ) -> None:
         """Instantiate :class:`LmiHinfZpkMeta`.
 
-        Paramters
-        ---------
+        Parameters
+        ----------
         hinf_regressor : koopman_pipeline.KoopmanRegressor
             Instance of :class:`LmiEdmdHinfReg` or :class:`LmiDmdcHinfReg`.
 
@@ -2205,7 +2205,7 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
             - ``'foh'`` -- first-order hold method, or
             - ``'impulse'`` -- equivalent impulse response method.
 
-        See [cont2discrete]_ for details.
+            See [cont2discrete]_ for details.
 
         t_step : float
             Timestep beween samples. Used for discretization.
