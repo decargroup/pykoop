@@ -3,6 +3,8 @@ Koopman pipeline
 
 .. automodule:: pykoop.koopman_pipeline
    :members:
+   :inherited-members:
+   :show-inheritance:
 
 Lifting functions
 -----------------
@@ -10,30 +12,47 @@ Lifting functions
 .. automodule:: pykoop.lifting_functions
    :members:
    :inherited-members:
+   :show-inheritance:
 
 Regressors
 ----------
 
 .. automodule:: pykoop.regressors
    :members:
+   :inherited-members:
+   :show-inheritance:
 
-LMI regressors
---------------
+Truncated SVD
+-------------
 
-.. automodule:: pykoop.lmi_regressors
+.. automodule:: pykoop.tsvd
    :members:
+   :inherited-members:
+   :show-inheritance:
 
 Utilities
 ---------
 
 .. automodule:: pykoop.util
    :members:
+   :inherited-members:
+   :show-inheritance:
+
+LMI regressors
+--------------
+
+.. automodule:: pykoop.lmi_regressors
+   :members:
+   :inherited-members:
+   :show-inheritance:
 
 Dynamic models
 --------------
 
 .. automodule:: pykoop.dynamic_models
    :members:
+   :inherited-members:
+   :show-inheritance:
 
 Cross-validation with ``scikit-learn``
 --------------------------------------
