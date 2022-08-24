@@ -63,32 +63,33 @@ Library layout
 
 Most of the required classes and functions have been imported into the
 ``pykoop`` namespace. The most important object is the
-:class:`KoopmanPipeline`, which requires a list of lifting functions and
+:class:`pykoop.KoopmanPipeline`, which requires a list of lifting functions and
 a regressor.
 
 Some example lifting functions are
 
-- :class:`PolynomialLiftingFn`,
-- :class:`DelayLiftingFn`, and
-- :class:`BilinearInputLiftingFn`.
+- :class:`pykoop.PolynomialLiftingFn`,
+- :class:`pykoop.DelayLiftingFn`, and
+- :class:`pykoop.BilinearInputLiftingFn`.
 
 ``scikit-learn`` preprocessors can be wrapped into lifting functions using
-:class:`SkLearnLiftingFn`. States and inputs can be lifted independently using
-:class:`SplitPipeline`. This is useful to avoid lifting inputs.
+:class:`pykoop.SkLearnLiftingFn`. States and inputs can be lifted independently
+using :class:`pykoop.SplitPipeline`. This is useful to avoid lifting inputs.
 
 Some basic regressors included are
 
-- :class:`Edmd` (includes Tikhonov regularization),
-- :class:`Dmdc`, and
-- :class:`Dmd`.
+- :class:`pykoop.Edmd` (includes Tikhonov regularization),
+- :class:`pykoop.Dmdc`, and
+- :class:`pykoop.Dmd`.
 
 More advanced (and experimental) LMI-based regressors are included in the
 ``pykoop.lmi_regressors`` namespace. They allow for different kinds of
 regularization as well as hard constraints on the Koopman operator.
 
 You can roll your own lifting functions and regressors by inheriting from
-:class:`KoopmanLiftingFn`, :class:`EpisodeIndependentLiftingFn`,
-:class:`EpisodeDependentLiftingFn`, and :class:`KoopmanRegressor`.
+:class:`pykoop.KoopmanLiftingFn`, :class:`pykoop.EpisodeIndependentLiftingFn`,
+:class:`pykoop.EpisodeDependentLiftingFn`, and
+:class:`pykoop.KoopmanRegressor`.
 
 Some sample dynamic models are also included in the ``pykoop.dynamic_models``
 namespace.

@@ -34,6 +34,8 @@ extensions = [
 
 autodoc_default_options = {
     'members': True,
+    'inherited-members': True,
+    'show-inheritance': True,
     'member-order': 'groupwise',
     'special-members': '__init__',
     'undoc-members': True,
