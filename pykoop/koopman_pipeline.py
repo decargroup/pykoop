@@ -115,14 +115,23 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
     :func:``inverse_transform``. See :class:``KoopmanLiftingFn`` and
     :class:``KoopmanPipeline`` for details concerning the class methods and
     attributes.
-    """
 
-    # Attribues that must be defined in :func:``fit`` of child class.
-    n_states_in_: int
-    n_inputs_in_: int
-    n_states_out_: int
-    n_inputs_out_: int
-    episode_feature_: bool
+    All attributes with a trailing underscore must be set in the subclass'
+    :func:`fit`.
+
+    Attributes
+    ----------
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    """
 
     @abc.abstractmethod
     def transform(self, X: np.ndarray) -> np.ndarray:
