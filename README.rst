@@ -1,3 +1,5 @@
+.. role:: class(code)
+
 pykoop
 ======
 
@@ -20,7 +22,8 @@ leveraging ``scikit-learn``'s existing cross-validation infrastructure.
 at every stage of the pipeline.
 
 ``pykoop`` also includes several experimental regressors that use linear matrix
-inequalities to regularize or constrain the Koopman matrix from [1]_ and [2]_.
+inequalities to regularize or constrain the Koopman matrix from [lmikoop]_
+and [sysnorm]_.
 
 Example
 =======
@@ -60,32 +63,32 @@ Library layout
 
 Most of the required classes and functions have been imported into the
 ``pykoop`` namespace. The most important object is the
-``KoopmanPipeline``, which requires a list of lifting functions and
+:class:`KoopmanPipeline`, which requires a list of lifting functions and
 a regressor.
 
 Some example lifting functions are
 
-- ``PolynomialLiftingFn``,
-- ``DelayLiftingFn``, and
-- ``BilinearInputLiftingFn``.
+- :class:`PolynomialLiftingFn`,
+- :class:`DelayLiftingFn`, and
+- :class:`BilinearInputLiftingFn`.
 
 ``scikit-learn`` preprocessors can be wrapped into lifting functions using
-``SkLearnLiftingFn``. States and inputs can be lifted independently using
-``SplitPipeline``. This is useful to avoid lifting inputs.
+:class:`SkLearnLiftingFn`. States and inputs can be lifted independently using
+:class:`SplitPipeline`. This is useful to avoid lifting inputs.
 
 Some basic regressors included are
 
-- ``Edmd`` (includes Tikhonov regularization),
-- ``Dmdc``, and
-- ``Dmd``.
+- :class:`Edmd` (includes Tikhonov regularization),
+- :class:`Dmdc`, and
+- :class:`Dmd`.
 
 More advanced (and experimental) LMI-based regressors are included in the
 ``pykoop.lmi_regressors`` namespace. They allow for different kinds of
 regularization as well as hard constraints on the Koopman operator.
 
 You can roll your own lifting functions and regressors by inheriting from
-``KoopmanLiftingFn``, ``EpisodeIndependentLiftingFn``,
-``EpisodeDependentLiftingFn``, and ``KoopmanRegressor``.
+:class:`KoopmanLiftingFn`, :class:`EpisodeIndependentLiftingFn`,
+:class:`EpisodeDependentLiftingFn`, and :class:`KoopmanRegressor`.
 
 Some sample dynamic models are also included in the ``pykoop.dynamic_models``
 namespace.
@@ -171,12 +174,25 @@ Library      Unique features
 References
 ==========
 
-.. [1] Steven Dahdah and James Richard Forbes. "Linear matrix inequality
+.. [optht] Matan Gavish and David L. Donoho. "The optimal hard threshold for
+   singular values is 4/sqrt(3)." IEEE Transactions on Information Theory 60.8
+   (2014): 5040-5053. http://arxiv.org/abs/1305.5870
+.. [dissip] Keita Hara, Masaki Inoue, and Noboru Sebe. "Learning Koopman
+   operator under dissipativity constraints." arXiv:1911.03884v1 [eess.SY]
+   (2019). https://arxiv.org/abs/1911.03884v1
+.. [lmikoop] Steven Dahdah and James Richard Forbes. "Linear matrix inequality
    approaches to Koopman operator approximation." arXiv:2102.03613 [eess.SY]
    (2021). https://arxiv.org/abs/2102.03613
-.. [2] Steven Dahdah and James Richard Forbes. "System norm regularization
+.. [sysnorm] Steven Dahdah and James Richard Forbes. "System norm regularization
    methods for Koopman operator approximation." arXiv:2110.09658 [eess.SY]
    (2021). https://arxiv.org/abs/2110.09658
+.. [bilinear] Daniel Bruder, Xun Fu, and Ram Vasudevan. "Advantages of bilinear
+   Koopman realizations for the modeling and control of systems with unknown
+   dynamics." arXiv:2010.09961v3 [cs.RO] (2020).
+.. [local] Giorgos Mamakoukas, Ian Abraham, and Todd D. Murphey. "Learning
+   Stable Models for Prediction and Control." arXiv:2005.04291v2 [cs.RO]
+   (2022). https://arxiv.org/abs/2005.04291v2  https://arxiv.org/abs/2010.09961v3
+.. [scorers] https://scikit-learn.org/stable/modules/model_evaluation.html
 
 Citation
 ========
