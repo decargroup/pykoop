@@ -54,7 +54,10 @@ def main() -> None:
     )
 
     # Plot trajectories in phase space
-    fig, ax = plt.subplots(constrained_layout=True)
+    fig, ax = plt.subplots(
+        constrained_layout=True,
+        figsize=(6, 6),
+    )
     ax.plot(
         X_valid[:, 1],
         X_valid[:, 2],
@@ -76,6 +79,7 @@ def main() -> None:
     ax.set_ylabel('$x_2[k]$')
     ax.legend()
     ax.grid(linestyle='--')
+    ax.set_title('True and predicted phase-space trajectories')
 
     # Lift validation set
     Psi_valid = kp.lift(X_valid[:, 1:], episode_feature=False)
@@ -106,16 +110,19 @@ def main() -> None:
         constrained_layout=True,
         sharex=True,
         squeeze=False,
+        figsize=(6, 12),
     )
     for i in range(ax.shape[0]):
         ax[i, 0].plot(Psi_valid[:, i], label='True trajectory')
         ax[i, 0].plot(Psi_pred_local[:, i], '--', label='Local prediction')
         ax[i, 0].plot(Psi_pred_global[:, i], '--', label='Global prediction')
         ax[i, 0].grid(linestyle='--')
-        ax[i, 0].set_ylabel(rf'$\vartheta_{i + 1}[k]$')
+        ax[i, 0].set_ylabel(rf'$\vartheta_{i + 1}$')
 
     ax[-1, 0].set_xlabel('$k$')
-    ax[0, 0].legend()
+    ax[0, 0].set_title('True and predicted lifted states')
+    ax[-1, -1].legend(loc='lower right')
+    fig.align_ylabels()
 
     fig, ax = plt.subplots(
         kp.n_inputs_out_,
@@ -123,17 +130,16 @@ def main() -> None:
         constrained_layout=True,
         sharex=True,
         squeeze=False,
+        figsize=(6, 6),
     )
     for i in range(ax.shape[0]):
         j = kp.n_states_out_ + i
         ax[i, 0].plot(Psi_valid[:, j], label='True trajectory')
-        ax[i, 0].plot(Psi_pred_local[:, j], '--', label='Local prediction')
-        ax[i, 0].plot(Psi_pred_global[:, j], '--', label='Global prediction')
         ax[i, 0].grid(linestyle='--')
 
     ax[-1, 0].set_xlabel('$k$')
-    ax[0, 0].legend()
-    ax[0, 0].set_ylabel('$u[k]$')
+    ax[0, 0].set_ylabel('$u$')
+    ax[0, 0].set_title('Exogenous input')
 
     plt.show()
 

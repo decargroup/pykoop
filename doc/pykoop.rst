@@ -253,8 +253,8 @@ Simple Koopman pipeline
 Van der Pol Oscillator
 -----------------------
 
-.. include:: ../examples/example_pipeline_vdp.py
-   :literal:
+.. plot:: ../examples/example_pipeline_vdp.py
+   :include-source:
 
 Cross-validation with ``scikit-learn``
 --------------------------------------
