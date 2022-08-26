@@ -17,9 +17,9 @@ additional requirements that preclude the use of ``scikit-learn``
    time).
 
 To meet these requirements, each lifting function, described by the
-:class:`KoopmanLiftingFn` interface, supports a feature that indicates which
-episode each sample belongs to. Furthermore, each lifting function stores the
-number of input-dependent and input-independent features at its input and
+:class:`pykoop.KoopmanLiftingFn` interface, supports a feature that indicates
+which episode each sample belongs to. Furthermore, each lifting function stores
+the number of input-dependent and input-independent features at its input and
 output.
 
 The data matrices provided to :func:`fit` (as well as :func:`transform`
@@ -85,47 +85,24 @@ In the above case, each timestep is assumed to belong to the same
 episode.
 
 Koopman regressors, which implement the interface defined in
-:class:`KoopmanRegressor` are distinct from ``scikit-learn`` regressors in that
-they support the episode feature and state tracking attributes used by the
-lifting function objects. Koopman regressors also support being fit with a
+:class:`pykoop.KoopmanRegressor` are distinct from ``scikit-learn`` regressors
+in that they support the episode feature and state tracking attributes used by
+the lifting function objects. Koopman regressors also support being fit with a
 single data matrix, which they will split and time-shift according to the
 episode feature.
 
-:class:`pykoop.KoopmanPipeline`
--------------------------------
-.. autoclass:: pykoop.KoopmanPipeline
+.. autosummary::
+   :toctree: _autosummary/
 
-:class:`pykoop.SplitPipeline`
------------------------------
-.. autoclass:: pykoop.SplitPipeline
-
-:func:`pykoop.combine_episodes`
--------------------------------
-.. autofunction:: pykoop.combine_episodes
-
-:func:`pykoop.extract_initial_conditions`
------------------------------------------
-.. autofunction:: pykoop.extract_initial_conditions
-
-:func:`pykoop.extract_input`
-----------------------------
-.. autofunction:: pykoop.extract_input
-
-:func:`pykoop.score_state`
---------------------------
-.. autofunction:: pykoop.score_state
-
-:func:`pykoop.shift_episodes`
------------------------------
-.. autofunction:: pykoop.shift_episodes
-
-:func:`pykoop.split_episodes`
------------------------------
-.. autofunction:: pykoop.split_episodes
-
-:func:`pykoop.strip_initial_conditions`
----------------------------------------
-.. autofunction:: pykoop.strip_initial_conditions
+   pykoop.KoopmanPipeline
+   pykoop.SplitPipeline
+   pykoop.combine_episodes
+   pykoop.extract_initial_conditions
+   pykoop.extract_input
+   pykoop.score_state
+   pykoop.shift_episodes
+   pykoop.split_episodes
+   pykoop.strip_initial_conditions
 
 
 Lifting functions
@@ -134,21 +111,13 @@ Lifting functions
 All of the lifting functions included in this module adhere to the interface
 defined in :class:`pykoop.KoopmanLiftingFn`.
 
-:class:`pykoop.BilinearInputLiftingFn`
---------------------------------------
-.. autoclass:: pykoop.BilinearInputLiftingFn
+.. autosummary::
+   :toctree: _autosummary/
 
-:class:`pykoop.DelayLiftingFn`
-------------------------------
-.. autoclass:: pykoop.DelayLiftingFn
-
-:class:`pykoop.PolynomialLiftingFn`
------------------------------------
-.. autoclass:: pykoop.PolynomialLiftingFn
-
-:class:`pykoop.SkLearnLiftingFn`
---------------------------------
-.. autoclass:: pykoop.SkLearnLiftingFn
+   pykoop.BilinearInputLiftingFn
+   pykoop.DelayLiftingFn
+   pykoop.PolynomialLiftingFn
+   pykoop.SkLearnLiftingFn
 
 
 Regressors
@@ -157,49 +126,34 @@ Regressors
 All of the lifting functions included in this module adhere to the interface
 defined in :class:`pykoop.KoopmanRegressor`.
 
-:class:`pykoop.Dmd`
--------------------
-.. autoclass:: pykoop.Dmd
+.. autosummary::
+   :toctree: _autosummary/
 
-:class:`pykoop.Dmdc`
---------------------
-.. autoclass:: pykoop.Dmdc
-
-:class:`pykoop.Edmd`
---------------------
-.. autoclass:: pykoop.Edmd
+   pykoop.Dmd
+   pykoop.Dmdc
+   pykoop.Edmd
 
 
 Truncated SVD
 =============
 
-:class:`pykoop.Tsvd`
---------------------
-.. autoclass:: pykoop.Tsvd
+.. autosummary::
+   :toctree: _autosummary/
+
+   pykoop.Tsvd
 
 
 Utilities
 =========
 
-:class:`pykoop.AnglePreprocessor`
----------------------------------
-.. autoclass:: pykoop.AnglePreprocessor
+.. autosummary::
+   :toctree: _autosummary/
 
-:func:`pykoop.example_data_msd`
--------------------------------
-.. autofunction:: pykoop.example_data_msd
-
-:func:`pykoop.example_data_vdp`
--------------------------------
-.. autofunction:: pykoop.example_data_vdp
-
-:func:`pykoop.random_input`
----------------------------
-.. autofunction:: pykoop.random_input
-
-:func:`pykoop.random_state`
----------------------------
-.. autofunction:: pykoop.random_state
+   pykoop.AnglePreprocessor
+   pykoop.example_data_msd
+   pykoop.example_data_vdp
+   pykoop.random_input
+   pykoop.random_state
 
 
 LMI regressors
@@ -207,60 +161,34 @@ LMI regressors
 
 Experimental LMI-based Koopman regressors from [lmikoop]_ and [sysnorm]_.
 
-Warning
--------
-Importing this module has side effects! When imported, the module creates a
-temporary directory with the prefix ``pykoop_``, which is used to memoize long
-computations that may be repreated frequently. It also catches ``SIGINT`` so
-that long regressions can be stopped politely.
+.. warning:: 
+   Importing this module has side effects! When imported, the module creates a
+   temporary directory with the prefix ``pykoop_``, which is used to memoize
+   long computations that may be repreated frequently. It also catches
+   ``SIGINT`` so that long regressions can be stopped politely.
 
-:class:`pykoop.lmi_regressors.LmiEdmd`
---------------------------------------
-.. autoclass:: pykoop.lmi_regressors.LmiEdmd
+.. autosummary::
+   :toctree: _autosummary/
 
-:class:`pykoop.lmi_regressors.LmiEdmdDissipativityConstr`
----------------------------------------------------------
-.. autoclass:: pykoop.lmi_regressors.LmiEdmdDissipativityConstr
-
-:class:`pykoop.lmi_regressors.LmiEdmdHinfReg`
----------------------------------------------
-.. autoclass:: pykoop.lmi_regressors.LmiEdmdHinfReg
-
-:class:`pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr`
-----------------------------------------------------------
-.. autoclass:: pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr
-
-:class:`pykoop.lmi_regressors.LmiDmdc`
---------------------------------------
-.. autoclass:: pykoop.lmi_regressors.LmiDmdc
-
-:class:`pykoop.lmi_regressors.LmiDmdcHinfReg`
----------------------------------------------
-.. autoclass:: pykoop.lmi_regressors.LmiDmdcHinfReg
-
-:class:`pykoop.lmi_regressors.LmiDmdcSpectralRadiusConstr`
-----------------------------------------------------------
-.. autoclass:: pykoop.lmi_regressors.LmiDmdcSpectralRadiusConstr
-
-:class:`pykoop.lmi_regressors.LmiHinfZpkMeta`
----------------------------------------------
-.. autoclass:: pykoop.lmi_regressors.LmiHinfZpkMeta
+   pykoop.lmi_regressors.LmiEdmd
+   pykoop.lmi_regressors.LmiEdmdDissipativityConstr
+   pykoop.lmi_regressors.LmiEdmdHinfReg
+   pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr
+   pykoop.lmi_regressors.LmiDmdc
+   pykoop.lmi_regressors.LmiDmdcHinfReg
+   pykoop.lmi_regressors.LmiDmdcSpectralRadiusConstr
+   pykoop.lmi_regressors.LmiHinfZpkMeta
 
 
 Dynamic models
 ==============
 
-:class:`pykoop.dynamic_models.DiscreteVanDerPol`
-------------------------------------------------
-.. autoclass:: pykoop.dynamic_models.DiscreteVanDerPol
+.. autosummary::
+   :toctree: _autosummary/
 
-:class:`pykoop.dynamic_models.MassSpringDamper`
------------------------------------------------
-.. autoclass:: pykoop.dynamic_models.MassSpringDamper
-
-:class:`pykoop.dynamic_models.Pendulum`
----------------------------------------
-.. autoclass:: pykoop.dynamic_models.Pendulum
+   pykoop.dynamic_models.DiscreteVanDerPol
+   pykoop.dynamic_models.MassSpringDamper
+   pykoop.dynamic_models.Pendulum
 
 
 Extending ``pykoop``
@@ -270,33 +198,16 @@ The abstract classes from all of ``pykoop``'s modules have been grouped here.
 If you want to write your own lifting functions or regressor, this is the place
 to look!
 
-:class:`pykoop.EpisodeDependentLiftingFn`
------------------------------------------
-.. autoclass:: pykoop.EpisodeDependentLiftingFn
+.. autosummary::
+   :toctree: _autosummary/
 
-:class:`pykoop.EpisodeIndependentLiftingFn`
--------------------------------------------
-.. autoclass:: pykoop.EpisodeIndependentLiftingFn
-
-:class:`pykoop.KoopmanLiftingFn`
---------------------------------
-.. autoclass:: pykoop.KoopmanLiftingFn
-
-:class:`pykoop.KoopmanRegressor`
---------------------------------
-.. autoclass:: pykoop.KoopmanRegressor
-
-:class:`pykoop.dynamic_models.ContinuousDynamicModel`
------------------------------------------------------
-.. autoclass:: pykoop.dynamic_models.ContinuousDynamicModel
-
-:class:`pykoop.dynamic_models.DiscreteDynamicModel`
----------------------------------------------------
-.. autoclass:: pykoop.dynamic_models.DiscreteDynamicModel
-
-:class:`pykoop.lmi_regressors.LmiRegressor`
--------------------------------------------
-.. autoclass:: pykoop.lmi_regressors.LmiRegressor
+   pykoop.EpisodeDependentLiftingFn
+   pykoop.EpisodeIndependentLiftingFn
+   pykoop.KoopmanLiftingFn
+   pykoop.KoopmanRegressor
+   pykoop.dynamic_models.ContinuousDynamicModel
+   pykoop.dynamic_models.DiscreteDynamicModel
+   pykoop.lmi_regressors.LmiRegressor
 
 
 Examples

@@ -23,12 +23,16 @@ author = 'Steven Dahdah'
 
 # -- General configuration ---------------------------------------------------
 
+add_module_names = False
+
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
+    'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
+    'sphinx.ext.intersphinx',
     'sphinx_rtd_theme',
 ]
 
@@ -37,9 +41,18 @@ autodoc_default_options = {
     'inherited-members': True,
     'show-inheritance': True,
     'member-order': 'groupwise',
-    'special-members': '__init__',
     'undoc-members': True,
     'exclude-members': '__weakref__'
+}
+
+autosummary_generate = True
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3', None),
+    'numpy': ('https://numpy.org/doc/stable', None),
+    'scipy': ('https://docs.scipy.org/doc/scipy/reference', None),
+    'matplotlib': ('https://matplotlib.org/', None),
+    'scikit-learn': ('https://scikit-learn.org/stable/', None),
 }
 
 # Add any paths that contain templates here, relative to this directory.

@@ -20,9 +20,9 @@ log.addHandler(logging.NullHandler())
 class _LiftRetractMixin(metaclass=abc.ABCMeta):
     """Mixin providing more convenient lift/retract functions.
 
-    Assumes child class implements :func:``transform`` and
-    :func:``inverse_transform``. See :class:``KoopmanLiftingFn`` and
-    :class:``KoopmanPipeline`` for details concerning the class methods and
+    Assumes child class implements :func:`transform` and
+    :func:`inverse_transform`. See :class:`KoopmanLiftingFn` and
+    :class:`KoopmanPipeline`` for details concerning the class methods and
     attributes.
 
     All attributes with a trailing underscore must be set in the subclass'
@@ -77,7 +77,7 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
     def lift(self, X: np.ndarray, episode_feature: bool = None) -> np.ndarray:
         """Lift state and input.
 
-        Potentially more convenient alternative to calling :func:``transform``.
+        Potentially more convenient alternative to calling :func:`transform`.
 
         Parameters
         ----------
@@ -127,7 +127,7 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
         """Retract lifted state and input.
 
         Potentially more convenient alternative to calling
-        :func:``inverse_transform``.
+        :func:`inverse_transform`.
 
         Parameters
         ----------
@@ -177,7 +177,7 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
         """Lift state only.
 
         More convenient alternative to padding the state with dummy inputs,
-        calling :func:``transform``, then stripping the unwanted lifted inputs.
+        calling :func:`transform`, then stripping the unwanted lifted inputs.
 
         Parameters
         ----------
@@ -208,7 +208,7 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
         """Retract lifted state only.
 
         More convenient alternative to padding the lifted state with dummy
-        lifted inputs, calling :func:``inverse_transform``.
+        lifted inputs, calling :func:`inverse_transform`.
 
         Parameters
         ----------
@@ -238,7 +238,7 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
     ) -> np.ndarray:
         """Lift input only.
 
-        More convenient alternative to calling :func:``transform``, then
+        More convenient alternative to calling :func:`transform`, then
         stripping the unwanted lifted states.
 
         Parameters
@@ -274,7 +274,7 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
         """Retract lifted input only.
 
         More convenient alternative to padding the lifted state with dummy
-        lifted states, calling :func:``inverse_transform``, then stripping the
+        lifted states, calling :func:`inverse_transform`, then stripping the
         unwanted states.
 
         Parameters
@@ -1041,7 +1041,7 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     """Meta-estimator for lifting states and inputs separately.
 
     Only works with episode-independent lifting functions! It's too complicated
-    to make this work with :class:``DelayLiftingFn``, especially when you can
+    to make this work with :class:`DelayLiftingFn`, especially when you can
     just set ``n_delays_input=0``.
 
     Attributes

@@ -2195,7 +2195,7 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
 
         discretization : str
             Discretization method supported by
-            :func:``scipy.signal.cont2discrete`` (except ``'gbt'``).
+            :func:`scipy.signal.cont2discrete` (except ``'gbt'``).
             Specifically, possible valued are
 
             - ``'bilinear'`` -- Tustin's approximation (recommended),
