@@ -37,6 +37,7 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
 .. code-block:: python
 
     import pykoop
+    import numpy as np
     from sklearn.preprocessing import MaxAbsScaler, StandardScaler
 
     # Get sample mass-spring-damper data
@@ -56,7 +57,9 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
     kp.fit(X_msd, n_inputs=1, episode_feature=True)
 
     # Predict using the pipeline
-    X_pred = kp.predict_multistep(X_msd)
+    X_initial = X_msd[[0], 1:3]
+    U = X_msd[:, [3]]
+    X_pred = kp.predict_state(X_initial, U, episode_feature=False)
 
     # Score using the pipeline
     score = kp.score(X_msd)
