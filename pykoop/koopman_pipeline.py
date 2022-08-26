@@ -1776,7 +1776,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
             If true, retract and re-lift state between prediction steps
             (default). Otherwise, only retract the state after all predictions
             are made. Correspond to the local and global error definitions of
-            [local]_.
+            [MAM22]_.
         return_lifted : bool
             If true, return the lifted state. If false, return the original
             state (default).
@@ -1986,7 +1986,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
             If true, retract and re-lift state between prediction steps
             (default). Otherwise, only retract the state after all predictions
             are made. Correspond to the local and global error definitions of
-            [local]_. Ignored if ``multistep`` is false.
+            [MAM22]_. Ignored if ``multistep`` is false.
 
         Returns
         -------

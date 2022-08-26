@@ -224,7 +224,7 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
 class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     """Lifting function to generate bilinear products of the state and input.
 
-    As proposed in [bilinear]_. Given a state ``x`` and input::
+    As proposed in [BFV20]_. Given a state ``x`` and input::
 
         u = np.array([
             [u1],

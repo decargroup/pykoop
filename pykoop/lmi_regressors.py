@@ -1,4 +1,4 @@
-"""Experimental LMI-based Koopman regressors from [lmikoop]_ and [sysnorm]_.
+"""Experimental LMI-based Koopman regressors from [DF21]_ and [DF22]_.
 
 Warning
 -------
@@ -54,7 +54,7 @@ signal.signal(signal.SIGINT, _sigint_handler)
 class LmiRegressor(koopman_pipeline.KoopmanRegressor):
     """Base class for LMI regressors.
 
-    For derivations of LMIs, see [lmikoop]_.
+    For derivations of LMIs, see [DF21]_ and [DF22]_.
 
     This base class is mostly used to share common ``scikit-learn`` parameters.
 
@@ -1854,7 +1854,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
 
     Optionally supports additional Tikhonov regularization.
 
-    Originally proposed in [dissip]_.
+    Originally proposed in [HIS19]_.
 
     Attributes
     ----------

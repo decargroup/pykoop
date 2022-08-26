@@ -159,7 +159,7 @@ Utilities
 LMI regressors
 ==============
 
-Experimental LMI-based Koopman regressors from [lmikoop]_ and [sysnorm]_.
+Experimental LMI-based Koopman regressors from [DF21]_ and [DF22]_.
 
 .. warning:: 
    Importing this module has side effects! When imported, the module creates a
@@ -233,21 +233,22 @@ Regressor parameters and lifting functions can easily be cross-validated using
 References
 ==========
 
-.. [optht] Matan Gavish and David L. Donoho. "The optimal hard threshold for
+.. [GD14] Matan Gavish and David L. Donoho. "The optimal hard threshold for
    singular values is 4/sqrt(3)." IEEE Transactions on Information Theory 60.8
    (2014): 5040-5053. http://arxiv.org/abs/1305.5870
-.. [dissip] Keita Hara, Masaki Inoue, and Noboru Sebe. "Learning Koopman
+.. [HIS19] Keita Hara, Masaki Inoue, and Noboru Sebe. "Learning Koopman
    operator under dissipativity constraints." arXiv:1911.03884v1 [eess.SY]
    (2019). https://arxiv.org/abs/1911.03884v1
-.. [lmikoop] Steven Dahdah and James Richard Forbes. "Linear matrix inequality
+.. [DF21] Steven Dahdah and James Richard Forbes. "Linear matrix inequality
    approaches to Koopman operator approximation." arXiv:2102.03613 [eess.SY]
    (2021). https://arxiv.org/abs/2102.03613
-.. [sysnorm] Steven Dahdah and James Richard Forbes. "System norm regularization
+.. [DF22] Steven Dahdah and James Richard Forbes. "System norm regularization
    methods for Koopman operator approximation." arXiv:2110.09658 [eess.SY]
-   (2021). https://arxiv.org/abs/2110.09658
-.. [bilinear] Daniel Bruder, Xun Fu, and Ram Vasudevan. "Advantages of bilinear
+   (2022). https://arxiv.org/abs/2110.09658
+.. [BFV20] Daniel Bruder, Xun Fu, and Ram Vasudevan. "Advantages of bilinear
    Koopman realizations for the modeling and control of systems with unknown
    dynamics." arXiv:2010.09961v3 [cs.RO] (2020).
-.. [local] Giorgos Mamakoukas, Ian Abraham, and Todd D. Murphey. "Learning
+.. [MAM22] Giorgos Mamakoukas, Ian Abraham, and Todd D. Murphey. "Learning
    Stable Models for Prediction and Control." arXiv:2005.04291v2 [cs.RO]
-   (2022). https://arxiv.org/abs/2005.04291v2  https://arxiv.org/abs/2010.09961v3
+   (2022). https://arxiv.org/abs/2005.04291v2
+   https://arxiv.org/abs/2010.09961v3
