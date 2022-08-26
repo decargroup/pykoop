@@ -2205,8 +2205,6 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
             - ``'foh'`` -- first-order hold method, or
             - ``'impulse'`` -- equivalent impulse response method.
 
-            See [cont2discrete]_ for details.
-
         t_step : float
             Timestep beween samples. Used for discretization.
 
@@ -2222,10 +2220,6 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         The zeros and poles in the weight should usually have negative real
         parts! If you want a pole at ``10 rad/s``, then ``poles`` must be
         ``-10``.
-
-        References
-        ----------
-        .. [cont2discrete] https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.cont2discrete.html#scipy-signal-cont2discrete  # noqa: E501
 
         Examples
         --------

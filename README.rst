@@ -22,8 +22,11 @@ leveraging ``scikit-learn``'s existing cross-validation infrastructure.
 at every stage of the pipeline.
 
 ``pykoop`` also includes several experimental regressors that use linear matrix
-inequalities to regularize or constrain the Koopman matrix from [lmikoop]_
-and [sysnorm]_.
+inequalities to constraint the asymptotic stability of the Koopman system, or
+regularize the regression using its :math:`\mathcal{H}_\infty` norm. Check out
+`arXiv:2102.03613 [eess.SY] <https://arxiv.org/abs/2102.03613>`_ and
+`arXiv:2110.09658 [eess.SY] <https://arxiv.org/abs/2110.09658>`_ for details.
+
 
 Example
 =======
@@ -57,6 +60,7 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
 
     # Score using the pipeline
     score = kp.score(X_msd)
+
 
 Library layout
 ==============
@@ -93,6 +97,7 @@ You can roll your own lifting functions and regressors by inheriting from
 
 Some sample dynamic models are also included in the ``pykoop.dynamic_models``
 namespace.
+
 
 Installation and testing
 ========================
@@ -145,6 +150,7 @@ you can use
 
 You will need ``yapf`` installed for this.
 
+
 Related packages
 ================
 
@@ -172,28 +178,6 @@ Library      Unique features
 .. _PyDMD: https://github.com/mathLab/PyDMD
 .. _PySINDy: https://github.com/dynamicslab/pysindy
 
-References
-==========
-
-.. [optht] Matan Gavish and David L. Donoho. "The optimal hard threshold for
-   singular values is 4/sqrt(3)." IEEE Transactions on Information Theory 60.8
-   (2014): 5040-5053. http://arxiv.org/abs/1305.5870
-.. [dissip] Keita Hara, Masaki Inoue, and Noboru Sebe. "Learning Koopman
-   operator under dissipativity constraints." arXiv:1911.03884v1 [eess.SY]
-   (2019). https://arxiv.org/abs/1911.03884v1
-.. [lmikoop] Steven Dahdah and James Richard Forbes. "Linear matrix inequality
-   approaches to Koopman operator approximation." arXiv:2102.03613 [eess.SY]
-   (2021). https://arxiv.org/abs/2102.03613
-.. [sysnorm] Steven Dahdah and James Richard Forbes. "System norm regularization
-   methods for Koopman operator approximation." arXiv:2110.09658 [eess.SY]
-   (2021). https://arxiv.org/abs/2110.09658
-.. [bilinear] Daniel Bruder, Xun Fu, and Ram Vasudevan. "Advantages of bilinear
-   Koopman realizations for the modeling and control of systems with unknown
-   dynamics." arXiv:2010.09961v3 [cs.RO] (2020).
-.. [local] Giorgos Mamakoukas, Ian Abraham, and Todd D. Murphey. "Learning
-   Stable Models for Prediction and Control." arXiv:2005.04291v2 [cs.RO]
-   (2022). https://arxiv.org/abs/2005.04291v2  https://arxiv.org/abs/2010.09961v3
-.. [scorers] https://scikit-learn.org/stable/modules/model_evaluation.html
 
 Citation
 ========
@@ -211,6 +195,7 @@ If you use this software in your research, please cite it as below or see
         author={Steven Dahdah and James Richard Forbes},
         year={2021},
     }
+
 
 License
 =======

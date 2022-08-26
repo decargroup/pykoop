@@ -23,8 +23,8 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     - ``sklearn.preprocessing.MinMaxScaler``, or
     - ``sklearn.preprocessing.MaxAbsScaler``.
 
-    See [transformers]_ for more appropriate transformers (though not all have
-    been tested).
+    Any ``scikit-learn`` transformer [#tr]_ should be compatible, though not
+    all have been tested.
 
     Attributes
     ----------
@@ -49,7 +49,7 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
 
     References
     ----------
-    .. [transformers] https://scikit-learn.org/stable/modules/classes.html#module-sklearn.preprocessing  # noqa: E501
+    .. [#tr] https://scikit-learn.org/stable/modules/classes.html#module-sklearn.preprocessing
 
     Examples
     --------

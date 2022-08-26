@@ -1942,8 +1942,9 @@ class KoopmanPipeline(metaestimators._BaseComposition,
 
         A ``scikit-learn`` scorer accepts the parameters ``(estimator, X, y)``
         and returns a float representing the prediction quality of
-        ``estimator`` on ``X`` with reference to ``y``. Higher numbers are
-        better. Losses are negated [scorers]_.
+        ``estimator`` on ``X`` with reference to ``y``. Uses existing
+        ``scikit-learn`` regression metrics [#sc]_. Higher numbers are better.
+        Metrics corresponding to losses are negated.
 
         Technically, the scorer will predict the entire episode, regardless of
         how ``n_steps`` is set. It will then assign a zero weight to all errors
@@ -1954,22 +1955,33 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         n_steps : int
             Number of steps ahead to predict. If ``None`` or longer than the
             episode, will score the entire episode.
+
         discount_factor : float
             Discount factor used to weight the error timeseries. Should be
             positive, with magnitude 1 or slightly less. The error at each
             timestep is weighted by ``discount_factor**k``, where ``k`` is the
             timestep.
+
         regression_metric : str
-            Regression metric to use. One of ['explained_variance',
-            'neg_mean_absolute_error', 'neg_mean_squared_error',
-            'neg_mean_squared_log_error', 'neg_median_absolute_error', 'r2',
-            'neg_mean_absolute_percentage_error']. See [scorers]_.
+            Regression metric to use. One of
+
+            - ``'explained_variance'``,
+            - ``'neg_mean_absolute_error'``,
+            - ``'neg_mean_squared_error'``,
+            - ``'neg_mean_squared_log_error'``,
+            - ``'neg_median_absolute_error'``,
+            - ``'r2'``, or
+            - ``'neg_mean_absolute_percentage_error'``,
+
+            which are existing ``scikit-learn`` regression metrics [#sc]_.
+
         multistep : bool
             If true, predict using :func:`predict_state`. Otherwise,
             predict using :func:`predict` (one-step-ahead prediction).
             Multistep prediction is highly recommended unless debugging. If
             one-step-ahead prediciton is used, `n_steps` and `discount_factor`
             are ignored.
+
         relift_state : bool
             If true, retract and re-lift state between prediction steps
             (default). Otherwise, only retract the state after all predictions
@@ -1985,6 +1997,10 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         ------
         ValueError
             If ``discount_factor`` is negative or greater than one.
+
+        References
+        ----------
+        .. [#sc] https://scikit-learn.org/stable/modules/model_evaluation.html
         """
 
         def koopman_pipeline_scorer(
@@ -2080,23 +2096,36 @@ def score_state(
     ----------
     X_predicted : np.ndarray
         Predicted state data matrix.
+
     X_expected : np.ndarray
         Expected state data matrix.
+
     n_steps : int
         Number of steps ahead to predict. If ``None`` or longer than the
         episode, will score the entire episode.
+
     discount_factor : float
         Discount factor used to weight the error timeseries. Should be
         positive, with magnitude 1 or slightly less. The error at each
         timestep is weighted by ``discount_factor**k``, where ``k`` is the
         timestep.
+
     regression_metric : str
-        Regression metric to use. One of ['explained_variance',
-        'neg_mean_absolute_error', 'neg_mean_squared_error',
-        'neg_mean_squared_log_error', 'neg_median_absolute_error', 'r2',
-        'neg_mean_absolute_percentage_error']. See [scorers]_.
+        Regression metric to use. One of
+
+        - ``'explained_variance'``,
+        - ``'neg_mean_absolute_error'``,
+        - ``'neg_mean_squared_error'``,
+        - ``'neg_mean_squared_log_error'``,
+        - ``'neg_median_absolute_error'``,
+        - ``'r2'``, or
+        - ``'neg_mean_absolute_percentage_error'``,
+
+        which are existing ``scikit-learn`` regression metrics [#sc]_.
+
     min_samples : int
         Number of samples in initial condition.
+
     episode_feature : bool
         True if first feature indicates which episode a timestep is from.
 
@@ -2104,6 +2133,10 @@ def score_state(
     -------
     float
         Score (greater is better).
+
+    References
+    ----------
+    .. [#sc] https://scikit-learn.org/stable/modules/model_evaluation.html
     """
     # Valid ``regression_metric`` values:
     regression_metrics = {
