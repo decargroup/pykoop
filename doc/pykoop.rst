@@ -91,6 +91,10 @@ the lifting function objects. Koopman regressors also support being fit with a
 single data matrix, which they will split and time-shift according to the
 episode feature.
 
+The following class and function implementations are located in
+``pykoop.koopman_pipeline``, but have been imported into the ``pykoop``
+namespace for convenience.
+
 .. autosummary::
    :toctree: _autosummary/
 
@@ -111,6 +115,10 @@ Lifting functions
 All of the lifting functions included in this module adhere to the interface
 defined in :class:`pykoop.KoopmanLiftingFn`.
 
+The following class and function implementations are located in
+``pykoop.lifting_functions``, but have been imported into the ``pykoop``
+namespace for convenience.
+
 .. autosummary::
    :toctree: _autosummary/
 
@@ -126,6 +134,10 @@ Regressors
 All of the lifting functions included in this module adhere to the interface
 defined in :class:`pykoop.KoopmanRegressor`.
 
+The following class and function implementations are located in
+``pykoop.regressors``, but have been imported into the ``pykoop`` namespace for
+convenience.
+
 .. autosummary::
    :toctree: _autosummary/
 
@@ -137,6 +149,10 @@ defined in :class:`pykoop.KoopmanRegressor`.
 Truncated SVD
 =============
 
+The following class and function implementations are located in
+``pykoop.tsvd``, but have been imported into the ``pykoop`` namespace for
+convenience.
+
 .. autosummary::
    :toctree: _autosummary/
 
@@ -145,6 +161,10 @@ Truncated SVD
 
 Utilities
 =========
+
+The following class and function implementations are located in
+``pykoop.util``, but have been imported into the ``pykoop`` namespace for
+convenience.
 
 .. autosummary::
    :toctree: _autosummary/
@@ -167,6 +187,9 @@ Experimental LMI-based Koopman regressors from [DF21]_ and [DF22]_.
    long computations that may be repreated frequently. It also catches
    ``SIGINT`` so that long regressions can be stopped politely.
 
+The following class and function implementations are located in
+``pykoop.lmi_regressors``, which must be imported separately.
+
 .. autosummary::
    :toctree: _autosummary/
 
@@ -183,6 +206,9 @@ Experimental LMI-based Koopman regressors from [DF21]_ and [DF22]_.
 Dynamic models
 ==============
 
+The following class and function implementations are located in
+``pykoop.dynamic_models``, which must be imported separately.
+
 .. autosummary::
    :toctree: _autosummary/
 
@@ -198,6 +224,11 @@ The abstract classes from all of ``pykoop``'s modules have been grouped here.
 If you want to write your own lifting functions or regressor, this is the place
 to look!
 
+The following abstract class implementations are spread across
+``pykoop.koopman_pipeline``, ``pykoop.dynamic_models``, and
+``pykoop.lmi_regressors``. The most commonly used ones have been imported into
+the ``pykoop`` namespace.
+
 .. autosummary::
    :toctree: _autosummary/
 
@@ -212,6 +243,18 @@ to look!
 
 Examples
 ========
+
+Simple Koopman pipeline
+-----------------------
+
+.. include:: ../examples/example_pipeline_simple.py
+   :literal:
+
+Van der Pol Oscillator
+-----------------------
+
+.. include:: ../examples/example_pipeline_vdp.py
+   :literal:
 
 Cross-validation with ``scikit-learn``
 --------------------------------------
