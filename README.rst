@@ -23,7 +23,7 @@ at every stage of the pipeline.
 
 ``pykoop`` also includes several experimental regressors that use linear matrix
 inequalities to constraint the asymptotic stability of the Koopman system, or
-regularize the regression using its :math:`\mathcal{H}_\infty` norm. Check out
+regularize the regression using its H-infinity norm. Check out
 `arXiv:2102.03613 [eess.SY] <https://arxiv.org/abs/2102.03613>`_ and
 `arXiv:2110.09658 [eess.SY] <https://arxiv.org/abs/2110.09658>`_ for details.
 
