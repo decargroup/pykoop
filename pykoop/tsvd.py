@@ -37,9 +37,9 @@ class Tsvd(sklearn.base.BaseEstimator):
 
             - ``'economy'`` -- do not truncate (use economy SVD),
             - ``'unknown_noise'``-- truncate using optimal hard truncation
-              [optht]_ with unknown noise,
+              [GD14]_ with unknown noise,
             - ``'known_noise'`` -- truncate using optimal hard truncation
-              [optht]_ with known noise,
+              [GD14]_ with known noise,
             - ``'cutoff'`` -- truncate singular values smaller than a cutoff,
               or
             - ``'rank'`` -- truncate singular values to a fixed rank.
@@ -56,7 +56,7 @@ class Tsvd(sklearn.base.BaseEstimator):
 
         Notes
         -----
-        Optimal hard truncation [optht]_ assumes the noisy measured matrix
+        Optimal hard truncation [GD14]_ assumes the noisy measured matrix
         ``X_measured`` is composed of::
 
             X_measured = X_true + noise_magnitude * X_noise

@@ -23,8 +23,8 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     - ``sklearn.preprocessing.MinMaxScaler``, or
     - ``sklearn.preprocessing.MaxAbsScaler``.
 
-    See [transformers]_ for more appropriate transformers (though not all have
-    been tested).
+    Any ``scikit-learn`` transformer [#tr]_ should be compatible, though not
+    all have been tested.
 
     Attributes
     ----------
@@ -49,7 +49,7 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
 
     References
     ----------
-    .. [transformers] https://scikit-learn.org/stable/modules/classes.html#module-sklearn.preprocessing  # noqa: E501
+    .. [#tr] https://scikit-learn.org/stable/modules/classes.html#module-sklearn.preprocessing
 
     Examples
     --------
@@ -224,7 +224,7 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
 class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     """Lifting function to generate bilinear products of the state and input.
 
-    As proposed in [bilinear]_. Given a state ``x`` and input::
+    As proposed in [BFV20]_. Given a state ``x`` and input::
 
         u = np.array([
             [u1],

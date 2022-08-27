@@ -1,4 +1,4 @@
-"""Collection of experimental LMI-based Koopman regressors from [lmikoop]_.
+"""Experimental LMI-based Koopman regressors from [DF21]_ and [DF22]_.
 
 Warning
 -------
@@ -54,7 +54,7 @@ signal.signal(signal.SIGINT, _sigint_handler)
 class LmiRegressor(koopman_pipeline.KoopmanRegressor):
     """Base class for LMI regressors.
 
-    For derivations of LMIs, see [lmikoop]_.
+    For derivations of LMIs, see [DF21]_ and [DF22]_.
 
     This base class is mostly used to share common ``scikit-learn`` parameters.
 
@@ -1854,7 +1854,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
 
     Optionally supports additional Tikhonov regularization.
 
-    Originally proposed in [dissip]_.
+    Originally proposed in [HIS19]_.
 
     Attributes
     ----------
@@ -2174,8 +2174,8 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
     ) -> None:
         """Instantiate :class:`LmiHinfZpkMeta`.
 
-        Paramters
-        ---------
+        Parameters
+        ----------
         hinf_regressor : koopman_pipeline.KoopmanRegressor
             Instance of :class:`LmiEdmdHinfReg` or :class:`LmiDmdcHinfReg`.
 
@@ -2195,7 +2195,7 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
 
         discretization : str
             Discretization method supported by
-            :func:``scipy.signal.cont2discrete`` (except ``'gbt'``).
+            :func:`scipy.signal.cont2discrete` (except ``'gbt'``).
             Specifically, possible valued are
 
             - ``'bilinear'`` -- Tustin's approximation (recommended),
@@ -2204,8 +2204,6 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
             - ``'zoh'`` -- zero-order hold method,
             - ``'foh'`` -- first-order hold method, or
             - ``'impulse'`` -- equivalent impulse response method.
-
-        See [cont2discrete]_ for details.
 
         t_step : float
             Timestep beween samples. Used for discretization.
@@ -2222,10 +2220,6 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         The zeros and poles in the weight should usually have negative real
         parts! If you want a pole at ``10 rad/s``, then ``poles`` must be
         ``-10``.
-
-        References
-        ----------
-        .. [cont2discrete] https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.cont2discrete.html#scipy-signal-cont2discrete  # noqa: E501
 
         Examples
         --------

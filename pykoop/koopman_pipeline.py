@@ -1,95 +1,4 @@
-"""Koopman pipeline meta-estimators and related interfaces.
-
-Since the Koopman regression problem operates on timeseries data, it has
-additional requirements that preclude the use of ``scikit-learn``
-:class:`Pipeline` objects:
-
-1. The original state must be kept at the beginning of the lifted state.
-2. The input-dependent lifted states must be kept at the end of the lifted
-   state.
-3. The number of input-independent and input-dependent lifting functions must
-   be tracked throughout the pipeline.
-4. Samples must not be reordered or subsampled (this would corrupt delay-based
-   lifting functions).
-5. Concatenated data from different training epidodes must not be mixed (even
-   though the states are adjacent in the array, they may not be sequential in
-   time).
-
-To meet these requirements, each lifting function, described by the
-:class:`KoopmanLiftingFn` interface, supports a feature that indicates which
-episode each sample belongs to. Furthermore, each lifting function stores the
-number of input-dependent and input-independent features at its input and
-output.
-
-The data matrices provided to :func:`fit` (as well as :func:`transform`
-and :func:`inverse_transform`) must obey the following format:
-
-1. If ``episode_feature`` is true, the first feature must indicate
-   which episode each timestep belongs to.
-2. The last ``n_inputs`` features must be exogenous inputs.
-3. The remaining features are considered to be states (input-independent).
-
-Consider an example data matrix where the :func:`fit` parameters are
-``episode_feature=True`` and ``n_inputs=1``:
-
-======= ======= ======= =======
-Episode State 0 State 1 Input 0
-======= ======= ======= =======
-0.0       0.1    -0.1    0.2
-0.0       0.2    -0.2    0.3
-0.0       0.3    -0.3    0.4
-1.0      -0.1     0.1    0.3
-1.0      -0.2     0.2    0.4
-1.0      -0.3     0.3    0.5
-2.0       0.3    -0.1    0.3
-2.0       0.2    -0.2    0.4
-======= ======= ======= =======
-
-In the above matrix, there are three distinct episodes with different
-numbers of timesteps. The last feature is an input, so the remaining
-two features must be states.
-
-If ``n_inputs=0``, the same matrix is interpreted as:
-
-======= ======= ======= =======
-Episode State 0 State 1 State 2
-======= ======= ======= =======
-0.0       0.1    -0.1    0.2
-0.0       0.2    -0.2    0.3
-0.0       0.3    -0.3    0.4
-1.0      -0.1     0.1    0.3
-1.0      -0.2     0.2    0.4
-1.0      -0.3     0.3    0.5
-2.0       0.3    -0.1    0.3
-2.0       0.2    -0.2    0.4
-======= ======= ======= =======
-
-If ``episode_feature=False`` and the first feature is omitted, the
-matrix is interpreted as:
-
-======= ======= =======
-State 0 State 1 State 2
-======= ======= =======
- 0.1    -0.1    0.2
- 0.2    -0.2    0.3
- 0.3    -0.3    0.4
--0.1     0.1    0.3
--0.2     0.2    0.4
--0.3     0.3    0.5
- 0.3    -0.1    0.3
- 0.2    -0.2    0.4
-======= ======= =======
-
-In the above case, each timestep is assumed to belong to the same
-episode.
-
-Koopman regressors, which implement the interface defined in
-:class:`KoopmanRegressor` are distinct from ``scikit-learn`` regressors in that
-they support the episode feature and state tracking attributes used by the
-lifting function objects. Koopman regressors also support being fit with a
-single data matrix, which they will split and time-shift according to the
-episode feature.
-"""
+"""Koopman pipeline meta-estimators and related interfaces."""
 
 import abc
 import logging
@@ -111,18 +20,27 @@ log.addHandler(logging.NullHandler())
 class _LiftRetractMixin(metaclass=abc.ABCMeta):
     """Mixin providing more convenient lift/retract functions.
 
-    Assumes child class implements :func:``transform`` and
-    :func:``inverse_transform``. See :class:``KoopmanLiftingFn`` and
-    :class:``KoopmanPipeline`` for details concerning the class methods and
+    Assumes child class implements :func:`transform` and
+    :func:`inverse_transform`. See :class:`KoopmanLiftingFn` and
+    :class:`KoopmanPipeline`` for details concerning the class methods and
     attributes.
-    """
 
-    # Attribues that must be defined in :func:``fit`` of child class.
-    n_states_in_: int
-    n_inputs_in_: int
-    n_states_out_: int
-    n_inputs_out_: int
-    episode_feature_: bool
+    All attributes with a trailing underscore must be set in the subclass'
+    :func:`fit`.
+
+    Attributes
+    ----------
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    """
 
     @abc.abstractmethod
     def transform(self, X: np.ndarray) -> np.ndarray:
@@ -159,7 +77,7 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
     def lift(self, X: np.ndarray, episode_feature: bool = None) -> np.ndarray:
         """Lift state and input.
 
-        Potentially more convenient alternative to calling :func:``transform``.
+        Potentially more convenient alternative to calling :func:`transform`.
 
         Parameters
         ----------
@@ -209,7 +127,7 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
         """Retract lifted state and input.
 
         Potentially more convenient alternative to calling
-        :func:``inverse_transform``.
+        :func:`inverse_transform`.
 
         Parameters
         ----------
@@ -259,7 +177,7 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
         """Lift state only.
 
         More convenient alternative to padding the state with dummy inputs,
-        calling :func:``transform``, then stripping the unwanted lifted inputs.
+        calling :func:`transform`, then stripping the unwanted lifted inputs.
 
         Parameters
         ----------
@@ -290,7 +208,7 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
         """Retract lifted state only.
 
         More convenient alternative to padding the lifted state with dummy
-        lifted inputs, calling :func:``inverse_transform``.
+        lifted inputs, calling :func:`inverse_transform`.
 
         Parameters
         ----------
@@ -320,7 +238,7 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
     ) -> np.ndarray:
         """Lift input only.
 
-        More convenient alternative to calling :func:``transform``, then
+        More convenient alternative to calling :func:`transform`, then
         stripping the unwanted lifted states.
 
         Parameters
@@ -356,7 +274,7 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
         """Retract lifted input only.
 
         More convenient alternative to padding the lifted state with dummy
-        lifted states, calling :func:``inverse_transform``, then stripping the
+        lifted states, calling :func:`inverse_transform`, then stripping the
         unwanted states.
 
         Parameters
@@ -1123,7 +1041,7 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     """Meta-estimator for lifting states and inputs separately.
 
     Only works with episode-independent lifting functions! It's too complicated
-    to make this work with :class:``DelayLiftingFn``, especially when you can
+    to make this work with :class:`DelayLiftingFn`, especially when you can
     just set ``n_delays_input=0``.
 
     Attributes
@@ -1858,7 +1776,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
             If true, retract and re-lift state between prediction steps
             (default). Otherwise, only retract the state after all predictions
             are made. Correspond to the local and global error definitions of
-            [local]_.
+            [MAM22]_.
         return_lifted : bool
             If true, return the lifted state. If false, return the original
             state (default).
@@ -2024,8 +1942,9 @@ class KoopmanPipeline(metaestimators._BaseComposition,
 
         A ``scikit-learn`` scorer accepts the parameters ``(estimator, X, y)``
         and returns a float representing the prediction quality of
-        ``estimator`` on ``X`` with reference to ``y``. Higher numbers are
-        better. Losses are negated [scorers]_.
+        ``estimator`` on ``X`` with reference to ``y``. Uses existing
+        ``scikit-learn`` regression metrics [#sc]_. Higher numbers are better.
+        Metrics corresponding to losses are negated.
 
         Technically, the scorer will predict the entire episode, regardless of
         how ``n_steps`` is set. It will then assign a zero weight to all errors
@@ -2036,27 +1955,38 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         n_steps : int
             Number of steps ahead to predict. If ``None`` or longer than the
             episode, will score the entire episode.
+
         discount_factor : float
             Discount factor used to weight the error timeseries. Should be
             positive, with magnitude 1 or slightly less. The error at each
             timestep is weighted by ``discount_factor**k``, where ``k`` is the
             timestep.
+
         regression_metric : str
-            Regression metric to use. One of ['explained_variance',
-            'neg_mean_absolute_error', 'neg_mean_squared_error',
-            'neg_mean_squared_log_error', 'neg_median_absolute_error', 'r2',
-            'neg_mean_absolute_percentage_error']. See [scorers]_.
+            Regression metric to use. One of
+
+            - ``'explained_variance'``,
+            - ``'neg_mean_absolute_error'``,
+            - ``'neg_mean_squared_error'``,
+            - ``'neg_mean_squared_log_error'``,
+            - ``'neg_median_absolute_error'``,
+            - ``'r2'``, or
+            - ``'neg_mean_absolute_percentage_error'``,
+
+            which are existing ``scikit-learn`` regression metrics [#sc]_.
+
         multistep : bool
             If true, predict using :func:`predict_state`. Otherwise,
             predict using :func:`predict` (one-step-ahead prediction).
             Multistep prediction is highly recommended unless debugging. If
             one-step-ahead prediciton is used, `n_steps` and `discount_factor`
             are ignored.
+
         relift_state : bool
             If true, retract and re-lift state between prediction steps
             (default). Otherwise, only retract the state after all predictions
             are made. Correspond to the local and global error definitions of
-            [local]_. Ignored if ``multistep`` is false.
+            [MAM22]_. Ignored if ``multistep`` is false.
 
         Returns
         -------
@@ -2067,6 +1997,10 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         ------
         ValueError
             If ``discount_factor`` is negative or greater than one.
+
+        References
+        ----------
+        .. [#sc] https://scikit-learn.org/stable/modules/model_evaluation.html
         """
 
         def koopman_pipeline_scorer(
@@ -2162,23 +2096,36 @@ def score_state(
     ----------
     X_predicted : np.ndarray
         Predicted state data matrix.
+
     X_expected : np.ndarray
         Expected state data matrix.
+
     n_steps : int
         Number of steps ahead to predict. If ``None`` or longer than the
         episode, will score the entire episode.
+
     discount_factor : float
         Discount factor used to weight the error timeseries. Should be
         positive, with magnitude 1 or slightly less. The error at each
         timestep is weighted by ``discount_factor**k``, where ``k`` is the
         timestep.
+
     regression_metric : str
-        Regression metric to use. One of ['explained_variance',
-        'neg_mean_absolute_error', 'neg_mean_squared_error',
-        'neg_mean_squared_log_error', 'neg_median_absolute_error', 'r2',
-        'neg_mean_absolute_percentage_error']. See [scorers]_.
+        Regression metric to use. One of
+
+        - ``'explained_variance'``,
+        - ``'neg_mean_absolute_error'``,
+        - ``'neg_mean_squared_error'``,
+        - ``'neg_mean_squared_log_error'``,
+        - ``'neg_median_absolute_error'``,
+        - ``'r2'``, or
+        - ``'neg_mean_absolute_percentage_error'``,
+
+        which are existing ``scikit-learn`` regression metrics [#sc]_.
+
     min_samples : int
         Number of samples in initial condition.
+
     episode_feature : bool
         True if first feature indicates which episode a timestep is from.
 
@@ -2186,6 +2133,10 @@ def score_state(
     -------
     float
         Score (greater is better).
+
+    References
+    ----------
+    .. [#sc] https://scikit-learn.org/stable/modules/model_evaluation.html
     """
     # Valid ``regression_metric`` values:
     regression_metrics = {

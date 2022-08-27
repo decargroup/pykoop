@@ -1,5 +1,6 @@
 """Example of how to use the Koopman pipeline."""
 
+import numpy as np
 from sklearn.preprocessing import MaxAbsScaler, StandardScaler
 
 import pykoop
@@ -24,7 +25,9 @@ def main() -> None:
     kp.fit(X_msd, n_inputs=1, episode_feature=True)
 
     # Predict using the pipeline
-    X_pred = kp.predict_multistep(X_msd)
+    X_initial = X_msd[[0], 1:3]
+    U = X_msd[:, [3]]
+    X_pred = kp.predict_state(X_initial, U, episode_feature=False)
 
     # Score using the pipeline
     score = kp.score(X_msd)

@@ -1,3 +1,5 @@
+.. role:: class(code)
+
 pykoop
 ======
 
@@ -20,7 +22,11 @@ leveraging ``scikit-learn``'s existing cross-validation infrastructure.
 at every stage of the pipeline.
 
 ``pykoop`` also includes several experimental regressors that use linear matrix
-inequalities to regularize or constrain the Koopman matrix from [1]_ and [2]_.
+inequalities to constraint the asymptotic stability of the Koopman system, or
+regularize the regression using its H-infinity norm. Check out
+`arXiv:2110.09658 [eess.SY] <https://arxiv.org/abs/2110.09658>`_ and
+`arXiv:2102.03613 [eess.SY] <https://arxiv.org/abs/2102.03613>`_ for details.
+
 
 Example
 =======
@@ -31,6 +37,7 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
 .. code-block:: python
 
     import pykoop
+    import numpy as np
     from sklearn.preprocessing import MaxAbsScaler, StandardScaler
 
     # Get sample mass-spring-damper data
@@ -50,45 +57,50 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
     kp.fit(X_msd, n_inputs=1, episode_feature=True)
 
     # Predict using the pipeline
-    X_pred = kp.predict_multistep(X_msd)
+    X_initial = X_msd[[0], 1:3]
+    U = X_msd[:, [3]]
+    X_pred = kp.predict_state(X_initial, U, episode_feature=False)
 
     # Score using the pipeline
     score = kp.score(X_msd)
+
 
 Library layout
 ==============
 
 Most of the required classes and functions have been imported into the
 ``pykoop`` namespace. The most important object is the
-``KoopmanPipeline``, which requires a list of lifting functions and
+:class:`pykoop.KoopmanPipeline`, which requires a list of lifting functions and
 a regressor.
 
 Some example lifting functions are
 
-- ``PolynomialLiftingFn``,
-- ``DelayLiftingFn``, and
-- ``BilinearInputLiftingFn``.
+- :class:`pykoop.PolynomialLiftingFn`,
+- :class:`pykoop.DelayLiftingFn`, and
+- :class:`pykoop.BilinearInputLiftingFn`.
 
 ``scikit-learn`` preprocessors can be wrapped into lifting functions using
-``SkLearnLiftingFn``. States and inputs can be lifted independently using
-``SplitPipeline``. This is useful to avoid lifting inputs.
+:class:`pykoop.SkLearnLiftingFn`. States and inputs can be lifted independently
+using :class:`pykoop.SplitPipeline`. This is useful to avoid lifting inputs.
 
 Some basic regressors included are
 
-- ``Edmd`` (includes Tikhonov regularization),
-- ``Dmdc``, and
-- ``Dmd``.
+- :class:`pykoop.Edmd` (includes Tikhonov regularization),
+- :class:`pykoop.Dmdc`, and
+- :class:`pykoop.Dmd`.
 
 More advanced (and experimental) LMI-based regressors are included in the
 ``pykoop.lmi_regressors`` namespace. They allow for different kinds of
 regularization as well as hard constraints on the Koopman operator.
 
 You can roll your own lifting functions and regressors by inheriting from
-``KoopmanLiftingFn``, ``EpisodeIndependentLiftingFn``,
-``EpisodeDependentLiftingFn``, and ``KoopmanRegressor``.
+:class:`pykoop.KoopmanLiftingFn`, :class:`pykoop.EpisodeIndependentLiftingFn`,
+:class:`pykoop.EpisodeDependentLiftingFn`, and
+:class:`pykoop.KoopmanRegressor`.
 
 Some sample dynamic models are also included in the ``pykoop.dynamic_models``
 namespace.
+
 
 Installation and testing
 ========================
@@ -141,6 +153,7 @@ you can use
 
 You will need ``yapf`` installed for this.
 
+
 Related packages
 ================
 
@@ -168,15 +181,6 @@ Library      Unique features
 .. _PyDMD: https://github.com/mathLab/PyDMD
 .. _PySINDy: https://github.com/dynamicslab/pysindy
 
-References
-==========
-
-.. [1] Steven Dahdah and James Richard Forbes. "Linear matrix inequality
-   approaches to Koopman operator approximation." arXiv:2102.03613 [eess.SY]
-   (2021). https://arxiv.org/abs/2102.03613
-.. [2] Steven Dahdah and James Richard Forbes. "System norm regularization
-   methods for Koopman operator approximation." arXiv:2110.09658 [eess.SY]
-   (2021). https://arxiv.org/abs/2110.09658
 
 Citation
 ========
@@ -194,6 +198,7 @@ If you use this software in your research, please cite it as below or see
         author={Steven Dahdah and James Richard Forbes},
         year={2021},
     }
+
 
 License
 =======

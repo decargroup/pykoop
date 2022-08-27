@@ -4,11 +4,11 @@ Based on code from the ``scikit-learn`` project. Original authors of the file
 are Joel Nothman and Andreas Mueller. Specifically, the original file is
 ``scikit-learn/sklearn/utils/metaestimators.py`` from commit ``cc8d84a``.
 
-I wanted my interface to be as close to the ``scikit-learn`` :class:`Pipeline`
-class as possible, but I did not want to rely on the internal
-:class:`_BaseComposition` class to do so. My compromise was to copy and adjust
-that code for my own uses, while making sure the original attribution and
-license were present.
+I wanted my interface to be as close to the ``scikit-learn``
+:class:`sklearn.pipeline.Pipeline` class as possible, but I did not want to
+rely on the internal :class:`sklearn.utils.metaestimators._BaseComposition`
+class to do so. My compromise was to copy and adjust that code for my own uses,
+while making sure the original attribution and license were present.
 
 Distributed under the BSD-3-Clause License. See ``LICENSE`` in this directory
 for the full license.
