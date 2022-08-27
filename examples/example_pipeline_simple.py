@@ -1,6 +1,5 @@
 """Example of how to use the Koopman pipeline."""
 
-import numpy as np
 from sklearn.preprocessing import MaxAbsScaler, StandardScaler
 
 import pykoop

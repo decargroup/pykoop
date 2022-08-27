@@ -37,7 +37,6 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
 .. code-block:: python
 
     import pykoop
-    import numpy as np
     from sklearn.preprocessing import MaxAbsScaler, StandardScaler
 
     # Get sample mass-spring-damper data
