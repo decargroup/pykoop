@@ -7,6 +7,7 @@ optht
 Deprecated
 
 pytest
+pytest-regressions
 matplotlib
 
 sphinx
