@@ -12,3 +12,5 @@ matplotlib
 
 sphinx
 sphinx-rtd-theme
+
+mosek
