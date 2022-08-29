@@ -1,40 +1,10 @@
-"""Test ``koopman_pipeline`` module."""
-
-import sklearn.utils.estimator_checks
-from sklearn import preprocessing
+"""Test deep parameter access from ``pykoop/_sklearn_metaestimators``."""
 
 import pykoop
 
 
-class TestSklearn:
-    """Test scikit-learn compatibility."""
-
-    @sklearn.utils.estimator_checks.parametrize_with_checks([
-        pykoop.KoopmanPipeline(regressor=pykoop.Edmd()),
-        pykoop.KoopmanPipeline(
-            lifting_functions=[
-                ('pl', pykoop.PolynomialLiftingFn()),
-            ],
-            regressor=pykoop.Edmd(),
-        ),
-        pykoop.SplitPipeline(
-            lifting_functions_state=None,
-            lifting_functions_input=None,
-        ),
-        pykoop.SplitPipeline(
-            lifting_functions_state=[
-                ('pl', pykoop.PolynomialLiftingFn()),
-            ],
-            lifting_functions_input=None,
-        ),
-    ])
-    def test_compatible_estimator(self, estimator, check):
-        """Test scikit-learn compatibility of estimators."""
-        check(estimator)
-
-
 class TestDeepParams:
-    """Test deep parameter access from ``_sklearn_metaestimators``."""
+    """Test deep parameter access from ``pykoop/_sklearn_metaestimators``."""
 
     def test_get_set(self):
         """Test get and set with :class:`KoopmanPipeline`."""
