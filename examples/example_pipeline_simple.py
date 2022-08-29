@@ -5,7 +5,7 @@ from sklearn.preprocessing import MaxAbsScaler, StandardScaler
 import pykoop
 
 
-def main() -> None:
+def example_pipeline_simple() -> None:
     """Demonstrate how to use the Koopman pipeline."""
     # Get sample mass-spring-damper data
     X_msd = pykoop.example_data_msd()
@@ -33,4 +33,4 @@ def main() -> None:
 
 
 if __name__ == '__main__':
-    main()
+    example_pipeline_simple()

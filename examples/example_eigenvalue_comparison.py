@@ -11,7 +11,7 @@ plt.rc('axes', grid=True)
 plt.rc('grid', linestyle='--')
 
 
-def main() -> None:
+def example_eigenvalue_comparison() -> None:
     """Compare eigenvalues of different versions of EDMD."""
     # Get example data
     X = pykoop.example_data_msd()
@@ -72,5 +72,5 @@ def plt_eig(A: np.ndarray,
 
 
 if __name__ == '__main__':
-    main()
+    example_eigenvalue_comparison()
     plt.show()

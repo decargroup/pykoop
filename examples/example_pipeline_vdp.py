@@ -7,7 +7,7 @@ import pykoop
 import pykoop.dynamic_models
 
 
-def main() -> None:
+def example_pipeline_vdp() -> None:
     """Demonstrate how to use the Koopman pipeline."""
     # Get sample data
     X_vdp = pykoop.example_data_vdp()
@@ -141,8 +141,7 @@ def main() -> None:
     ax[0, 0].set_ylabel('$u$')
     ax[0, 0].set_title('Exogenous input')
 
-    plt.show()
-
 
 if __name__ == '__main__':
-    main()
+    example_pipeline_vdp()
+    plt.show()
