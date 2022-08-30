@@ -1,3 +1,5 @@
+"""Test :mod:`tsvd`."""
+
 import sklearn.utils.estimator_checks
 
 import pykoop

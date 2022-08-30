@@ -1,4 +1,4 @@
-"""Test a selection of invalid estimator parameter."""
+"""Test :mod:`lmi_regressors`."""
 
 import numpy as np
 import pytest

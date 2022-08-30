@@ -1,4 +1,4 @@
-"""Test ``lifting_functions`` module."""
+"""Test :mod:`lifting_functions`."""
 
 import numpy as np
 import pandas

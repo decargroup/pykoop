@@ -1,4 +1,4 @@
-"""Test ``regressors`` module."""
+"""Test :mod:`regressors`."""
 
 import numpy as np
 import pytest

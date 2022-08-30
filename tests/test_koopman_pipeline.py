@@ -1,4 +1,4 @@
-"""Test ``koopman_pipeline`` module."""
+"""Test :mod:`koopman_pipeline`."""
 
 import numpy as np
 import pytest

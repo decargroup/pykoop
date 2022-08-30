@@ -1,4 +1,4 @@
-"""Test ``utils`` module."""
+"""Test :mod:`utils`."""
 
 import numpy as np
 import pytest
