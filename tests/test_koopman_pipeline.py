@@ -138,6 +138,118 @@ class TestSplitCombineEpisodes:
 @pytest.mark.parametrize(
     'lf, X, Xt_exp, n_inputs, episode_feature, attr_exp',
     [
+        (
+            pykoop.KoopmanPipeline(
+                lifting_functions=None,
+                regressor=None,
+            ),
+            np.array([
+                [1, 2, 3, 4, 5, 6],
+                [-1, -2, -3, -4, -5, -6],
+                [2, 4, 6, 8, 10, 12],
+            ]).T,
+            np.array([
+                [1, 2, 3, 4, 5, 6],
+                [-1, -2, -3, -4, -5, -6],
+                [2, 4, 6, 8, 10, 12],
+            ]).T,
+            1,
+            False,
+            {
+                'n_features_in_': 3,
+                'n_states_in_': 2,
+                'n_inputs_in_': 1,
+                'n_features_out_': 3,
+                'n_states_out_': 2,
+                'n_inputs_out_': 1,
+                'min_samples_': 1,
+            },
+        ),
+        (
+            pykoop.KoopmanPipeline(
+                lifting_functions=[(
+                    'dl',
+                    pykoop.DelayLiftingFn(
+                        n_delays_state=1,
+                        n_delays_input=1,
+                    ),
+                )],
+                regressor=None,
+            ),
+            np.array([
+                [1, 2, 3, 4, 5, 6],
+                [-1, -2, -3, -4, -5, -6],
+                [2, 4, 6, 8, 10, 12],
+            ]).T,
+            np.array([
+                # State
+                [2, 3, 4, 5, 6],
+                [-2, -3, -4, -5, -6],
+                [1, 2, 3, 4, 5],
+                [-1, -2, -3, -4, -5],
+                # Input
+                [4, 6, 8, 10, 12],
+                [2, 4, 6, 8, 10],
+            ]).T,
+            1,
+            False,
+            {
+                'n_features_in_': 3,
+                'n_states_in_': 2,
+                'n_inputs_in_': 1,
+                'n_features_out_': 6,
+                'n_states_out_': 4,
+                'n_inputs_out_': 2,
+                'min_samples_': 2,
+            },
+        ),
+    ],
+)
+class TestKoopmanPipelineTransform:
+    """Test :class:`KoopmanPipeline` transform and inverse transform."""
+
+    def test_koopman_pipeline_attrs(self, lf, X, Xt_exp, n_inputs,
+                                    episode_feature, attr_exp):
+        """Test expected :class:`KoopmanPipeline` object attributes."""
+        # Fit estimator
+        lf.fit_transformers(
+            X,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        # Check attributes
+        attr = {key: getattr(lf, key) for key in attr_exp.keys()}
+        assert attr == attr_exp
+
+    def test_koopman_pipeline_transform(self, lf, X, Xt_exp, n_inputs,
+                                        episode_feature, attr_exp):
+        """Test :class:`KoopmanPipeline` transform."""
+        # Fit estimator
+        lf.fit_transformers(
+            X,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        Xt = lf.transform(X)
+        np.testing.assert_allclose(Xt, Xt_exp)
+
+    def test_koopman_pipeline_inverse_transform(self, lf, X, Xt_exp, n_inputs,
+                                                episode_feature, attr_exp):
+        """Test :class:`KoopmanPipeline` inverse transform."""
+        # Fit estimator
+        lf.fit_transformers(
+            X,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        Xt = lf.transform(X)
+        Xi = lf.inverse_transform(Xt)
+        np.testing.assert_allclose(Xi, X)
+
+
+@pytest.mark.parametrize(
+    'lf, X, Xt_exp, n_inputs, episode_feature, attr_exp',
+    [
         # Basic, without episode feature
         (
             pykoop.SplitPipeline(
