@@ -81,36 +81,36 @@ class TestAnglePreprocessor:
         Xi = pp.inverse_transform(Xt)
         np.testing.assert_allclose(Xi_exp, Xi, atol=1e-15)
 
-    def test_features_ordering(self):
+    @pytest.mark.parametrize(
+        'ang, lin, cos, sin',
+        [
+            (
+                # Mix of linear and angles
+                np.array([2, 3]),
+                np.array([1, 1, 0, 0, 0, 0, 1], dtype=bool),
+                np.array([0, 0, 1, 0, 1, 0, 0], dtype=bool),
+                np.array([0, 0, 0, 1, 0, 1, 0], dtype=bool),
+            ),
+            (
+                # All linear
+                np.array([]),
+                np.array([1, 1, 1, 1, 1], dtype=bool),
+                np.array([0, 0, 0, 0, 0], dtype=bool),
+                np.array([0, 0, 0, 0, 0], dtype=bool),
+            ),
+            (
+                # All angles
+                np.array([0, 1, 2, 3, 4]),
+                np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=bool),
+                np.array([1, 0, 1, 0, 1, 0, 1, 0, 1, 0], dtype=bool),
+                np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1], dtype=bool),
+            ),
+        ])
+    def test_features_ordering(self, ang, lin, cos, sin):
         """Test angle preprocessing feature order."""
         X = np.zeros((2, 5))
-        # Mix of linear and angles
-        ang = np.array([2, 3])
         pp = pykoop.AnglePreprocessor(angle_features=ang)
         pp.fit(X, episode_feature=False)
-        lin = np.array([1, 1, 0, 0, 0, 0, 1], dtype=bool)
-        cos = np.array([0, 0, 1, 0, 1, 0, 0], dtype=bool)
-        sin = np.array([0, 0, 0, 1, 0, 1, 0], dtype=bool)
-        np.testing.assert_allclose(lin, pp.lin_out_)
-        np.testing.assert_allclose(cos, pp.cos_out_)
-        np.testing.assert_allclose(sin, pp.sin_out_)
-        # All linear
-        ang = np.array([])
-        pp = pykoop.AnglePreprocessor(angle_features=ang)
-        pp.fit(X, episode_feature=False)
-        lin = np.array([1, 1, 1, 1, 1], dtype=bool)
-        cos = np.array([0, 0, 0, 0, 0], dtype=bool)
-        sin = np.array([0, 0, 0, 0, 0], dtype=bool)
-        np.testing.assert_allclose(lin, pp.lin_out_)
-        np.testing.assert_allclose(cos, pp.cos_out_)
-        np.testing.assert_allclose(sin, pp.sin_out_)
-        # All angles
-        ang = np.array([0, 1, 2, 3, 4])
-        pp = pykoop.AnglePreprocessor(angle_features=ang)
-        pp.fit(X, episode_feature=False)
-        lin = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=bool)
-        cos = np.array([1, 0, 1, 0, 1, 0, 1, 0, 1, 0], dtype=bool)
-        sin = np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1], dtype=bool)
         np.testing.assert_allclose(lin, pp.lin_out_)
         np.testing.assert_allclose(cos, pp.cos_out_)
         np.testing.assert_allclose(sin, pp.sin_out_)

@@ -5,7 +5,6 @@ from sklearn import preprocessing
 
 import pykoop
 
-
 poly_test_cases = [
     # Order 1, no inputs
     (
