@@ -6,6 +6,9 @@ import sklearn
 import pykoop
 
 
+# Add remote option for MOSEK
+
+
 def pytest_addoption(parser) -> None:
     """Add ``--remote`` command line flag to run regressions remotely."""
     parser.addoption(
@@ -28,6 +31,9 @@ def remote_url() -> str:
     See http://solve.mosek.com/web/index.html
     """
     return 'http://solve.mosek.com:30080'
+
+
+# Add common packages and data to doctest namespace
 
 
 @pytest.fixture(autouse=True)
