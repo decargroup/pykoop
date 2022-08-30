@@ -8,67 +8,46 @@ import pykoop
 from pykoop import lmi_regressors
 
 
-class TestSklearn:
-    """Test scikit-learn compatibility."""
-
-    mosek_solver_params = {
+@pytest.fixture
+def mosek_solver_params(remote, remote_url):
+    """MOSEK solver parameters."""
+    params = {
         'solver': 'mosek',
         'dualize': True,
         '*_fsb_tol': 1e-6,
         '*_opt_tol': 1e-6,
     }
+    # Set MOSEK solver to remote server if needed
+    if remote:
+        params['mosek_server'] = remote_url
+    return params
+
+
+class TestSklearn:
+    """Test scikit-learn compatibility."""
 
     @pytest.mark.mosek
     @sklearn.utils.estimator_checks.parametrize_with_checks([
-        pykoop.lmi_regressors.LmiEdmd(
-            alpha=1e-3,
-            solver_params=mosek_solver_params,
-        ),
-        pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr(
-            max_iter=1,
-            solver_params=mosek_solver_params,
-        ),
-        pykoop.lmi_regressors.LmiEdmdHinfReg(
-            alpha=1,
-            ratio=1,
-            max_iter=1,
-            solver_params=mosek_solver_params,
-        ),
-        pykoop.lmi_regressors.LmiEdmdDissipativityConstr(
-            max_iter=1,
-            solver_params=mosek_solver_params,
-        ),
-        pykoop.lmi_regressors.LmiDmdc(
-            alpha=1e-3,
-            solver_params=mosek_solver_params,
-        ),
-        pykoop.lmi_regressors.LmiDmdcSpectralRadiusConstr(
-            max_iter=1,
-            solver_params=mosek_solver_params,
-        ),
-        pykoop.lmi_regressors.LmiDmdcHinfReg(
-            alpha=1,
-            ratio=1,
-            max_iter=1,
-            solver_params=mosek_solver_params,
-        ),
+        pykoop.lmi_regressors.LmiEdmd(alpha=1e-3, ),
+        pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr(max_iter=1, ),
+        pykoop.lmi_regressors.LmiEdmdHinfReg(alpha=1, ratio=1, max_iter=1),
+        pykoop.lmi_regressors.LmiEdmdDissipativityConstr(max_iter=1, ),
+        pykoop.lmi_regressors.LmiDmdc(alpha=1e-3, ),
+        pykoop.lmi_regressors.LmiDmdcSpectralRadiusConstr(max_iter=1, ),
+        pykoop.lmi_regressors.LmiDmdcHinfReg(alpha=1, ratio=1, max_iter=1),
         pykoop.lmi_regressors.LmiHinfZpkMeta(
             pykoop.lmi_regressors.LmiEdmdHinfReg(
                 alpha=1,
                 ratio=1,
                 max_iter=1,
-                solver_params=mosek_solver_params,
             )),
     ])
-    def test_compatible_estimator(self, estimator, check, remote, remote_url):
+    def test_compatible_estimator(self, estimator, check, mosek_solver_params):
         """Test scikit-learn compatibility for LMI-based regressors."""
-        # Set MOSEK solver to remote server if needed
-        if remote:
-            if hasattr(estimator, 'hinf_regressor'):
-                estimator.hinf_regressor.solver_params[
-                    'mosek_server'] = remote_url
-            else:
-                estimator.solver_params['mosek_server'] = remote_url
+        if hasattr(estimator, 'hinf_regressor'):
+            estimator.hinf_regressor.solver_params = mosek_solver_params
+        else:
+            estimator.solver_params = mosek_solver_params
         check(estimator)
 
 
