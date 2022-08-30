@@ -82,7 +82,13 @@ import pykoop
     ],
 )
 class TestAnglePreprocessorTransform:
-    """Test :class:`AnglePreprocessor` transform and inverse transform."""
+    """Test :class:`AnglePreprocessor` transform and inverse transform.
+
+    Attributes
+    ----------
+    angle_feature : np.ndarray
+        Array of feature indices that are angles.
+    """
 
     angle_feature = np.array([1])
 
