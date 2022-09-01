@@ -35,7 +35,7 @@ def mosek_solver_params(remote, remote_url):
 class TestLmiHinfZpkMeta:
     """Test :class:`LmiHinfZpkMeta`."""
 
-    def test_hinf_zpk_meta(
+    def test_hinf_weight(
         self,
         class_,
         mosek_solver_params,
@@ -95,7 +95,7 @@ class TestLmiHinfZpkMeta:
                 est_actual.hinf_regressor_.weight[i],
             )
 
-    def test_hinf_zpk_units(
+    def test_pole_zero_units(
         self,
         class_,
         mosek_solver_params,
