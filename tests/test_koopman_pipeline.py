@@ -8,6 +8,144 @@ from sklearn import preprocessing
 import pykoop
 
 
+@pytest.mark.parametrize('kp', [
+    pykoop.KoopmanPipeline(
+        lifting_functions=[
+            ('dl', pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1))
+        ],
+        regressor=pykoop.Edmd(),
+    ),
+    pykoop.KoopmanPipeline(
+        lifting_functions=[
+            ('dla', pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2)),
+            ('dlb', pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2)),
+        ],
+        regressor=pykoop.Edmd(),
+    ),
+    pykoop.KoopmanPipeline(
+        lifting_functions=[
+            ('dla', pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=1)),
+            ('ply', pykoop.PolynomialLiftingFn(order=2)),
+            ('dlb', pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=2)),
+        ],
+        regressor=pykoop.Edmd(),
+    ),
+    pykoop.KoopmanPipeline(
+        lifting_functions=[
+            (
+                'sp',
+                pykoop.SplitPipeline(
+                    lifting_functions_state=[
+                        ('pl', pykoop.PolynomialLiftingFn(order=2)),
+                    ],
+                    lifting_functions_input=None,
+                ),
+            ),
+            ('dl', pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2)),
+        ],
+        regressor=pykoop.Edmd(),
+    ),
+    pykoop.KoopmanPipeline(
+        lifting_functions=[
+            ('dla', pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1)),
+            (
+                'sp',
+                pykoop.SplitPipeline(
+                    lifting_functions_state=[
+                        ('pla', pykoop.PolynomialLiftingFn(order=2)),
+                        ('plb', pykoop.PolynomialLiftingFn(order=2)),
+                    ],
+                    lifting_functions_input=[
+                        ('plc', pykoop.PolynomialLiftingFn(order=2)),
+                    ],
+                ),
+            ),
+            ('dlb', pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1)),
+        ],
+        regressor=pykoop.Edmd(),
+    ),
+])
+class TestPrediction:
+    """Test fit Koopman pipeline prediction."""
+
+    def test_predict_trajectory(self, kp, mass_spring_damper_sine_input):
+        """Test :func:`predict_state`."""
+        msg = 'Test only works when there is no episode feature.'
+        assert (not mass_spring_damper_sine_input['episode_feature']), msg
+        # Fit estimator
+        kp.fit(
+            mass_spring_damper_sine_input['X_train'],
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=False,
+        )
+        # Extract initial conditions
+        x0 = pykoop.extract_initial_conditions(
+            mass_spring_damper_sine_input['X_train'],
+            kp.min_samples_,
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=False,
+        )
+        # Extract input
+        u = pykoop.extract_input(
+            mass_spring_damper_sine_input['X_train'],
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=False,
+        )
+        # Predict new states
+        X_sim = kp.predict_state(
+            x0,
+            u,
+            episode_feature=False,
+            relift_state=True,
+        )
+        # Predict manually
+        X_sim_exp = np.zeros(X_sim.shape)
+        X_sim_exp[:kp.min_samples_, :] = x0
+        for k in range(kp.min_samples_, u.shape[0]):
+            X = np.hstack((
+                X_sim_exp[(k - kp.min_samples_):k, :],
+                u[(k - kp.min_samples_):k, :],
+            ))
+            Xp = kp.predict(X)
+            X_sim_exp[[k], :] = Xp[[-1], :]
+        np.testing.assert_allclose(X_sim, X_sim_exp)
+
+    def test_predict_multistep(self, kp, mass_spring_damper_sine_input):
+        """Test :func:`predict_multistep` (deprecated)."""
+        msg = 'Test only works when there is no episode feature.'
+        assert (not mass_spring_damper_sine_input['episode_feature']), msg
+        # Extract initial conditions
+        x0 = pykoop.extract_initial_conditions(
+            mass_spring_damper_sine_input['X_train'],
+            kp.min_samples_,
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=mass_spring_damper_sine_input['episode_feature'],
+        )
+        # Extract input
+        u = pykoop.extract_input(
+            mass_spring_damper_sine_input['X_train'],
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=mass_spring_damper_sine_input['episode_feature'],
+        )
+        # Set up initial conditions and input
+        X_ic = np.zeros(mass_spring_damper_sine_input['X_train'].shape)
+        X_ic[:kp.min_samples_, :x0.shape[1]] = x0
+        X_ic[:, x0.shape[1]:] = u
+        # Predict using ``predict_multistep``
+        X_sim = kp.predict_multistep(X_ic)
+        # Predict manually
+        X_sim_exp = np.zeros(mass_spring_damper_sine_input['Xp_train'].shape)
+        X_sim_exp[:kp.min_samples_, :] = x0
+        for k in range(kp.min_samples_, u.shape[0]):
+            X = np.hstack((
+                X_sim_exp[(k - kp.min_samples_):k, :],
+                u[(k - kp.min_samples_):k, :],
+            ))
+            Xp = kp.predict(X)
+            X_sim_exp[[k], :] = Xp[[-1], :]
+        np.testing.assert_allclose(X_sim, X_sim_exp)
+
+
 @pytest.mark.parametrize(
     'X, episodes, episode_feature',
     [
