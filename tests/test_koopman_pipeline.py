@@ -105,33 +105,33 @@ class TestEpisodeManipulation:
         np.testing.assert_allclose(X_sh, X_sh_exp)
 
     @pytest.mark.parametrize(
-        'X, min_samples, n_inputs, episode_feature, ic_exp',
+        'X, ic_exp, min_samples, n_inputs, episode_feature',
         [
             (
                 np.array([
                     [1, 2, 3, 4],
                     [4, 5, 6, 7],
                 ]).T,
-                1,
-                0,
-                False,
                 np.array([
                     [1],
                     [4],
                 ]).T,
+                1,
+                0,
+                False,
             ),
             (
                 np.array([
                     [1, 2, 3, 4],
                     [4, 5, 6, 7],
                 ]).T,
-                2,
-                0,
-                False,
                 np.array([
                     [1, 2],
                     [4, 5],
                 ]).T,
+                2,
+                0,
+                False,
             ),
             (
                 np.array([
@@ -139,13 +139,13 @@ class TestEpisodeManipulation:
                     [4, 5, 6, 7],
                     [5, 5, 5, 5],
                 ]).T,
-                1,
-                1,
-                False,
                 np.array([
                     [1],
                     [4],
                 ]).T,
+                1,
+                1,
+                False,
             ),
             (
                 np.array([
@@ -153,14 +153,14 @@ class TestEpisodeManipulation:
                     [1, 2, 3, 4],
                     [4, 5, 6, 7],
                 ]).T,
-                1,
-                0,
-                True,
                 np.array([
                     [0, 1],
                     [1, 3],
                     [4, 6],
                 ]).T,
+                1,
+                0,
+                True,
             ),
             (
                 np.array([
@@ -169,14 +169,14 @@ class TestEpisodeManipulation:
                     [4, 5, 6, 7],
                     [9, 9, 9, 9],
                 ]).T,
-                1,
-                1,
-                True,
                 np.array([
                     [0, 1],
                     [1, 3],
                     [4, 6],
                 ]).T,
+                1,
+                1,
+                True,
             ),
             (
                 np.array([
@@ -185,24 +185,24 @@ class TestEpisodeManipulation:
                     [4, 5, 5, 6, 7, 6],
                     [9, 9, 9, 9, 9, 6],
                 ]).T,
-                2,
-                1,
-                True,
                 np.array([
                     [0, 0, 1, 1],
                     [1, 2, 3, 4],
                     [4, 5, 6, 7],
                 ]).T,
+                2,
+                1,
+                True,
             ),
         ],
     )
     def test_extract_initial_conditions(
         self,
         X,
+        ic_exp,
         min_samples,
         n_inputs,
         episode_feature,
-        ic_exp,
     ):
         """Test :func:`extract_initial_conditions`."""
         ic = pykoop.extract_initial_conditions(
@@ -214,44 +214,44 @@ class TestEpisodeManipulation:
         np.testing.assert_allclose(ic, ic_exp)
 
     @pytest.mark.parametrize(
-        'X, n_inputs, episode_feature, u_exp',
+        'X, u_exp, n_inputs, episode_feature',
         [
             (
                 np.array([
                     [1, 2, 3, 4],
                     [6, 7, 8, 9],
                 ]).T,
-                1,
-                False,
                 np.array([
                     [6, 7, 8, 9],
                 ]).T,
+                1,
+                False,
             ),
             (
                 np.array([
                     [1, 2, 3, 4],
                     [6, 7, 8, 9],
                 ]).T,
+                np.array([]).reshape((0, 4)).T,
                 0,
                 False,
-                np.array([]).reshape((0, 4)).T,
             ),
             (
                 np.array([
                     [0, 0, 1, 1],
                     [1, 2, 3, 4],
+                    [6, 7, 8, 9],
+                ]).T,
+                np.array([
+                    [0, 0, 1, 1],
                     [6, 7, 8, 9],
                 ]).T,
                 1,
                 True,
-                np.array([
-                    [0, 0, 1, 1],
-                    [6, 7, 8, 9],
-                ]).T,
             ),
         ],
     )
-    def test_extract_input(self, X, n_inputs, episode_feature, u_exp):
+    def test_extract_input(self, X, u_exp, n_inputs, episode_feature):
         """Test :func:`extract_input`."""
         u = pykoop.extract_input(X, n_inputs, episode_feature)
         np.testing.assert_allclose(u, u_exp)

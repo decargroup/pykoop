@@ -4,7 +4,7 @@ from typing import Any, Dict
 import numpy as np
 import pytest
 import sklearn
-from scipy import linalg
+from scipy import linalg, integrate
 
 import pykoop
 
@@ -60,7 +60,14 @@ def mass_spring_damper_sine_input() -> Dict[str, Any]:
         rtol=1e-8,
         atol=1e-8,
     )
-    U_valid = linalg.expm(msd.A * t_step)
+    # Compute discrete-time A and B matrices
+    Ad = linalg.expm(msd.A * t_step)
+
+    def integrand(s):
+        return linalg.expm(msd.A * (t_step - s)).ravel()
+
+    Bd = integrate.quad_vec(integrand, 0, t_step)[0].reshape((2, 2)) @ msd.B
+    U_valid = np.hstack((Ad, Bd)).T
     # Split the data
     y_train, y_valid = np.split(x, 2, axis=0)
     u_train, u_valid = np.split(np.reshape(u(t), (-1, 1)), 2, axis=0)
@@ -97,7 +104,7 @@ def mass_spring_damper_no_input() -> Dict[str, Any]:
         rtol=1e-8,
         atol=1e-8,
     )
-    U_valid = linalg.expm(msd.A * t_step)
+    U_valid = linalg.expm(msd.A * t_step).T
     # Split the data
     y_train, y_valid = np.split(x.T, 2, axis=1)
     X_train = y_train[:, :-1]
