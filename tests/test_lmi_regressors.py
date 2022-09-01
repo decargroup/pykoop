@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 import sklearn.utils.estimator_checks
+from scipy import signal
 
 import pykoop
 from pykoop import lmi_regressors
@@ -23,10 +24,153 @@ def mosek_solver_params(remote, remote_url):
     return params
 
 
+@pytest.mark.mosek
+@pytest.mark.parametrize(
+    'class_',
+    [
+        pykoop.lmi_regressors.LmiEdmdHinfReg,
+        pykoop.lmi_regressors.LmiDmdcHinfReg,
+    ],
+)
+class TestLmiHinfZpkMeta:
+    """Test :class:`LmiHinfZpkMeta`."""
+
+    def test_hinf_zpk_meta(
+        self,
+        class_,
+        mosek_solver_params,
+        mass_spring_damper_sine_input,
+    ):
+        """Test that :class:`LmiHinfZpkMeta` weight is correct.
+
+        .. todo:: Break up multiple asserts.
+        """
+        # Compute state space matrices
+        ss_ct = signal.ZerosPolesGain(
+            [-0],
+            [-5],
+            1,
+        ).to_ss()
+        ss_dt = ss_ct.to_discrete(
+            dt=mass_spring_damper_sine_input['t_step'],
+            method='bilinear',
+        )
+        weight = (
+            'post',
+            ss_dt.A,
+            ss_dt.B,
+            ss_dt.C,
+            ss_dt.D,
+        )
+        est_expected = class_(weight=weight, solver_params=mosek_solver_params)
+        est_actual = pykoop.lmi_regressors.LmiHinfZpkMeta(
+            hinf_regressor=class_(solver_params=mosek_solver_params),
+            type='post',
+            zeros=-0,
+            poles=-5,
+            gain=1,
+            discretization='bilinear',
+            t_step=mass_spring_damper_sine_input['t_step'],
+        )
+        # Fit regressors
+        est_expected.fit(
+            mass_spring_damper_sine_input['X_train'],
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=mass_spring_damper_sine_input['episode_feature'],
+        )
+        est_actual.fit(
+            mass_spring_damper_sine_input['X_train'],
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=mass_spring_damper_sine_input['episode_feature'],
+        )
+        # Check Koopman matrices
+        U_expected = est_expected.coef_.T
+        U_actual = est_actual.hinf_regressor_.coef_.T
+        np.testing.assert_allclose(U_actual, U_expected)
+        # Check state space matrices
+        assert est_expected.weight[0] == est_actual.hinf_regressor_.weight[0]
+        for i in range(1, 5):
+            np.testing.assert_allclose(
+                est_expected.weight[i],
+                est_actual.hinf_regressor_.weight[i],
+            )
+
+    def test_hinf_zpk_units(
+        self,
+        class_,
+        mosek_solver_params,
+        mass_spring_damper_sine_input,
+    ):
+        """Test that :class:`LmiHinfZpkMeta` zero and pole units are correct.
+
+        .. todo:: Break up multiple asserts.
+        """
+        est_1 = pykoop.lmi_regressors.LmiHinfZpkMeta(
+            hinf_regressor=class_(solver_params=mosek_solver_params),
+            type='post',
+            zeros=-0,
+            poles=(-2 * np.pi / mass_spring_damper_sine_input['t_step']) / 2,
+            gain=1,
+            discretization='bilinear',
+            t_step=mass_spring_damper_sine_input['t_step'],
+            units='rad/s',
+        )
+        est_2 = pykoop.lmi_regressors.LmiHinfZpkMeta(
+            hinf_regressor=class_(solver_params=mosek_solver_params),
+            type='post',
+            zeros=-0,
+            poles=(-1 / mass_spring_damper_sine_input['t_step']) / 2,
+            gain=1,
+            discretization='bilinear',
+            t_step=mass_spring_damper_sine_input['t_step'],
+            units='hz',
+        )
+        est_3 = pykoop.lmi_regressors.LmiHinfZpkMeta(
+            hinf_regressor=class_(solver_params=mosek_solver_params),
+            type='post',
+            zeros=-0,
+            poles=-1,
+            gain=1,
+            discretization='bilinear',
+            t_step=mass_spring_damper_sine_input['t_step'],
+            units='normalized',
+        )
+        # Fit estimators
+        est_1.fit(
+            mass_spring_damper_sine_input['X_train'],
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=mass_spring_damper_sine_input['episode_feature'],
+        )
+        est_2.fit(
+            mass_spring_damper_sine_input['X_train'],
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=mass_spring_damper_sine_input['episode_feature'],
+        )
+        est_3.fit(
+            mass_spring_damper_sine_input['X_train'],
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=mass_spring_damper_sine_input['episode_feature'],
+        )
+        # Check poles
+        np.testing.assert_allclose(est_1.ss_ct_.poles, est_2.ss_ct_.poles)
+        np.testing.assert_allclose(est_2.ss_ct_.poles, est_3.ss_ct_.poles)
+        np.testing.assert_allclose(est_3.ss_ct_.poles, est_1.ss_ct_.poles)
+        # Check zeros
+        np.testing.assert_allclose(est_1.ss_ct_.zeros, est_2.ss_ct_.zeros)
+        np.testing.assert_allclose(est_2.ss_ct_.zeros, est_3.ss_ct_.zeros)
+        np.testing.assert_allclose(est_3.ss_ct_.zeros, est_1.ss_ct_.zeros)
+        # Check parameters
+        assert est_1.n_features_in_ == est_1.hinf_regressor_.n_features_in_
+        assert est_1.n_states_in_ == est_1.hinf_regressor_.n_states_in_
+        assert est_1.n_inputs_in_ == est_1.hinf_regressor_.n_inputs_in_
+        assert est_1.episode_feature_ == est_1.hinf_regressor_.episode_feature_
+        np.testing.assert_allclose(est_1.coef_, est_1.hinf_regressor_.coef_)
+
+
+@pytest.mark.mosek
 class TestSklearn:
     """Test scikit-learn compatibility."""
 
-    @pytest.mark.mosek
     @sklearn.utils.estimator_checks.parametrize_with_checks([
         pykoop.lmi_regressors.LmiEdmd(alpha=1e-3, ),
         pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr(max_iter=1, ),

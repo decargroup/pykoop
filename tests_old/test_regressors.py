@@ -12,9 +12,27 @@ import pykoop.lmi_regressors
 
 @pytest.fixture(
     params=[
-        (pykoop.Edmd(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
-        (pykoop.Dmdc(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
-        (pykoop.Dmd(), 'msd-no-input', 1e-5, 1e-5, 'exact'),
+        (
+            pykoop.Edmd(),
+            'msd-no-input',
+            1e-5,
+            1e-5,
+            'exact',
+        ),
+        (
+            pykoop.Dmdc(),
+            'msd-no-input',
+            1e-5,
+            1e-5,
+            'exact',
+        ),
+        (
+            pykoop.Dmd(),
+            'msd-no-input',
+            1e-5,
+            1e-5,
+            'exact',
+        ),
         (
             pykoop.Dmdc(tsvd_unshifted=pykoop.Tsvd('known_noise', 1),
                         tsvd_shifted=pykoop.Tsvd('known_noise', 1)),
@@ -48,14 +66,34 @@ import pykoop.lmi_regressors
             1e-4,
             'exact',
         ),
-        (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='ldl'),
-         'msd-no-input', 1e-4, 1e-5, 'exact'),
-        (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='chol'),
-         'msd-no-input', 1e-4, 1e-5, 'exact'),
-        (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='sqrt'),
-         'msd-no-input', 1e-4, 1e-5, 'exact'),
-        (pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='svd'),
-         'msd-no-input', 1e-4, 1e-5, 'exact'),
+        (
+            pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='ldl'),
+            'msd-no-input',
+            1e-4,
+            1e-5,
+            'exact',
+        ),
+        (
+            pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='chol'),
+            'msd-no-input',
+            1e-4,
+            1e-5,
+            'exact',
+        ),
+        (
+            pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='sqrt'),
+            'msd-no-input',
+            1e-4,
+            1e-5,
+            'exact',
+        ),
+        (
+            pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='svd'),
+            'msd-no-input',
+            1e-4,
+            1e-5,
+            'exact',
+        ),
         (
             pykoop.lmi_regressors.LmiDmdc(alpha=0),
             'msd-no-input',
@@ -275,162 +313,3 @@ def test_predict(scenario):
         atol=scenario['predict_tol'],
         rtol=0,
     )
-
-
-@pytest.mark.slow
-@pytest.mark.parametrize('cls', [
-    pykoop.lmi_regressors.LmiEdmdHinfReg,
-    pykoop.lmi_regressors.LmiDmdcHinfReg,
-])
-def test_hinf_zpk_meta(cls, remote, remote_url):
-    # Specify duration
-    t_range = (0, 10)
-    t_step = 0.1
-    # Create object
-    msd = pykoop.dynamic_models.MassSpringDamper(
-        mass=0.5,
-        stiffness=0.7,
-        damping=0.6,
-    )
-
-    # Specify input
-    def u(t):
-        """Sinusoidal input."""
-        return 0.1 * np.sin(t)
-
-    # Specify initial conditions
-    x0 = msd.x0(np.array([0, 0]))
-    # Simulate ODE
-    t, x = msd.simulate(t_range, t_step, x0, u, rtol=1e-8, atol=1e-8)
-    # Format the data
-    X_msd = np.hstack((
-        np.zeros((t.shape[0], 1)),  # episode feature
-        x,
-        np.reshape(u(t), (-1, 1)),
-    ))
-    # Compute state space matrices
-    ss_ct = signal.ZerosPolesGain(
-        [-0],
-        [-5],
-        1,
-    ).to_ss()
-    ss_dt = ss_ct.to_discrete(
-        dt=t_step,
-        method='bilinear',
-    )
-    weight = (
-        'post',
-        ss_dt.A,
-        ss_dt.B,
-        ss_dt.C,
-        ss_dt.D,
-    )
-    est_expected = cls(weight=weight)
-    est_actual = pykoop.lmi_regressors.LmiHinfZpkMeta(
-        hinf_regressor=cls(),
-        type='post',
-        zeros=-0,
-        poles=-5,
-        gain=1,
-        discretization='bilinear',
-        t_step=t_step,
-    )
-    # Set MOSEK solver to remote server if needed
-    if remote:
-        est_expected.solver_params = {'mosek_server': remote_url}
-        est_actual.solver_params = {'mosek_server': remote_url}
-    # Fit regressors
-    est_expected.fit(X_msd, n_inputs=1, episode_feature=True)
-    est_actual.fit(X_msd, n_inputs=1, episode_feature=True)
-    # Check Koopman matrices
-    U_expected = est_expected.coef_.T
-    U_actual = est_actual.hinf_regressor_.coef_.T
-    np.testing.assert_allclose(U_actual, U_expected)
-    # Check state space matrices
-    assert est_expected.weight[0] == est_actual.hinf_regressor_.weight[0]
-    for i in range(1, 5):
-        np.testing.assert_allclose(est_expected.weight[i],
-                                   est_actual.hinf_regressor_.weight[i])
-
-
-@pytest.mark.slow
-def test_hinf_zpk_units(remote, remote_url):
-    # Specify duration
-    t_range = (0, 10)
-    t_step = 0.1
-    # Create object
-    msd = pykoop.dynamic_models.MassSpringDamper(
-        mass=0.5,
-        stiffness=0.7,
-        damping=0.6,
-    )
-
-    # Specify input
-    def u(t):
-        """Sinusoidal input."""
-        return 0.1 * np.sin(t)
-
-    # Specify initial conditions
-    x0 = msd.x0(np.array([0, 0]))
-    # Simulate ODE
-    t, x = msd.simulate(t_range, t_step, x0, u, rtol=1e-8, atol=1e-8)
-    # Format the data
-    X_msd = np.hstack((
-        np.zeros((t.shape[0], 1)),  # episode feature
-        x,
-        np.reshape(u(t), (-1, 1)),
-    ))
-
-    est_1 = pykoop.lmi_regressors.LmiHinfZpkMeta(
-        hinf_regressor=pykoop.lmi_regressors.LmiEdmdHinfReg(),
-        type='post',
-        zeros=-0,
-        poles=(-2 * np.pi / t_step) / 2,
-        gain=1,
-        discretization='bilinear',
-        t_step=t_step,
-        units='rad/s',
-    )
-    est_2 = pykoop.lmi_regressors.LmiHinfZpkMeta(
-        hinf_regressor=pykoop.lmi_regressors.LmiEdmdHinfReg(),
-        type='post',
-        zeros=-0,
-        poles=(-1 / t_step) / 2,
-        gain=1,
-        discretization='bilinear',
-        t_step=t_step,
-        units='hz',
-    )
-    est_3 = pykoop.lmi_regressors.LmiHinfZpkMeta(
-        hinf_regressor=pykoop.lmi_regressors.LmiEdmdHinfReg(),
-        type='post',
-        zeros=-0,
-        poles=-1,
-        gain=1,
-        discretization='bilinear',
-        t_step=t_step,
-        units='normalized',
-    )
-    # Set MOSEK solver to remote server if needed
-    if remote:
-        est_1.solver_params = {'mosek_server': remote_url}
-        est_2.solver_params = {'mosek_server': remote_url}
-        est_3.solver_params = {'mosek_server': remote_url}
-    # Fit estimators
-    est_1.fit(X_msd, n_inputs=1, episode_feature=True)
-    est_2.fit(X_msd, n_inputs=1, episode_feature=True)
-    est_3.fit(X_msd, n_inputs=1, episode_feature=True)
-    # Check poles
-    np.testing.assert_allclose(est_1.ss_ct_.poles, est_2.ss_ct_.poles)
-    np.testing.assert_allclose(est_2.ss_ct_.poles, est_3.ss_ct_.poles)
-    np.testing.assert_allclose(est_3.ss_ct_.poles, est_1.ss_ct_.poles)
-    # Check zeros
-    np.testing.assert_allclose(est_1.ss_ct_.zeros, est_2.ss_ct_.zeros)
-    np.testing.assert_allclose(est_2.ss_ct_.zeros, est_3.ss_ct_.zeros)
-    np.testing.assert_allclose(est_3.ss_ct_.zeros, est_1.ss_ct_.zeros)
-    # Check parameters
-    assert est_1.n_features_in_ == est_1.hinf_regressor_.n_features_in_
-    assert est_1.n_states_in_ == est_1.hinf_regressor_.n_states_in_
-    assert est_1.n_inputs_in_ == est_1.hinf_regressor_.n_inputs_in_
-    assert est_1.episode_feature_ == est_1.hinf_regressor_.episode_feature_
-    np.testing.assert_allclose(est_1.coef_, est_1.hinf_regressor_.coef_)

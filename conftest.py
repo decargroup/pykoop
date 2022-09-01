@@ -83,6 +83,7 @@ def mass_spring_damper_sine_input() -> Dict[str, Any]:
         'n_inputs': 1,
         'episode_feature': False,
         'U_valid': U_valid,
+        't_step': t_step,
     }
 
 
@@ -119,6 +120,7 @@ def mass_spring_damper_no_input() -> Dict[str, Any]:
         'n_inputs': 0,
         'episode_feature': False,
         'U_valid': U_valid,
+        't_step': t_step,
     }
 
 
