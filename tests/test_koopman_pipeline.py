@@ -8,6 +8,419 @@ from sklearn import preprocessing
 import pykoop
 
 
+@pytest.mark.parametrize(
+    'lf, X, Xt_exp, n_inputs, episode_feature, attr_exp',
+    [
+        (
+            pykoop.KoopmanPipeline(
+                lifting_functions=None,
+                regressor=None,
+            ),
+            np.array([
+                [1, 2, 3, 4, 5, 6],
+                [-1, -2, -3, -4, -5, -6],
+                [2, 4, 6, 8, 10, 12],
+            ]).T,
+            np.array([
+                [1, 2, 3, 4, 5, 6],
+                [-1, -2, -3, -4, -5, -6],
+                [2, 4, 6, 8, 10, 12],
+            ]).T,
+            1,
+            False,
+            {
+                'n_features_in_': 3,
+                'n_states_in_': 2,
+                'n_inputs_in_': 1,
+                'n_features_out_': 3,
+                'n_states_out_': 2,
+                'n_inputs_out_': 1,
+                'min_samples_': 1,
+            },
+        ),
+        (
+            pykoop.KoopmanPipeline(
+                lifting_functions=[(
+                    'dl',
+                    pykoop.DelayLiftingFn(
+                        n_delays_state=1,
+                        n_delays_input=1,
+                    ),
+                )],
+                regressor=None,
+            ),
+            np.array([
+                [1, 2, 3, 4, 5, 6],
+                [-1, -2, -3, -4, -5, -6],
+                [2, 4, 6, 8, 10, 12],
+            ]).T,
+            np.array([
+                # State
+                [2, 3, 4, 5, 6],
+                [-2, -3, -4, -5, -6],
+                [1, 2, 3, 4, 5],
+                [-1, -2, -3, -4, -5],
+                # Input
+                [4, 6, 8, 10, 12],
+                [2, 4, 6, 8, 10],
+            ]).T,
+            1,
+            False,
+            {
+                'n_features_in_': 3,
+                'n_states_in_': 2,
+                'n_inputs_in_': 1,
+                'n_features_out_': 6,
+                'n_states_out_': 4,
+                'n_inputs_out_': 2,
+                'min_samples_': 2,
+            },
+        ),
+    ],
+)
+class TestKoopmanPipelineTransform:
+    """Test :class:`KoopmanPipeline` transform and inverse transform."""
+
+    def test_koopman_pipeline_attrs(self, lf, X, Xt_exp, n_inputs,
+                                    episode_feature, attr_exp):
+        """Test expected :class:`KoopmanPipeline` object attributes."""
+        # Fit estimator
+        lf.fit_transformers(
+            X,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        # Check attributes
+        attr = {key: getattr(lf, key) for key in attr_exp.keys()}
+        assert attr == attr_exp
+
+    def test_koopman_pipeline_transform(self, lf, X, Xt_exp, n_inputs,
+                                        episode_feature, attr_exp):
+        """Test :class:`KoopmanPipeline` transform."""
+        # Fit estimator
+        lf.fit_transformers(
+            X,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        Xt = lf.transform(X)
+        np.testing.assert_allclose(Xt, Xt_exp)
+
+    def test_koopman_pipeline_inverse_transform(self, lf, X, Xt_exp, n_inputs,
+                                                episode_feature, attr_exp):
+        """Test :class:`KoopmanPipeline` inverse transform."""
+        # Fit estimator
+        lf.fit_transformers(
+            X,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        Xt = lf.transform(X)
+        Xi = lf.inverse_transform(Xt)
+        np.testing.assert_allclose(Xi, X)
+
+
+class TestKoopmanPipelineFit:
+    """Test Koopman pipeline fit."""
+
+    def test_fit(self, mass_spring_damper_sine_input):
+        """Test Koopman pipeline fit on a mass-spring-damper."""
+        kp = pykoop.KoopmanPipeline(
+            lifting_functions=[(
+                'dl',
+                pykoop.DelayLiftingFn(
+                    n_delays_state=0,
+                    n_delays_input=0,
+                ),
+            )],
+            regressor=pykoop.Edmd(),
+        )
+        kp.fit(
+            mass_spring_damper_sine_input['X_train'],
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=mass_spring_damper_sine_input['episode_feature'],
+        )
+        np.testing.assert_allclose(
+            kp.regressor_.coef_,
+            mass_spring_damper_sine_input['U_valid'],
+            atol=0.1,
+        )
+
+
+class TestKoopmanPipelineScore:
+    """Test Koopman pipeline scoring."""
+
+    @pytest.mark.parametrize(
+        'X_predicted, X_expected, n_steps, discount_factor, '
+        'regression_metric, min_samples, episode_feature, score_exp',
+        [
+            (
+                np.array([
+                    [1, 2, 3, 4],
+                    [2, 3, 3, 2],
+                ]).T,
+                np.array([
+                    [1, 2, 3, 4],
+                    [2, 3, 3, 2],
+                ]).T,
+                None,
+                1,
+                'neg_mean_squared_error',
+                1,
+                False,
+                0,
+            ),
+            (
+                np.array([
+                    [1, 2],
+                    [2, 3],
+                ]).T,
+                np.array([
+                    [1, 4],
+                    [2, 2],
+                ]).T,
+                None,
+                1,
+                'neg_mean_squared_error',
+                1,
+                False,
+                -np.mean([2**2, 1]),
+            ),
+            (
+                np.array([
+                    [1, 2, 3, 5],
+                ]).T,
+                np.array([
+                    [1, 2, 3, 3],
+                ]).T,
+                None,
+                1,
+                'neg_mean_squared_error',
+                1,
+                False,
+                -np.mean([0, 0, 2**2]),
+            ),
+            (
+                np.array([
+                    [1, 2, 3, 5],
+                ]).T,
+                np.array([
+                    [1, 2, 3, 3],
+                ]).T,
+                None,
+                1,
+                'neg_mean_absolute_error',
+                1,
+                False,
+                -np.mean([0, 0, 2]),
+            ),
+            (
+                np.array([
+                    [1, 2, 3, 5],
+                ]).T,
+                np.array([
+                    [1, 2, 3, 4],
+                ]).T,
+                None,
+                1,
+                'neg_mean_squared_error',
+                2,
+                False,
+                -np.mean([0, 1]),
+            ),
+            (
+                np.array([
+                    [1, 2, 3, 5],
+                ]).T,
+                np.array([
+                    [1, 2, 3, 4],
+                ]).T,
+                2,
+                1,
+                'neg_mean_squared_error',
+                1,
+                False,
+                0,
+            ),
+            (
+                np.array([
+                    [1, 2, 3, 5],
+                ]).T,
+                np.array([
+                    [1, 2, 3, 4],
+                ]).T,
+                None,
+                0.5,
+                'neg_mean_squared_error',
+                1,
+                False,
+                # (0 * 1 + 0 * 0.5 + 1 * 0.25) / (1 + 0.5 + 0.25)
+                -0.25 / 1.75,
+            ),
+            (
+                np.array([
+                    [0, 0, 0, 1, 1, 1],
+                    [1, 2, 3, 4, 5, 6],
+                ]).T,
+                np.array([
+                    [0, 0, 0, 1, 1, 1],
+                    [1, 2, 4, 4, 6, 6],
+                ]).T,
+                None,
+                1,
+                'neg_mean_squared_error',
+                1,
+                True,
+                -np.mean([0, 1, 1, 0]),
+            ),
+            (
+                np.array([
+                    [0, 0, 0, 1, 1, 1],
+                    [1, 2, 3, 4, 5, 6],
+                ]).T,
+                np.array([
+                    [0, 0, 0, 1, 1, 1],
+                    [1, 2, 4, 4, 6, 6],
+                ]).T,
+                1,
+                1,
+                'neg_mean_squared_error',
+                1,
+                True,
+                -np.mean([0, 1]),
+            ),
+            (
+                np.array([
+                    [0, 0, 0, 1, 1, 1],
+                    [1, 2, 3, 4, 5, 6],
+                ]).T,
+                np.array([
+                    [0, 0, 0, 1, 1, 1],
+                    [1, 2, 4, 4, 6, 6],
+                ]).T,
+                None,
+                0.5,
+                'neg_mean_squared_error',
+                1,
+                True,
+                -(0.5 + 1) / (1 + 0.5 + 1 + 0.5),
+            ),
+            (
+                np.array([
+                    [0, 0, 0, 1, 1, 1],
+                    [1, 2, 3, 4, 5, 6],
+                ]).T,
+                np.array([
+                    [0, 0, 0, 1, 1, 1],
+                    [1, 2, 4, 4, 6, 6],
+                ]).T,
+                1,
+                0.5,
+                'neg_mean_squared_error',
+                1,
+                True,
+                -(0 + 1) / (1 + 0 + 1 + 0),
+            ),
+        ],
+    )
+    def test_score_state(
+        self,
+        X_predicted,
+        X_expected,
+        n_steps,
+        discount_factor,
+        regression_metric,
+        min_samples,
+        episode_feature,
+        score_exp,
+    ):
+        score = pykoop.score_state(
+            X_predicted,
+            X_expected,
+            n_steps,
+            discount_factor,
+            regression_metric,
+            min_samples,
+            episode_feature,
+        )
+        np.testing.assert_allclose(score, score_exp)
+
+    @pytest.mark.parametrize(
+        'X, w_exp, n_steps, discount_factor, episode_feature',
+        [
+            (
+                np.array([
+                    [1, 2, 3, 4],
+                    [5, 6, 7, 8],
+                ]).T,
+                np.array([1, 1, 0, 0]),
+                2,
+                1,
+                False,
+            ),
+            (
+                np.array([
+                    [1, 2, 3, 4],
+                    [5, 6, 7, 8],
+                ]).T,
+                np.array([1, 0.5, 0.25, 0]),
+                3,
+                0.5,
+                False,
+            ),
+            (
+                np.array([
+                    [0, 0, 0, 1, 1, 1, 1],
+                    [1, 2, 3, 4, 5, 6, 7],
+                    [5, 6, 7, 8, 9, 10, 11],
+                ]).T,
+                np.array([1, 0.5, 0, 1, 0.5, 0, 0]),
+                2,
+                0.5,
+                True,
+            ),
+            (
+                np.array([
+                    [0, 0, 0, 1, 1, 1, 1],
+                    [1, 2, 3, 4, 5, 6, 7],
+                    [5, 6, 7, 8, 9, 10, 11],
+                ]).T,
+                np.array([1, 1, 1, 1, 1, 1, 1]),
+                10,
+                1,
+                True,
+            ),
+            (
+                np.array([
+                    [0, 0, 0, 1, 1, 1, 1],
+                    [1, 2, 3, 4, 5, 6, 7],
+                    [5, 6, 7, 8, 9, 10, 11],
+                ]).T,
+                np.array([1, 0.1, 0.01, 1, 0.1, 0.01, 0.001]),
+                10,
+                0.1,
+                True,
+            ),
+        ],
+    )
+    def test_weights_from_data_matrix(
+        self,
+        X,
+        w_exp,
+        n_steps,
+        discount_factor,
+        episode_feature,
+    ):
+        """Test weight generation for scoring."""
+        w = pykoop.koopman_pipeline._weights_from_data_matrix(
+            X,
+            n_steps,
+            discount_factor,
+            episode_feature,
+        )
+        np.testing.assert_allclose(w, w_exp)
+
+
 class TestEpisodeManipulation:
     """Test episode manipulation, including shifting and splitting."""
 
@@ -554,118 +967,6 @@ class TestSplitCombineEpisodes:
             episode_feature=episode_feature,
         )
         np.testing.assert_allclose(X_actual, X)
-
-
-@pytest.mark.parametrize(
-    'lf, X, Xt_exp, n_inputs, episode_feature, attr_exp',
-    [
-        (
-            pykoop.KoopmanPipeline(
-                lifting_functions=None,
-                regressor=None,
-            ),
-            np.array([
-                [1, 2, 3, 4, 5, 6],
-                [-1, -2, -3, -4, -5, -6],
-                [2, 4, 6, 8, 10, 12],
-            ]).T,
-            np.array([
-                [1, 2, 3, 4, 5, 6],
-                [-1, -2, -3, -4, -5, -6],
-                [2, 4, 6, 8, 10, 12],
-            ]).T,
-            1,
-            False,
-            {
-                'n_features_in_': 3,
-                'n_states_in_': 2,
-                'n_inputs_in_': 1,
-                'n_features_out_': 3,
-                'n_states_out_': 2,
-                'n_inputs_out_': 1,
-                'min_samples_': 1,
-            },
-        ),
-        (
-            pykoop.KoopmanPipeline(
-                lifting_functions=[(
-                    'dl',
-                    pykoop.DelayLiftingFn(
-                        n_delays_state=1,
-                        n_delays_input=1,
-                    ),
-                )],
-                regressor=None,
-            ),
-            np.array([
-                [1, 2, 3, 4, 5, 6],
-                [-1, -2, -3, -4, -5, -6],
-                [2, 4, 6, 8, 10, 12],
-            ]).T,
-            np.array([
-                # State
-                [2, 3, 4, 5, 6],
-                [-2, -3, -4, -5, -6],
-                [1, 2, 3, 4, 5],
-                [-1, -2, -3, -4, -5],
-                # Input
-                [4, 6, 8, 10, 12],
-                [2, 4, 6, 8, 10],
-            ]).T,
-            1,
-            False,
-            {
-                'n_features_in_': 3,
-                'n_states_in_': 2,
-                'n_inputs_in_': 1,
-                'n_features_out_': 6,
-                'n_states_out_': 4,
-                'n_inputs_out_': 2,
-                'min_samples_': 2,
-            },
-        ),
-    ],
-)
-class TestKoopmanPipelineTransform:
-    """Test :class:`KoopmanPipeline` transform and inverse transform."""
-
-    def test_koopman_pipeline_attrs(self, lf, X, Xt_exp, n_inputs,
-                                    episode_feature, attr_exp):
-        """Test expected :class:`KoopmanPipeline` object attributes."""
-        # Fit estimator
-        lf.fit_transformers(
-            X,
-            n_inputs=n_inputs,
-            episode_feature=episode_feature,
-        )
-        # Check attributes
-        attr = {key: getattr(lf, key) for key in attr_exp.keys()}
-        assert attr == attr_exp
-
-    def test_koopman_pipeline_transform(self, lf, X, Xt_exp, n_inputs,
-                                        episode_feature, attr_exp):
-        """Test :class:`KoopmanPipeline` transform."""
-        # Fit estimator
-        lf.fit_transformers(
-            X,
-            n_inputs=n_inputs,
-            episode_feature=episode_feature,
-        )
-        Xt = lf.transform(X)
-        np.testing.assert_allclose(Xt, Xt_exp)
-
-    def test_koopman_pipeline_inverse_transform(self, lf, X, Xt_exp, n_inputs,
-                                                episode_feature, attr_exp):
-        """Test :class:`KoopmanPipeline` inverse transform."""
-        # Fit estimator
-        lf.fit_transformers(
-            X,
-            n_inputs=n_inputs,
-            episode_feature=episode_feature,
-        )
-        Xt = lf.transform(X)
-        Xi = lf.inverse_transform(Xt)
-        np.testing.assert_allclose(Xi, X)
 
 
 @pytest.mark.parametrize(
