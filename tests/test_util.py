@@ -157,7 +157,7 @@ class TestAnglePreprocessorFeatureOrder:
         np.testing.assert_allclose(sin, pp.sin_out_)
 
 
-class TestSklearn:
+class TestSkLearn:
     """Test scikit-learn compatibility."""
 
     @sklearn.utils.estimator_checks.parametrize_with_checks([

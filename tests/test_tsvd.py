@@ -5,7 +5,7 @@ import sklearn.utils.estimator_checks
 import pykoop
 
 
-class TestSklearn:
+class TestSkLearn:
     """Test scikit-learn compatibility."""
 
     @sklearn.utils.estimator_checks.parametrize_with_checks([

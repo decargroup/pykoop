@@ -450,7 +450,7 @@ class TestLmiHinfZpkMeta:
 
 
 @pytest.mark.mosek
-class TestSklearn:
+class TestSkLearn:
     """Test scikit-learn compatibility."""
 
     @sklearn.utils.estimator_checks.parametrize_with_checks([

@@ -803,7 +803,7 @@ class TestDelayLiftingFnTransform:
         np.testing.assert_allclose(Xt_inv_trimmed, Xt_inv)
 
 
-class TestSklearn:
+class TestSkLearn:
     """Test scikit-learn compatibility."""
 
     @sklearn.utils.estimator_checks.parametrize_with_checks([

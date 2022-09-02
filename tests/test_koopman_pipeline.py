@@ -1353,7 +1353,7 @@ class TestLiftRetract:
         np.testing.assert_allclose(X_r[:, 1:], X[:, lf.n_states_in_ + 1:])
 
 
-class TestSklearn:
+class TestSkLearn:
     """Test scikit-learn compatibility."""
 
     @sklearn.utils.estimator_checks.parametrize_with_checks([
