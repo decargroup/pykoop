@@ -99,6 +99,62 @@ class TestRegressorsExact:
         )
 
 
+@pytest.mark.parametrize(
+    'regressor, mass_spring_damper',
+    [
+        (
+            pykoop.Dmdc(
+                tsvd_unshifted=pykoop.Tsvd('known_noise', 1),
+                tsvd_shifted=pykoop.Tsvd('known_noise', 1),
+            ),
+            'mass_spring_damper_no_input',
+        ),
+        (
+            pykoop.Dmd(tsvd=pykoop.Tsvd('known_noise', 1)),
+            'mass_spring_damper_no_input',
+        ),
+    ],
+)
+class TestRegressorsRegression:
+    """Run regression tests for regressors without easy-to-check solutions.
+
+    Attributes
+    ----------
+    tol : float
+        Tolerance for regression test.
+    """
+
+    tol = 1e-12
+
+    def test_fit_predict(
+        self,
+        request,
+        ndarrays_regression,
+        regressor,
+        mass_spring_damper,
+    ):
+        """Test fit accuracy by comparing Koopman matrix and prediction."""
+        # Get fixture from name
+        msd = request.getfixturevalue(mass_spring_damper)
+        # Fit regressor
+        regressor.fit(
+            msd['X_train'],
+            msd['Xp_train'],
+            n_inputs=msd['n_inputs'],
+            episode_feature=msd['episode_feature'],
+        )
+        # Compute prediction
+        prediction = regressor.predict(msd['X_valid'])
+        # Compare to prior results
+        ndarrays_regression.check(
+            {
+                'regressor.coef_': regressor.coef_,
+                'prediction': prediction,
+            },
+            default_tolerance=dict(atol=self.tol, rtol=0),
+        )
+
+
 class TestSklearn:
     """Test scikit-learn compatibility."""
 

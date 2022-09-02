@@ -209,6 +209,102 @@ class TestLmiRegressorsTikhonov:
 
 @pytest.mark.mosek
 @pytest.mark.parametrize(
+    'regressor, mass_spring_damper',
+    [
+        (
+            pykoop.lmi_regressors.LmiEdmd(
+                alpha=1,
+                reg_method='twonorm',
+                inv_method='chol',
+                solver_params={'dualize': False},
+            ),
+            'mass_spring_damper_no_input',
+        ),
+        (
+            pykoop.lmi_regressors.LmiEdmd(
+                alpha=1,
+                reg_method='nuclear',
+                inv_method='chol',
+                solver_params={'dualize': False},
+            ),
+            'mass_spring_damper_no_input',
+        ),
+        (
+            pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr(
+                inv_method='chol',
+                spectral_radius=1.1,
+            ),
+            'mass_spring_damper_no_input',
+        ),
+        (
+            pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr(
+                inv_method='chol',
+                spectral_radius=0.8,
+                solver_params={'dualize': False},
+            ),
+            'mass_spring_damper_no_input',
+        ),
+        (
+            pykoop.lmi_regressors.LmiEdmdHinfReg(
+                inv_method='eig',
+                max_iter=100,
+                iter_atol=1e-3,
+                alpha=1,
+                ratio=1,
+                solver_params={'dualize': False}),
+            'mass_spring_damper_sine_input',
+        ),
+    ],
+)
+class TestLmiRegressorsRegression:
+    """Run regression tests for LMI regressors without easy-to-check solutions.
+
+    Attributes
+    ----------
+    tol : float
+        Tolerance for regression test.
+    """
+
+    tol = 1e-9
+
+    def test_fit_predict(
+        self,
+        request,
+        ndarrays_regression,
+        regressor,
+        mass_spring_damper,
+        mosek_solver_params,
+    ):
+        """Test fit accuracy by comparing Koopman matrix and prediction."""
+        # Get fixture from name
+        msd = request.getfixturevalue(mass_spring_damper)
+        # Update solver settings
+        if regressor.solver_params is None:
+            regressor.solver_params = mosek_solver_params
+        else:
+            mosek_solver_params.update(regressor.solver_params)
+            regressor.solver_params = mosek_solver_params
+        # Fit regressor
+        regressor.fit(
+            msd['X_train'],
+            msd['Xp_train'],
+            n_inputs=msd['n_inputs'],
+            episode_feature=msd['episode_feature'],
+        )
+        # Compute prediction
+        prediction = regressor.predict(msd['X_valid'])
+        # Compare to prior results
+        ndarrays_regression.check(
+            {
+                'regressor.coef_': regressor.coef_,
+                'prediction': prediction,
+            },
+            default_tolerance=dict(atol=self.tol, rtol=0),
+        )
+
+
+@pytest.mark.mosek
+@pytest.mark.parametrize(
     'regressor',
     [
         pykoop.lmi_regressors.LmiEdmdHinfReg,
