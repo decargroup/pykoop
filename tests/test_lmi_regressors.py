@@ -312,7 +312,15 @@ class TestLmiRegressorsRegression:
     ],
 )
 class TestLmiHinfZpkMeta:
-    """Test :class:`LmiHinfZpkMeta`."""
+    """Test :class:`LmiHinfZpkMeta`.
+
+    Attributes
+    ----------
+    tol : float
+        Tolerance for regression test.
+    """
+
+    tol = 1e-6
 
     def test_hinf_weight(
         self,
@@ -375,6 +383,8 @@ class TestLmiHinfZpkMeta:
             np.testing.assert_allclose(
                 est_expected.weight[i],
                 est_actual.hinf_regressor_.weight[i],
+                atol=self.tol,
+                rtol=0,
             )
 
     def test_pole_zero_units(
@@ -434,13 +444,43 @@ class TestLmiHinfZpkMeta:
             episode_feature=mass_spring_damper_sine_input['episode_feature'],
         )
         # Check poles
-        np.testing.assert_allclose(est_1.ss_ct_.poles, est_2.ss_ct_.poles)
-        np.testing.assert_allclose(est_2.ss_ct_.poles, est_3.ss_ct_.poles)
-        np.testing.assert_allclose(est_3.ss_ct_.poles, est_1.ss_ct_.poles)
+        np.testing.assert_allclose(
+            est_1.ss_ct_.poles,
+            est_2.ss_ct_.poles,
+            atol=self.tol,
+            rtol=0,
+        )
+        np.testing.assert_allclose(
+            est_2.ss_ct_.poles,
+            est_3.ss_ct_.poles,
+            atol=self.tol,
+            rtol=0,
+        )
+        np.testing.assert_allclose(
+            est_3.ss_ct_.poles,
+            est_1.ss_ct_.poles,
+            atol=self.tol,
+            rtol=0,
+        )
         # Check zeros
-        np.testing.assert_allclose(est_1.ss_ct_.zeros, est_2.ss_ct_.zeros)
-        np.testing.assert_allclose(est_2.ss_ct_.zeros, est_3.ss_ct_.zeros)
-        np.testing.assert_allclose(est_3.ss_ct_.zeros, est_1.ss_ct_.zeros)
+        np.testing.assert_allclose(
+            est_1.ss_ct_.zeros,
+            est_2.ss_ct_.zeros,
+            atol=self.tol,
+            rtol=0,
+        )
+        np.testing.assert_allclose(
+            est_2.ss_ct_.zeros,
+            est_3.ss_ct_.zeros,
+            atol=self.tol,
+            rtol=0,
+        )
+        np.testing.assert_allclose(
+            est_3.ss_ct_.zeros,
+            est_1.ss_ct_.zeros,
+            atol=self.tol,
+            rtol=0,
+        )
         # Check parameters
         assert est_1.n_features_in_ == est_1.hinf_regressor_.n_features_in_
         assert est_1.n_states_in_ == est_1.hinf_regressor_.n_states_in_
