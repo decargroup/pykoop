@@ -376,7 +376,12 @@ class TestLmiHinfZpkMeta:
         # Check Koopman matrices
         U_expected = est_expected.coef_.T
         U_actual = est_actual.hinf_regressor_.coef_.T
-        np.testing.assert_allclose(U_actual, U_expected)
+        np.testing.assert_allclose(
+            U_actual,
+            U_expected,
+            atol=self.tol,
+            rtol=0,
+        )
         # Check state space matrices
         assert est_expected.weight[0] == est_actual.hinf_regressor_.weight[0]
         for i in range(1, 5):
