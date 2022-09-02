@@ -141,7 +141,7 @@ class TestKoopmanPipelineFit:
             episode_feature=mass_spring_damper_sine_input['episode_feature'],
         )
         np.testing.assert_allclose(
-            kp.regressor_.coef_,
+            kp.regressor_.coef_.T,
             mass_spring_damper_sine_input['U_valid'],
             atol=0.1,
         )
