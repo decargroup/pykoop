@@ -805,7 +805,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
             # Solve Problem A
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             log.info(f'Solving problem A{k}')
             problem_a.solve(**self.solver_params_)
@@ -814,7 +814,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
                 self.stop_reason_ = (
                     'Unable to solve `problem_a`. Used last valid `U`. '
                     f'Solution status: `{solution_status_a}`.')
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             # Check stopping condition
@@ -835,7 +835,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
             # Solve Problem B
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             log.info(f'Solving problem B{k}')
             problem_b.solve(**self.solver_params_)
@@ -844,12 +844,12 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
                 self.stop_reason_ = (
                     'Unable to solve `problem_b`. Used last valid `U`. '
                     f'Solution status: `{solution_status_b}`.')
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
-            log.warn(self.stop_reason_)
+            log.warning(self.stop_reason_)
         self.n_iter_ = k + 1
         coef = U.T
         # Only useful for debugging
@@ -1052,7 +1052,7 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
             # Solve Problem A
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             log.info(f'Solving problem A{k}')
             problem_a.solve(**self.solver_params_)
@@ -1061,7 +1061,7 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
                 self.stop_reason_ = (
                     'Unable to solve `problem_a`. Used last valid `U_hat`. '
                     f'Solution status: `{solution_status_a}`.')
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             U_hat = np.array(problem_a.get_valued_variable('U_hat'), ndmin=2)
             # Check stopping condition
@@ -1082,7 +1082,7 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
             # Solve Problem B
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             log.info(f'Solving problem B{k}')
             problem_b.solve(**self.solver_params_)
@@ -1091,12 +1091,12 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
                 self.stop_reason_ = (
                     'Unable to solve `problem_b`. Used last valid `U_hat`. '
                     f'Solution status: `{solution_status_b}`.')
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
-            log.warn(self.stop_reason_)
+            log.warning(self.stop_reason_)
         self.n_iter_ = k + 1
         p_upsilon = p - p_theta
         U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p_upsilon)).T
@@ -1361,7 +1361,7 @@ class LmiEdmdHinfReg(LmiRegressor):
             # Solve Problem A
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             log.info(f'Solving problem A{k}')
             problem_a.solve(**self.solver_params_)
@@ -1370,7 +1370,7 @@ class LmiEdmdHinfReg(LmiRegressor):
                 self.stop_reason_ = (
                     'Unable to solve `problem_a`. Used last valid `U`. '
                     f'Solution status: `{solution_status_a}`.')
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             gamma = np.array(problem_a.get_valued_variable('gamma'))
@@ -1391,7 +1391,7 @@ class LmiEdmdHinfReg(LmiRegressor):
             # Solve Problem B
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             log.info(f'Solving problem B{k}')
             problem_b.solve(**self.solver_params_)
@@ -1400,12 +1400,12 @@ class LmiEdmdHinfReg(LmiRegressor):
                 self.stop_reason_ = (
                     'Unable to solve `problem_b`. Used last valid `U`. '
                     'Solution status: f`{solution_status_b}`.')
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
-            log.warn(self.stop_reason_)
+            log.warning(self.stop_reason_)
         self.n_iter_ = k + 1
         coef = U.T
         # Only useful for debugging
@@ -1693,7 +1693,7 @@ class LmiDmdcHinfReg(LmiRegressor):
             # Solve Problem A
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             log.info(f'Solving problem A{k}')
             problem_a.solve(**self.solver_params_)
@@ -1702,7 +1702,7 @@ class LmiDmdcHinfReg(LmiRegressor):
                 self.stop_reason_ = (
                     'Unable to solve `problem_a`. Used last valid `U_hat`. '
                     f'Solution status: `{solution_status_a}`.')
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             U_hat = np.array(problem_a.get_valued_variable('U_hat'), ndmin=2)
             gamma = np.array(problem_a.get_valued_variable('gamma'))
@@ -1723,7 +1723,7 @@ class LmiDmdcHinfReg(LmiRegressor):
             # Solve Problem B
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             log.info(f'Solving problem B{k}')
             problem_b.solve(**self.solver_params_)
@@ -1732,12 +1732,12 @@ class LmiDmdcHinfReg(LmiRegressor):
                 self.stop_reason_ = (
                     'Unable to solve `problem_b`. Used last valid `U_hat`. '
                     'Solution status: f`{solution_status_b}`.')
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
-            log.warn(self.stop_reason_)
+            log.warning(self.stop_reason_)
         self.n_iter_ = k + 1
         p_upsilon = p - p_theta
         U = Q_hat @ U_hat @ linalg.block_diag(Q_hat, np.eye(p_upsilon)).T
@@ -1997,7 +1997,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
             # Solve Problem A
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             log.info(f'Solving problem A{k}')
             problem_a.solve(**self.solver_params_)
@@ -2006,7 +2006,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
                 self.stop_reason_ = (
                     'Unable to solve `problem_a`. Used last valid `U`. '
                     f'Solution status: `{solution_status_a}`.')
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             U = np.array(problem_a.get_valued_variable('U'), ndmin=2)
             self.objective_log_.append(problem_a.value)
@@ -2026,7 +2026,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
             # Solve Problem B
             if polite_stop:
                 self.stop_reason_ = 'User requested stop.'
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             log.info(f'Solving problem B{k}')
             problem_b.solve(**self.solver_params_)
@@ -2035,12 +2035,12 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
                 self.stop_reason_ = (
                     'Unable to solve `problem_b`. Used last valid `U`. '
                     'Solution status: f`{solution_status_b}`.')
-                log.warn(self.stop_reason_)
+                log.warning(self.stop_reason_)
                 break
             P = np.array(problem_b.get_valued_variable('P'), ndmin=2)
         else:
             self.stop_reason_ = f'Reached maximum iterations {self.max_iter}'
-            log.warn(self.stop_reason_)
+            log.warning(self.stop_reason_)
         self.n_iter_ = k + 1
         coef = U.T
         # Only useful for debugging

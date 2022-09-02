@@ -694,6 +694,8 @@ class TestEpisodeManipulation:
         np.testing.assert_allclose(X1s, X2s)
 
 
+@pytest.mark.filterwarnings(
+    'ignore:Call to deprecated method predict_multistep')
 @pytest.mark.parametrize(
     'kp',
     [
@@ -1417,4 +1419,5 @@ class TestDeepParams:
         kp.set_params(p=5)  # Wrong type for ``p``
         assert kp.get_params()['p'] == 5
         kp.set_params(p=pykoop.PolynomialLiftingFn(order=2))
+        assert kp.get_params()['p__order'] == 2
         assert kp.get_params()['p__order'] == 2
