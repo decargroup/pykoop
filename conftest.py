@@ -161,7 +161,7 @@ def add_X_msd_no_input(doctest_namespace):
         damping=0.6,
     )
     # Specify initial conditions
-    x0 = msd.x0(np.array([1, -1]))
+    x0 = np.array([1, -1])
     # Simulate ODE
     t, x = msd.simulate(
         t_range,
@@ -201,7 +201,7 @@ def add_X_msd(doctest_namespace):
         return 0.1 * np.sin(t)
 
     # Specify initial conditions
-    x0 = msd.x0(np.array([0, 0]))
+    x0 = np.array([0, 0])
     # Simulate ODE
     t, x = msd.simulate(t_range, t_step, x0, u, rtol=1e-8, atol=1e-8)
     # Format the data
@@ -235,7 +235,7 @@ def add_X_pend(doctest_namespace):
         return 0.1 * np.sin(t)
 
     # Specify initial conditions
-    x0 = pend.x0(np.array([0, 0]))
+    x0 = np.array([0, 0])
     # Simulate ODE
     t, x = pend.simulate(t_range, t_step, x0, u, rtol=1e-8, atol=1e-8)
     # Format the data

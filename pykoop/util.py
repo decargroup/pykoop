@@ -1,6 +1,6 @@
 """Utilities for data generation and preprocessing."""
 
-from typing import Tuple
+from typing import Tuple, Dict, Any
 
 import numpy as np
 from scipy import interpolate, signal
@@ -165,7 +165,7 @@ def random_state(low, high, rng=None):
     Simulate a mass-spring-damper with random initial condition
 
     >>> x_max = np.array([1, 1])
-    >>> x0 = msd.x0(pykoop.random_state(-x_max, x_max))
+    >>> x0 = pykoop.random_state(-x_max, x_max)
     >>> t, x = msd.simulate((0, 1), 1e-3, x0, lambda t: 0)
     """
     if rng is None:
@@ -224,7 +224,7 @@ def random_input(t_range,
 
     >>> t_range = (0, 1)
     >>> t_step = 1e-3
-    >>> x0 = msd.x0(np.array([0, 0]))
+    >>> x0 = np.array([0, 0])
     >>> u_max = np.array([1])
     >>> u = pykoop.random_input(t_range, t_step, -u_max, u_max, cutoff=0.01)
     >>> t, x = msd.simulate(t_range, t_step, x0, u)
@@ -246,7 +246,7 @@ def random_input(t_range,
         raise ValueError(f'{output} is not a valid output form.')
 
 
-def example_data_msd() -> np.ndarray:
+def example_data_msd() -> Any:
     """Get example mass-spring-damper data.
 
     Returns
@@ -274,7 +274,7 @@ def example_data_msd() -> np.ndarray:
         t, x = msd.simulate(
             t_range=(0, 10),
             t_step=0.1,
-            x0=msd.x0(x0),
+            x0=x0,
             u=u,
             rtol=1e-8,
             atol=1e-8,
@@ -319,7 +319,7 @@ def example_data_vdp() -> np.ndarray:
         t, x = vdp.simulate(
             t_range=t_range,
             t_step=t_step,
-            x0=vdp.x0(x0),
+            x0=x0,
             u=u,
         )
         # Format the data
