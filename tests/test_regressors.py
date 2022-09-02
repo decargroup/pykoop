@@ -90,8 +90,9 @@ class TestRegressorsExact:
             episode_feature=msd['episode_feature'],
         )
         # Test prediction
+        prediction = regressor.predict(msd['X_valid'])
         np.testing.assert_allclose(
-            regressor.predict(msd['X_valid']),
+            prediction,
             msd['Xp_valid'],
             atol=predict_tol,
             rtol=0,
