@@ -265,7 +265,7 @@ class TestLmiRegressorsRegression:
         Tolerance for regression test.
     """
 
-    tol = 1e-9
+    tol = 1e-3
 
     def test_fit_predict(
         self,
