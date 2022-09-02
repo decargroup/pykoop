@@ -2036,7 +2036,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                     relift_state=relift_state,
                 )
                 # Score prediction
-                score = score_state(
+                score = score_trajectory(
                     X_predicted,
                     X_shifted,
                     n_steps=n_steps,
@@ -2058,7 +2058,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                 # Perform single-step prediction
                 X_predicted = estimator.predict(X_unshifted)
                 # Score prediction
-                score = score_state(
+                score = score_trajectory(
                     X_predicted,
                     X_shifted,
                     n_steps=None,
@@ -2081,7 +2081,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         return self
 
 
-def score_state(
+def score_trajectory(
     X_predicted: np.ndarray,
     X_expected: np.ndarray,
     n_steps: int = None,

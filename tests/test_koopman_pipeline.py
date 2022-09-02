@@ -323,7 +323,7 @@ class TestKoopmanPipelineScore:
             ),
         ],
     )
-    def test_score_state(
+    def test_score_trajectory(
         self,
         X_predicted,
         X_expected,
@@ -334,7 +334,7 @@ class TestKoopmanPipelineScore:
         episode_feature,
         score_exp,
     ):
-        score = pykoop.score_state(
+        score = pykoop.score_trajectory(
             X_predicted,
             X_expected,
             n_steps,

@@ -10,7 +10,7 @@ from .koopman_pipeline import (
     combine_episodes,
     extract_initial_conditions,
     extract_input,
-    score_state,
+    score_trajectory,
     shift_episodes,
     split_episodes,
     strip_initial_conditions,
