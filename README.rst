@@ -3,6 +3,9 @@
 pykoop
 ======
 
+.. image:: https://github.com/decarsg/pykoop/actions/workflows/test-package.yml/badge.svg
+    :target: https://github.com/decarsg/pykoop/actions/workflows/test-package.yml
+    :alt: Test package
 .. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.5576490.svg
     :target: https://doi.org/10.5281/zenodo.5576490
     :alt: DOI
