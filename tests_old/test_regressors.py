@@ -13,27 +13,6 @@ import pykoop.lmi_regressors
 @pytest.fixture(
     params=[
         (
-            pykoop.Edmd(),
-            'msd-no-input',
-            1e-5,
-            1e-5,
-            'exact',
-        ),
-        (
-            pykoop.Dmdc(),
-            'msd-no-input',
-            1e-5,
-            1e-5,
-            'exact',
-        ),
-        (
-            pykoop.Dmd(),
-            'msd-no-input',
-            1e-5,
-            1e-5,
-            'exact',
-        ),
-        (
             pykoop.Dmdc(tsvd_unshifted=pykoop.Tsvd('known_noise', 1),
                         tsvd_shifted=pykoop.Tsvd('known_noise', 1)),
             'msd-no-input',

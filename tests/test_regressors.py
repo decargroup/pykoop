@@ -7,6 +7,97 @@ import sklearn.utils.estimator_checks
 import pykoop
 
 
+@pytest.mark.parametrize(
+    'regressor, mass_spring_damper, fit_tol, predict_tol',
+    [
+        (
+            pykoop.Edmd(),
+            'mass_spring_damper_no_input',
+            1e-5,
+            1e-5,
+        ),
+        (
+            pykoop.Dmdc(),
+            'mass_spring_damper_no_input',
+            1e-5,
+            1e-5,
+        ),
+        (
+            pykoop.Dmd(),
+            'mass_spring_damper_no_input',
+            1e-5,
+            1e-5,
+        ),
+        (
+            pykoop.Edmd(),
+            'mass_spring_damper_sine_input',
+            1e-1,
+            1e-3,
+        ),
+        (
+            pykoop.Dmdc(),
+            'mass_spring_damper_sine_input',
+            1e-1,
+            1e-3,
+        ),
+    ],
+)
+class TestRegressorsExact:
+    """Test regressors with exact solutions."""
+
+    def test_fit(
+        self,
+        request,
+        regressor,
+        mass_spring_damper,
+        fit_tol,
+        predict_tol,
+    ):
+        """Test fit accuracy by comparing Koopman matrix."""
+        # Get fixture from name
+        msd = request.getfixturevalue(mass_spring_damper)
+        # Fit regressor
+        regressor.fit(
+            msd['X_train'],
+            msd['Xp_train'],
+            n_inputs=msd['n_inputs'],
+            episode_feature=msd['episode_feature'],
+        )
+        # Test value of Koopman operator
+        np.testing.assert_allclose(
+            regressor.coef_.T,
+            msd['U_valid'],
+            atol=fit_tol,
+            rtol=0,
+        )
+
+    def test_predict(
+        self,
+        request,
+        regressor,
+        mass_spring_damper,
+        fit_tol,
+        predict_tol,
+    ):
+        """Test fit accuracy by comparing prediction."""
+        # Get fixture from name
+        msd = request.getfixturevalue(mass_spring_damper)
+        # Fit regressor
+        regressor.fit(
+            msd['X_train'],
+            msd['Xp_train'],
+            n_inputs=msd['n_inputs'],
+            episode_feature=msd['episode_feature'],
+        )
+        # Test prediction
+        np.testing.assert_allclose(
+            regressor.predict(msd['X_valid']),
+            msd['Xp_valid'],
+            atol=predict_tol,
+            rtol=0,
+        )
+
+
 class TestSklearn:
     """Test scikit-learn compatibility."""
 
