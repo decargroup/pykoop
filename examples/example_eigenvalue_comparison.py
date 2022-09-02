@@ -1,10 +1,11 @@
 """Example comparing eigenvalues of different versions of EDMD."""
 
 import numpy as np
-import pykoop
-import pykoop.lmi_regressors
 from matplotlib import pyplot as plt
 from scipy import integrate, linalg
+
+import pykoop
+import pykoop.lmi_regressors
 
 plt.rc('lines', linewidth=2)
 plt.rc('axes', grid=True)
@@ -15,10 +16,11 @@ def example_eigenvalue_comparison() -> None:
     """Compare eigenvalues of different versions of EDMD."""
     # Get example data
     X = pykoop.example_data_msd()
+    # Set solver (you can switch to ``'mosek'`` if you have a license).
+    solver = 'cvxopt'
 
     # Regressor with no constraint
-    reg_no_const = pykoop.KoopmanPipeline(
-        regressor=pykoop.lmi_regressors.LmiEdmd())
+    reg_no_const = pykoop.KoopmanPipeline(regressor=pykoop.Edmd())
     reg_no_const.fit(X, n_inputs=1, episode_feature=True)
     U_no_const = reg_no_const.regressor_.coef_.T
 
@@ -30,20 +32,27 @@ def example_eigenvalue_comparison() -> None:
     ])  # yapf: disable
     reg_diss_const = pykoop.KoopmanPipeline(
         regressor=pykoop.lmi_regressors.LmiEdmdDissipativityConstr(
-            supply_rate=Xi))
+            supply_rate=Xi,
+            solver_params={'solver': solver},
+        ))
     reg_diss_const.fit(X, n_inputs=1, episode_feature=True)
     U_diss_const = reg_diss_const.regressor_.coef_.T
 
     # Regressor with H-infinity regularization
     reg_hinf_reg = pykoop.KoopmanPipeline(
-        regressor=pykoop.lmi_regressors.LmiEdmdHinfReg(alpha=5))
+        regressor=pykoop.lmi_regressors.LmiEdmdHinfReg(
+            alpha=5,
+            solver_params={'solver': solver},
+        ))
     reg_hinf_reg.fit(X, n_inputs=1, episode_feature=True)
     U_hinf_reg = reg_hinf_reg.regressor_.coef_.T
 
     # Regressor with spectral radius constraint
     reg_sr_const = pykoop.KoopmanPipeline(
         regressor=pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr(
-            spectral_radius=0.8))
+            spectral_radius=0.8,
+            solver_params={'solver': solver},
+        ))
     reg_sr_const.fit(X, n_inputs=1, episode_feature=True)
     U_sr_const = reg_sr_const.regressor_.coef_.T
 
