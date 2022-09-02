@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath('../'))
 # -- Project information -----------------------------------------------------
 
 project = 'pykoop'
-copyright = '2021, Steven Dahdah'
+copyright = '2022, Steven Dahdah'
 author = 'Steven Dahdah'
 
 # -- General configuration ---------------------------------------------------
