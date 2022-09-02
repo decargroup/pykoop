@@ -477,6 +477,7 @@ class TestSklearn:
         check(estimator)
 
 
+@pytest.mark.mosek
 class TestExceptions:
     """Test a selection of invalid estimator parameter."""
 
