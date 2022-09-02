@@ -766,7 +766,7 @@ class TestPrediction:
     """Test fit Koopman pipeline prediction."""
 
     def test_predict_trajectory(self, kp, mass_spring_damper_sine_input):
-        """Test :func:`predict_state`."""
+        """Test :func:`predict_trajectory`."""
         msg = 'Test only works when there is no episode feature.'
         assert (not mass_spring_damper_sine_input['episode_feature']), msg
         # Fit estimator
@@ -789,7 +789,7 @@ class TestPrediction:
             episode_feature=False,
         )
         # Predict new states
-        X_sim = kp.predict_state(
+        X_sim = kp.predict_trajectory(
             x0,
             u,
             episode_feature=False,

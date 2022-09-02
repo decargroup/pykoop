@@ -26,7 +26,7 @@ def example_pipeline_simple() -> None:
     # Predict using the pipeline
     X_initial = X_msd[[0], 1:3]
     U = X_msd[:, [3]]
-    X_pred = kp.predict_state(X_initial, U, episode_feature=False)
+    X_pred = kp.predict_trajectory(X_initial, U, episode_feature=False)
 
     # Score using the pipeline
     score = kp.score(X_msd)

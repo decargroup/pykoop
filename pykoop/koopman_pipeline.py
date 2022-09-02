@@ -1679,7 +1679,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         score = scorer(self, X, None)
         return score
 
-    @deprecated('Use `predict_state` instead')
+    @deprecated('Use `predict_trajectory` instead')
     def predict_multistep(self, X: np.ndarray) -> np.ndarray:
         """Perform a multi-step prediction for the first state of each episode.
 
@@ -1755,7 +1755,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                                episode_feature=self.episode_feature_)
         return X_p
 
-    def predict_state(
+    def predict_trajectory(
         self,
         X_initial: np.ndarray,
         U: np.ndarray,
@@ -1764,7 +1764,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         return_input: bool = False,
         episode_feature: bool = None,
     ) -> np.ndarray:
-        """Predict state given input for each episode.
+        """Predict state trajectory given input for each episode.
 
         Parameters
         ----------
@@ -1976,7 +1976,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
             which are existing ``scikit-learn`` regression metrics [#sc]_.
 
         multistep : bool
-            If true, predict using :func:`predict_state`. Otherwise,
+            If true, predict using :func:`predict_trajectory`. Otherwise,
             predict using :func:`predict` (one-step-ahead prediction).
             Multistep prediction is highly recommended unless debugging. If
             one-step-ahead prediciton is used, `n_steps` and `discount_factor`
@@ -2030,7 +2030,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
                     episode_feature=estimator.episode_feature_,
                 )
                 # Predict state for each episode
-                X_predicted = estimator.predict_state(
+                X_predicted = estimator.predict_trajectory(
                     x0,
                     u,
                     relift_state=relift_state,
