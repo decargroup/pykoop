@@ -103,7 +103,7 @@ namespace for convenience.
    pykoop.combine_episodes
    pykoop.extract_initial_conditions
    pykoop.extract_input
-   pykoop.score_state
+   pykoop.score_trajectory
    pykoop.shift_episodes
    pykoop.split_episodes
    pykoop.strip_initial_conditions
