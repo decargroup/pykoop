@@ -118,6 +118,7 @@ Additional LMI solvers can be installed using
 .. code-block:: sh
 
     $ pip install mosek
+    $ pip install cvxopt
     $ pip install smcp
 
 Mosek is recommended, but is nonfree and requires a license.
