@@ -992,8 +992,10 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         for (i, X_i) in episodes:
             predictions.append((i, X_i @ self.coef_))
         # Combine and return
-        X_pred = combine_episodes(predictions,
-                                  episode_feature=self.episode_feature_)
+        X_pred = combine_episodes(
+            predictions,
+            episode_feature=self.episode_feature_,
+        )
         return X_pred
 
     @abc.abstractmethod
