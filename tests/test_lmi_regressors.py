@@ -15,8 +15,6 @@ def mosek_solver_params(remote, remote_url):
     params = {
         'solver': 'mosek',
         'dualize': True,
-        '*_fsb_tol': 1e-6,
-        '*_opt_tol': 1e-6,
     }
     # Set MOSEK solver to remote server if needed
     if remote:
@@ -26,7 +24,127 @@ def mosek_solver_params(remote, remote_url):
 
 @pytest.mark.mosek
 @pytest.mark.parametrize(
-    'class_',
+    'regressor, mass_spring_damper, fit_tol, predict_tol',
+    [
+        (
+            pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='eig'),
+            'mass_spring_damper_no_input',
+            1e-4,
+            1e-5,
+        ),
+        (
+            pykoop.lmi_regressors.LmiEdmd(
+                alpha=0,
+                inv_method='inv',
+                solver_params={'dualize': False},
+            ),
+            'mass_spring_damper_no_input',
+            1e-3,
+            1e-4,
+        ),
+        (
+            pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='ldl'),
+            'mass_spring_damper_no_input',
+            1e-4,
+            1e-5,
+        ),
+        (
+            pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='chol'),
+            'mass_spring_damper_no_input',
+            1e-4,
+            1e-5,
+        ),
+        (
+            pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='sqrt'),
+            'mass_spring_damper_no_input',
+            1e-4,
+            1e-5,
+        ),
+        (
+            pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='svd'),
+            'mass_spring_damper_no_input',
+            1e-4,
+            1e-5,
+        ),
+        (
+            pykoop.lmi_regressors.LmiDmdc(alpha=0),
+            'mass_spring_damper_no_input',
+            1e-4,
+            1e-5,
+        ),
+    ],
+)
+class TestLmiRegressorsExact:
+    """Test LMI regressors with exact solutions."""
+
+    def test_fit(
+        self,
+        request,
+        regressor,
+        mass_spring_damper,
+        fit_tol,
+        predict_tol,
+        mosek_solver_params,
+    ):
+        # Get fixture from name
+        msd = request.getfixturevalue(mass_spring_damper)
+        # Update solver settings
+        if regressor.solver_params is None:
+            regressor.solver_params = mosek_solver_params
+        else:
+            mosek_solver_params.update(regressor.solver_params)
+            regressor.solver_params = mosek_solver_params
+        # Fit regressor
+        regressor.fit(
+            msd['X_train'],
+            msd['Xp_train'],
+            n_inputs=msd['n_inputs'],
+            episode_feature=msd['episode_feature'],
+        )
+        # Test value of Koopman operator
+        np.testing.assert_allclose(
+            regressor.coef_.T,
+            msd['U_valid'],
+            atol=fit_tol,
+            rtol=0,
+        )
+
+    def test_predict(
+        self,
+        request,
+        regressor,
+        mass_spring_damper,
+        fit_tol,
+        predict_tol,
+        mosek_solver_params,
+    ):
+        # Get fixture from name
+        msd = request.getfixturevalue(mass_spring_damper)
+        # Update solver settings
+        if regressor.solver_params is None:
+            regressor.solver_params = mosek_solver_params
+        else:
+            mosek_solver_params.update(regressor.solver_params)
+            regressor.solver_params = mosek_solver_params
+        # Fit regressor
+        regressor.fit(
+            msd['X_train'],
+            msd['Xp_train'],
+            n_inputs=msd['n_inputs'],
+            episode_feature=msd['episode_feature'],
+        )
+        # Test prediction
+        np.testing.assert_allclose(
+            regressor.predict(msd['X_valid']),
+            msd['Xp_valid'],
+            atol=predict_tol,
+            rtol=0,
+        )
+
+
+@pytest.mark.mosek
+@pytest.mark.parametrize(
+    'regressor',
     [
         pykoop.lmi_regressors.LmiEdmdHinfReg,
         pykoop.lmi_regressors.LmiDmdcHinfReg,
@@ -37,7 +155,7 @@ class TestLmiHinfZpkMeta:
 
     def test_hinf_weight(
         self,
-        class_,
+        regressor,
         mosek_solver_params,
         mass_spring_damper_sine_input,
     ):
@@ -62,9 +180,12 @@ class TestLmiHinfZpkMeta:
             ss_dt.C,
             ss_dt.D,
         )
-        est_expected = class_(weight=weight, solver_params=mosek_solver_params)
+        est_expected = regressor(
+            weight=weight,
+            solver_params=mosek_solver_params,
+        )
         est_actual = pykoop.lmi_regressors.LmiHinfZpkMeta(
-            hinf_regressor=class_(solver_params=mosek_solver_params),
+            hinf_regressor=regressor(solver_params=mosek_solver_params),
             type='post',
             zeros=-0,
             poles=-5,
@@ -97,7 +218,7 @@ class TestLmiHinfZpkMeta:
 
     def test_pole_zero_units(
         self,
-        class_,
+        regressor,
         mosek_solver_params,
         mass_spring_damper_sine_input,
     ):
@@ -106,7 +227,7 @@ class TestLmiHinfZpkMeta:
         .. todo:: Break up multiple asserts.
         """
         est_1 = pykoop.lmi_regressors.LmiHinfZpkMeta(
-            hinf_regressor=class_(solver_params=mosek_solver_params),
+            hinf_regressor=regressor(solver_params=mosek_solver_params),
             type='post',
             zeros=-0,
             poles=(-2 * np.pi / mass_spring_damper_sine_input['t_step']) / 2,
@@ -116,7 +237,7 @@ class TestLmiHinfZpkMeta:
             units='rad/s',
         )
         est_2 = pykoop.lmi_regressors.LmiHinfZpkMeta(
-            hinf_regressor=class_(solver_params=mosek_solver_params),
+            hinf_regressor=regressor(solver_params=mosek_solver_params),
             type='post',
             zeros=-0,
             poles=(-1 / mass_spring_damper_sine_input['t_step']) / 2,
@@ -126,7 +247,7 @@ class TestLmiHinfZpkMeta:
             units='hz',
         )
         est_3 = pykoop.lmi_regressors.LmiHinfZpkMeta(
-            hinf_regressor=class_(solver_params=mosek_solver_params),
+            hinf_regressor=regressor(solver_params=mosek_solver_params),
             type='post',
             zeros=-0,
             poles=-1,
