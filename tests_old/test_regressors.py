@@ -49,15 +49,6 @@ import pykoop.lmi_regressors
             'exact',
         ),
         (
-            pykoop.lmi_regressors.LmiEdmd(alpha=1, inv_method='chol'),
-            'msd-no-input',
-            1e-4,
-            None,
-            'sklearn-ridge',
-        ),
-        # (pykoop.lmi_regressors.LmiDmdc(alpha=2.29), 'msd-no-input', 1e-4,
-        #  None, 'sklearn-ridge-1'),  # I don't think this is the same
-        (
             pykoop.lmi_regressors.LmiEdmd(
                 alpha=1,
                 reg_method='twonorm',
@@ -220,18 +211,6 @@ def scenario(request, remote, remote_url):
         'fit_tol': fit_tol,
         'predict_tol': predict_tol,
     }
-
-
-def test_scenario_data(scenario):
-    # Make sure training and validation sets are not the same
-    assert not np.allclose(scenario['X_train'], scenario['X_valid'])
-    assert not np.allclose(scenario['Xp_train'], scenario['Xp_valid'])
-    # Make sure Xp is time-shifted version of X
-    p_theta = scenario['Xp_train'].shape[0]
-    np.testing.assert_allclose(scenario['X_train'][:p_theta, 1:],
-                               scenario['Xp_train'][:, :-1])
-    np.testing.assert_allclose(scenario['X_valid'][:p_theta, 1:],
-                               scenario['Xp_valid'][:, :-1])
 
 
 def test_fit(scenario):

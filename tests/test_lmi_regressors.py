@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+import sklearn.linear_model
 import sklearn.utils.estimator_checks
 from scipy import signal
 
@@ -86,6 +87,7 @@ class TestLmiRegressorsExact:
         predict_tol,
         mosek_solver_params,
     ):
+        """Test fit accuracy by comparing Koopman matrix."""
         # Get fixture from name
         msd = request.getfixturevalue(mass_spring_damper)
         # Update solver settings
@@ -118,6 +120,7 @@ class TestLmiRegressorsExact:
         predict_tol,
         mosek_solver_params,
     ):
+        """Test fit accuracy by comparing prediction."""
         # Get fixture from name
         msd = request.getfixturevalue(mass_spring_damper)
         # Update solver settings
@@ -138,6 +141,67 @@ class TestLmiRegressorsExact:
             regressor.predict(msd['X_valid']),
             msd['Xp_valid'],
             atol=predict_tol,
+            rtol=0,
+        )
+
+
+@pytest.mark.mosek
+@pytest.mark.parametrize(
+    'regressor, mass_spring_damper, fit_tol',
+    [
+        (
+            pykoop.lmi_regressors.LmiEdmd(alpha=1, inv_method='chol'),
+            'mass_spring_damper_no_input',
+            1e-4,
+        ),
+        (
+            pykoop.lmi_regressors.LmiEdmd(alpha=0, inv_method='chol'),
+            'mass_spring_damper_no_input',
+            1e-4,
+        ),
+    ],
+)
+class TestLmiRegressorsTikhonov:
+    """Test Tikhonov LMI regressors."""
+
+    def test_fit(
+        self,
+        request,
+        regressor,
+        mass_spring_damper,
+        fit_tol,
+        mosek_solver_params,
+    ):
+        """Test fit accuracy by comparing Koopman matrix."""
+        # Get fixture from name
+        msd = request.getfixturevalue(mass_spring_damper)
+        # Update solver settings
+        if regressor.solver_params is None:
+            regressor.solver_params = mosek_solver_params
+        else:
+            mosek_solver_params.update(regressor.solver_params)
+            regressor.solver_params = mosek_solver_params
+        # Fit regressor
+        regressor.fit(
+            msd['X_train'],
+            msd['Xp_train'],
+            n_inputs=msd['n_inputs'],
+            episode_feature=msd['episode_feature'],
+        )
+        # Fit equivalent ``scikit-learn`` regressor
+        clf = sklearn.linear_model.Ridge(
+            alpha=regressor.alpha,
+            fit_intercept=False,
+            solver='cholesky',
+            tol=1e-8,
+        )
+        clf.fit(msd['X_train'], msd['Xp_train'])
+        U_valid = clf.coef_
+        # Test value of Koopman operator
+        np.testing.assert_allclose(
+            regressor.coef_.T,
+            U_valid,
+            atol=fit_tol,
             rtol=0,
         )
 
