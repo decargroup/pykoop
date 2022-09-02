@@ -140,7 +140,7 @@ class LmiEdmd(LmiRegressor):
     LMI EDMD without regularization
 
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.lmi_regressors.LmiEdmd())
-    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)  # doctest: +SKIP
     KoopmanPipeline(regressor=LmiEdmd())
 
     LMI EDMD with Tikhonov regularization
@@ -151,7 +151,7 @@ class LmiEdmd(LmiRegressor):
     ...         reg_method='tikhonov',
     ...     )
     ... )
-    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)  # doctest: +SKIP
     KoopmanPipeline(regressor=LmiEdmd(alpha=1))
 
     LMI EDMD with matrix two-norm regularization
@@ -162,7 +162,7 @@ class LmiEdmd(LmiRegressor):
     ...         reg_method='twonorm',
     ...     )
     ... )
-    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)  # doctest: +SKIP
     KoopmanPipeline(regressor=LmiEdmd(alpha=1, reg_method='twonorm'))
 
     LMI EDMD with mixed Tikhonov and squared-nuclear-norm regularization
@@ -175,7 +175,7 @@ class LmiEdmd(LmiRegressor):
     ...         square_norm=True,
     ...     )
     ... )
-    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)  # doctest: +SKIP
     KoopmanPipeline(regressor=LmiEdmd(alpha=1, ratio=0.5, reg_method='nuclear',
     square_norm=True))
     """
@@ -438,7 +438,7 @@ class LmiDmdc(LmiRegressor):
     LMI DMDc without regularization
 
     >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.lmi_regressors.LmiDmdc())
-    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)  # doctest: +SKIP
     KoopmanPipeline(regressor=LmiDmdc())
 
     LMI DMDc with Tikhonov regularization
@@ -449,7 +449,7 @@ class LmiDmdc(LmiRegressor):
     ...         reg_method='tikhonov',
     ...     )
     ... )
-    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)  # doctest: +SKIP
     KoopmanPipeline(regressor=LmiDmdc(alpha=1))
 
     LMI DMDc with matrix two-norm regularization
@@ -460,7 +460,7 @@ class LmiDmdc(LmiRegressor):
     ...         reg_method='twonorm',
     ...     )
     ... )
-    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)  # doctest: +SKIP
     KoopmanPipeline(regressor=LmiDmdc(alpha=1, reg_method='twonorm'))
 
     LMI DMDc with nuclear norm regularization and SVD truncation
@@ -473,7 +473,7 @@ class LmiDmdc(LmiRegressor):
     ...         tsvd_shifted=pykoop.Tsvd('known_noise', 0.1),
     ...     )
     ... )
-    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)  # doctest: +SKIP
     KoopmanPipeline(regressor=LmiDmdc(alpha=1, reg_method='nuclear',
     tsvd_shifted=Tsvd(truncation='known_noise', truncation_param=0.1),
     tsvd_unshifted=Tsvd(truncation='known_noise', truncation_param=0.1)))
@@ -712,7 +712,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
     ...         spectral_radius=0.9,
     ...     )
     ... )
-    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)  # doctest: +SKIP
     KoopmanPipeline(regressor=LmiEdmdSpectralRadiusConstr(spectral_radius=0.9))
     """
 
@@ -958,7 +958,7 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
     ...         tsvd_shifted=pykoop.Tsvd('cutoff', 1e-6),
     ...     )
     ... )
-    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)  # doctest: +SKIP
     KoopmanPipeline(regressor=LmiDmdcSpectralRadiusConstr(spectral_radius=0.9,
     tsvd_shifted=Tsvd(truncation='cutoff', truncation_param=1e-06),
     tsvd_unshifted=Tsvd(truncation='cutoff', truncation_param=1e-06)))
@@ -1212,7 +1212,7 @@ class LmiEdmdHinfReg(LmiRegressor):
     ...         alpha=1e-3,
     ...     )
     ... )
-    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)  # doctest: +SKIP
     KoopmanPipeline(regressor=LmiEdmdHinfReg(alpha=0.001))
 
     Apply EDMD with weighted H-infinity regularization to mass-spring-damper
@@ -1227,7 +1227,7 @@ class LmiEdmdHinfReg(LmiRegressor):
     ...         weight=('pre', ss_dt.A, ss_dt.B, ss_dt.C, ss_dt.D),
     ...     )
     ... )
-    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)  # doctest: +SKIP
     KoopmanPipeline(regressor=LmiEdmdHinfReg(alpha=0.001,
     weight=('pre', array([[...]]), array([[...]]), array([[...]]),
     array([[...]]))))
@@ -1543,7 +1543,7 @@ class LmiDmdcHinfReg(LmiRegressor):
     ...         alpha=1e-3,
     ...     )
     ... )
-    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)  # doctest: +SKIP
     KoopmanPipeline(regressor=LmiDmdcHinfReg(alpha=0.001))
 
     Apply reduced-order DMDc with weighted H-infinity regularization to
@@ -1560,7 +1560,7 @@ class LmiDmdcHinfReg(LmiRegressor):
     ...         tsvd_shifted=pykoop.Tsvd('cutoff', 1e-3),
     ...     )
     ... )
-    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)  # doctest: +SKIP
     KoopmanPipeline(regressor=LmiDmdcHinfReg(alpha=0.001,
     tsvd_shifted=Tsvd(truncation='cutoff', truncation_param=0.001),
     tsvd_unshifted=Tsvd(truncation='cutoff', truncation_param=0.001),
@@ -1886,7 +1886,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
     >>> kp = pykoop.KoopmanPipeline(
     ...     regressor=pykoop.lmi_regressors.LmiEdmdDissipativityConstr()
     ... )
-    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)  # doctest: +SKIP
     KoopmanPipeline(regressor=LmiEdmdDissipativityConstr())
     """
 
@@ -2232,12 +2232,9 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         ...     discretization='bilinear',
         ...     t_step=0.1,
         ... )
-        >>> est.fit(X_msd, n_inputs=1, episode_feature=True)
+        >>> est.fit(X_msd, n_inputs=1, episode_feature=True)  # doctest: +SKIP
         LmiHinfZpkMeta(hinf_regressor=LmiEdmdHinfReg(), poles=-5, t_step=0.1,
         zeros=0)
-        >>> est.hinf_regressor_
-        LmiEdmdHinfReg(weight=('post', array([[...]]), array([[...]]),
-        array([[...]]), array([[...]])))
         """
         self.hinf_regressor = hinf_regressor
         self.type = type
