@@ -1,12 +1,11 @@
 """Example of how to use the Koopman pipeline."""
 
-import numpy as np
 from sklearn.preprocessing import MaxAbsScaler, StandardScaler
 
 import pykoop
 
 
-def main() -> None:
+def example_pipeline_simple() -> None:
     """Demonstrate how to use the Koopman pipeline."""
     # Get sample mass-spring-damper data
     X_msd = pykoop.example_data_msd()
@@ -27,11 +26,11 @@ def main() -> None:
     # Predict using the pipeline
     X_initial = X_msd[[0], 1:3]
     U = X_msd[:, [3]]
-    X_pred = kp.predict_state(X_initial, U, episode_feature=False)
+    X_pred = kp.predict_trajectory(X_initial, U, episode_feature=False)
 
     # Score using the pipeline
     score = kp.score(X_msd)
 
 
 if __name__ == '__main__':
-    main()
+    example_pipeline_simple()

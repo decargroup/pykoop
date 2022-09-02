@@ -1,9 +1,14 @@
 """Pytest fixtures for doctests."""
+from typing import Any, Dict
+
 import numpy as np
 import pytest
 import sklearn
+from scipy import linalg, integrate
 
 import pykoop
+
+# Add remote option for MOSEK
 
 
 def pytest_addoption(parser) -> None:
@@ -28,6 +33,98 @@ def remote_url() -> str:
     See http://solve.mosek.com/web/index.html
     """
     return 'http://solve.mosek.com:30080'
+
+
+# Add mass-spring-damper reference trajectory for all tests
+
+
+@pytest.fixture
+def mass_spring_damper_sine_input() -> Dict[str, Any]:
+    """Compute mass-spring-damper response with sine input."""
+    # Set up problem
+    t_range = (0, 10)
+    t_step = 0.1
+    msd = pykoop.dynamic_models.MassSpringDamper(0.5, 0.7, 0.6)
+
+    def u(t):
+        return 0.1 * np.sin(t)
+
+    # Initial condition
+    x0 = np.array([0, 0])
+    # Solve ODE for training data
+    t, x = msd.simulate(
+        t_range,
+        t_step,
+        x0,
+        u,
+        rtol=1e-8,
+        atol=1e-8,
+    )
+    # Compute discrete-time A and B matrices
+    Ad = linalg.expm(msd.A * t_step)
+
+    def integrand(s):
+        return linalg.expm(msd.A * (t_step - s)).ravel()
+
+    Bd = integrate.quad_vec(integrand, 0, t_step)[0].reshape((2, 2)) @ msd.B
+    U_valid = np.hstack((Ad, Bd))
+    # Split the data
+    y_train, y_valid = np.split(x, 2, axis=0)
+    u_train, u_valid = np.split(np.reshape(u(t), (-1, 1)), 2, axis=0)
+    X_train = np.hstack((y_train[:-1, :], u_train[:-1, :]))
+    Xp_train = y_train[1:, :]
+    X_valid = np.hstack((y_valid[:-1, :], u_valid[:-1, :]))
+    Xp_valid = y_valid[1:, :]
+    return {
+        'X_train': X_train,
+        'Xp_train': Xp_train,
+        'X_valid': X_valid,
+        'Xp_valid': Xp_valid,
+        'n_inputs': 1,
+        'episode_feature': False,
+        'U_valid': U_valid,
+        't_step': t_step,
+    }
+
+
+@pytest.fixture
+def mass_spring_damper_no_input() -> Dict[str, Any]:
+    """Compute mass-spring-damper response with no input."""
+    # Set up problem
+    t_range = (0, 10)
+    t_step = 0.1
+    msd = pykoop.dynamic_models.MassSpringDamper(0.5, 0.7, 0.6)
+    # Initial condition
+    x0 = np.array([1, 0])
+    # Solve ODE for training data
+    t, x = msd.simulate(
+        t_range,
+        t_step,
+        x0,
+        lambda t: np.zeros((1, )),
+        rtol=1e-8,
+        atol=1e-8,
+    )
+    U_valid = linalg.expm(msd.A * t_step)
+    # Split the data
+    y_train, y_valid = np.split(x, 2, axis=0)
+    X_train = y_train[:-1, :]
+    Xp_train = y_train[1:, :]
+    X_valid = y_valid[:-1, :]
+    Xp_valid = y_valid[1:, :]
+    return {
+        'X_train': X_train,
+        'Xp_train': Xp_train,
+        'X_valid': X_valid,
+        'Xp_valid': Xp_valid,
+        'n_inputs': 0,
+        'episode_feature': False,
+        'U_valid': U_valid,
+        't_step': t_step,
+    }
+
+
+# Add common packages and data to doctest namespace
 
 
 @pytest.fixture(autouse=True)

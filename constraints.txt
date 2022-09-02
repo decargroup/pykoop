@@ -7,7 +7,10 @@ optht>=0.2.0
 Deprecated>=1.2.13
 
 pytest
+pytest-regressions
 matplotlib
 
 sphinx
 sphinx-rtd-theme
+
+mosek>=9.2.49

@@ -3,6 +3,9 @@
 pykoop
 ======
 
+.. image:: https://github.com/decarsg/pykoop/actions/workflows/test-package.yml/badge.svg
+    :target: https://github.com/decarsg/pykoop/actions/workflows/test-package.yml
+    :alt: Test package
 .. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.5576490.svg
     :target: https://doi.org/10.5281/zenodo.5576490
     :alt: DOI
@@ -37,7 +40,6 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
 .. code-block:: python
 
     import pykoop
-    import numpy as np
     from sklearn.preprocessing import MaxAbsScaler, StandardScaler
 
     # Get sample mass-spring-damper data
@@ -59,7 +61,7 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
     # Predict using the pipeline
     X_initial = X_msd[[0], 1:3]
     U = X_msd[:, [3]]
-    X_pred = kp.predict_state(X_initial, U, episode_feature=False)
+    X_pred = kp.predict_trajectory(X_initial, U, episode_feature=False)
 
     # Score using the pipeline
     score = kp.score(X_msd)
@@ -116,6 +118,7 @@ Additional LMI solvers can be installed using
 .. code-block:: sh
 
     $ pip install mosek
+    $ pip install cvxopt
     $ pip install smcp
 
 Mosek is recommended, but is nonfree and requires a license.
@@ -129,11 +132,12 @@ The library can be tested using
 
 Note that ``pytest`` must be run from the repository's root directory.
 
-To skip slow unit tests, including all doctests and examples, run
+To skip unit tests that require a MOSEK license, including all doctests and
+examples, run
 
 .. code-block:: sh
 
-    $ pytest ./tests -k "not slow"
+    $ pytest ./tests -k "not mosek"
 
 The documentation can be compiled using
 

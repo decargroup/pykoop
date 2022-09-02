@@ -7,7 +7,7 @@ import pykoop
 import pykoop.dynamic_models
 
 
-def main() -> None:
+def example_pipeline_vdp() -> None:
     """Demonstrate how to use the Koopman pipeline."""
     # Get sample data
     X_vdp = pykoop.example_data_vdp()
@@ -38,7 +38,7 @@ def main() -> None:
     u = X_valid[:, 3:]
 
     # Predict with re-lifting between timesteps (default)
-    X_pred_local = kp.predict_state(
+    X_pred_local = kp.predict_trajectory(
         x0,
         u,
         relift_state=True,
@@ -46,7 +46,7 @@ def main() -> None:
     )
 
     # Predict without re-lifting between timesteps
-    X_pred_global = kp.predict_state(
+    X_pred_global = kp.predict_trajectory(
         x0,
         u,
         relift_state=False,
@@ -85,7 +85,7 @@ def main() -> None:
     Psi_valid = kp.lift(X_valid[:, 1:], episode_feature=False)
 
     # Predict lifted state with re-lifting between timesteps (default)
-    Psi_pred_local = kp.predict_state(
+    Psi_pred_local = kp.predict_trajectory(
         x0,
         u,
         relift_state=True,
@@ -95,7 +95,7 @@ def main() -> None:
     )
 
     # Predict lifted state without re-lifting between timesteps
-    Psi_pred_global = kp.predict_state(
+    Psi_pred_global = kp.predict_trajectory(
         x0,
         u,
         relift_state=False,
@@ -141,8 +141,7 @@ def main() -> None:
     ax[0, 0].set_ylabel('$u$')
     ax[0, 0].set_title('Exogenous input')
 
-    plt.show()
-
 
 if __name__ == '__main__':
-    main()
+    example_pipeline_vdp()
+    plt.show()

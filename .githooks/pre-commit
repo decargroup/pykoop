@@ -60,7 +60,7 @@ fi
 
 # Format all staged files, then exit with an error code if any have uncommitted
 # changes.
-echo 'Formatting staged Python files . . .'
+echo 'Formatting staged Python files...'
 
 ########## PIP VERSION #############
 yapf -i -r "${PYTHON_FILES[@]}"

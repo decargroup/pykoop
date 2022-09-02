@@ -37,6 +37,7 @@ setuptools.setup(
     ],
     extra_require={
         'MOSEK solver': ['mosek>=9.2.49'],
+        'CVXOPT solver': ['cvxopt>=1.3.0'],
         'SMCP solver': ['smcp>=0.4.6'],
     },
 )

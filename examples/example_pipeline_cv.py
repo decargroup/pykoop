@@ -8,7 +8,7 @@ import pykoop
 import pykoop.dynamic_models
 
 
-def main() -> None:
+def example_pipeline_cv() -> None:
     """Cross-validate regressor parameters."""
     # Get sample mass-spring-damper data
     X_msd = pykoop.example_data_msd()
@@ -96,4 +96,4 @@ def main() -> None:
 
 
 if __name__ == '__main__':
-    main()
+    example_pipeline_cv()
