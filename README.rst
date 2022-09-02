@@ -132,11 +132,12 @@ The library can be tested using
 
 Note that ``pytest`` must be run from the repository's root directory.
 
-To skip slow unit tests, including all doctests and examples, run
+To skip unit tests that require a MOSEK license, including all doctests and
+examples, run
 
 .. code-block:: sh
 
-    $ pytest ./tests -k "not slow"
+    $ pytest ./tests -k "not mosek"
 
 The documentation can be compiled using
 
