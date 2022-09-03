@@ -1,6 +1,6 @@
 """Utilities for data generation and preprocessing."""
 
-from typing import Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 from scipy import interpolate, signal
@@ -165,7 +165,7 @@ def random_state(low, high, rng=None):
     Simulate a mass-spring-damper with random initial condition
 
     >>> x_max = np.array([1, 1])
-    >>> x0 = msd.x0(pykoop.random_state(-x_max, x_max))
+    >>> x0 = pykoop.random_state(-x_max, x_max)
     >>> t, x = msd.simulate((0, 1), 1e-3, x0, lambda t: 0)
     """
     if rng is None:
@@ -224,7 +224,7 @@ def random_input(t_range,
 
     >>> t_range = (0, 1)
     >>> t_step = 1e-3
-    >>> x0 = msd.x0(np.array([0, 0]))
+    >>> x0 = np.array([0, 0])
     >>> u_max = np.array([1])
     >>> u = pykoop.random_input(t_range, t_step, -u_max, u_max, cutoff=0.01)
     >>> t, x = msd.simulate(t_range, t_step, x0, u)
@@ -246,12 +246,12 @@ def random_input(t_range,
         raise ValueError(f'{output} is not a valid output form.')
 
 
-def example_data_msd() -> np.ndarray:
+def example_data_msd() -> Dict[str, Any]:
     """Get example mass-spring-damper data.
 
     Returns
     -------
-    np.ndarray
+    Dict[str, Any]
         Sample mass-spring damper data.
     """
     # Create mass-spring-damper object
@@ -260,6 +260,10 @@ def example_data_msd() -> np.ndarray:
         stiffness=0.7,
         damping=0.6,
     )
+    # Set timestep
+    t_range = (0, 10)
+    t_step = 0.1
+    t_sim = np.arange(*t_range, t_step)
     # Initial conditions and inputs
     conditions = [
         (0, np.array([0, 0]), lambda t: 0.1 * np.sin(t)),
@@ -272,9 +276,9 @@ def example_data_msd() -> np.ndarray:
     for ep, x0, u in conditions:
         # Simulate ODE
         t, x = msd.simulate(
-            t_range=(0, 10),
-            t_step=0.1,
-            x0=msd.x0(x0),
+            t_range=t_range,
+            t_step=t_step,
+            x0=x0,
             u=u,
             rtol=1e-8,
             atol=1e-8,
@@ -288,15 +292,37 @@ def example_data_msd() -> np.ndarray:
             )))
     # Stack data and return
     X_msd = np.vstack(X_msd_lst)
-    return X_msd
+    X_train = X_msd[X_msd[:, 0] < 3, :]
+    X_valid = X_msd[X_msd[:, 0] == 3, :]
+    n_inputs = 1
+    episode_feature = True
+    x0_valid = koopman_pipeline.extract_initial_conditions(
+        X_valid,
+        n_inputs=n_inputs,
+        episode_feature=episode_feature,
+    )
+    u_valid = koopman_pipeline.extract_input(
+        X_valid,
+        n_inputs=n_inputs,
+        episode_feature=episode_feature,
+    )
+    return {
+        'X_train': X_train,
+        'X_valid': X_valid,
+        'x0_valid': x0_valid,
+        'u_valid': u_valid,
+        'n_inputs': n_inputs,
+        'episode_feature': episode_feature,
+        't': t_sim,
+    }
 
 
-def example_data_vdp() -> np.ndarray:
+def example_data_vdp() -> Dict[str, Any]:
     """Get example Van der Pol oscillator data.
 
     Returns
     -------
-    np.ndarray
+    Dict[str, Any]
         Sample Van der Pol oscillator data.
     """
     # Create Van der Pol object
@@ -304,13 +330,13 @@ def example_data_vdp() -> np.ndarray:
     vdp = dynamic_models.DiscreteVanDerPol(t_step, mu=2)
     # Initial conditions and inputs
     t_range = (0, 10)
-    t = np.arange(*t_range, t_step)
+    t_sim = np.arange(*t_range, t_step)
     conditions = [
-        (0, np.array([1, 0]), 0.1 * np.sin(t)),
-        (1, np.array([0, 1]), 0.2 * np.cos(t)),
-        (2, np.array([-1, 0]), -0.2 * np.sin(t)),
-        (3, np.array([0, -1]), -0.1 * np.cos(t)),
-        (4, np.array([0.5, 0]), 0.1 * np.cos(t)),
+        (0, np.array([1, 0]), 0.1 * np.sin(t_sim)),
+        (1, np.array([0, 1]), 0.2 * np.cos(t_sim)),
+        (2, np.array([-1, 0]), -0.2 * np.sin(t_sim)),
+        (3, np.array([0, -1]), -0.1 * np.cos(t_sim)),
+        (4, np.array([0.5, 0]), 0.1 * np.cos(t_sim)),
     ]
     X_vdp_lst = []
     # Loop over initial conditions and inputs
@@ -319,7 +345,7 @@ def example_data_vdp() -> np.ndarray:
         t, x = vdp.simulate(
             t_range=t_range,
             t_step=t_step,
-            x0=vdp.x0(x0),
+            x0=x0,
             u=u,
         )
         # Format the data
@@ -331,4 +357,26 @@ def example_data_vdp() -> np.ndarray:
             )))
     # Stack data and return
     X_vdp = np.vstack(X_vdp_lst)
-    return X_vdp
+    X_train = X_vdp[X_vdp[:, 0] < 4, :]
+    X_valid = X_vdp[X_vdp[:, 0] == 4, :]
+    n_inputs = 1
+    episode_feature = True
+    x0_valid = koopman_pipeline.extract_initial_conditions(
+        X_valid,
+        n_inputs=n_inputs,
+        episode_feature=episode_feature,
+    )
+    u_valid = koopman_pipeline.extract_input(
+        X_valid,
+        n_inputs=n_inputs,
+        episode_feature=episode_feature,
+    )
+    return {
+        'X_train': X_train,
+        'X_valid': X_valid,
+        'x0_valid': x0_valid,
+        'u_valid': u_valid,
+        'n_inputs': n_inputs,
+        'episode_feature': episode_feature,
+        't': t_sim,
+    }

@@ -47,30 +47,6 @@ class ContinuousDynamicModel(metaclass=abc.ABCMeta):
         """
         return x
 
-    def x0(self, x: np.ndarray) -> np.ndarray:
-        """Generate initial conditions consistent with system constraints.
-
-        For example, if the state of a pendulum is ``[x, y]``, and its length
-        is ``l``, then ``x^2 + y^2 = l^2`` must hold. Using :func:`x0`, the
-        initial condition may be specified as::
-
-            initial_state = pendulum.x0(initial_angle)
-
-        where ``initial_state`` will be calculated using the initial angle
-        specified.
-
-        Parameters
-        ----------
-        x : np.ndarray
-            Reduced initial state.
-
-        Returns
-        -------
-        np.ndarray
-            Full initial state.
-        """
-        return x
-
     def simulate(
         self,
         t_range: Tuple[float, float],
@@ -149,30 +125,6 @@ class DiscreteDynamicModel(metaclass=abc.ABCMeta):
         """
         return x
 
-    def x0(self, x):
-        """Generate initial conditions consistent with system constraints.
-
-        For example, if the state of a pendulum is ``[x, y]``, and its length
-        is ``l``, then ``x^2 + y^2 = l^2`` must hold. Using :func:`x0`, the
-        initial condition may be specified as::
-
-            initial_state = pendulum.x0(initial_angle)
-
-        where ``initial_state`` will be calculated using the initial angle
-        specified.
-
-        Parameters
-        ----------
-        x : np.ndarray
-            Reduced initial state.
-
-        Returns
-        -------
-        np.ndarray
-            Full initial state.
-        """
-        return x
-
     def simulate(
         self,
         t_range: Tuple[float, float],
@@ -216,7 +168,7 @@ class MassSpringDamper(ContinuousDynamicModel):
     Simulate a mass-spring-damper
 
     >>> msd = pykoop.dynamic_models.MassSpringDamper(0.5, 0.7, 0.6)
-    >>> x0 = msd.x0(np.array([1, 0]))
+    >>> x0 = np.array([1, 0])
     >>> t, x = msd.simulate((0, 1), 1e-3, x0, lambda t: 0)
     """
 
@@ -271,7 +223,7 @@ class Pendulum(ContinuousDynamicModel):
     Simulate a pendulum
 
     >>> pend = pykoop.dynamic_models.Pendulum(0.5, 1, 0.6)
-    >>> x0 = pend.x0(np.array([np.pi / 2, 0]))
+    >>> x0 = np.array([np.pi / 2, 0])
     >>> t, x = pend.simulate((0, 1), 1e-3, x0, lambda t: 0)
     """
 
@@ -314,7 +266,7 @@ class DiscreteVanDerPol(DiscreteDynamicModel):
 
     >>> t_step = 0.1
     >>> vdp = pykoop.dynamic_models.DiscreteVanDerPol(t_step, 2)
-    >>> x0 = vdp.x0(np.array([1, 0]))
+    >>> x0 = np.array([1, 0])
     >>> t_range = (0, 10)
     >>> u = 0.01 * np.cos(np.arange(*t_range, t_step))
     >>> t, x = vdp.simulate(t_range, t_step, x0, u)

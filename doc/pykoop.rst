@@ -247,13 +247,13 @@ Examples
 Simple Koopman pipeline
 -----------------------
 
-.. include:: ../examples/example_pipeline_simple.py
-   :literal:
+.. plot:: ../examples/1_example_pipeline_simple.py
+   :include-source:
 
 Van der Pol Oscillator
 -----------------------
 
-.. plot:: ../examples/example_pipeline_vdp.py
+.. plot:: ../examples/2_example_pipeline_vdp.py
    :include-source:
 
 Cross-validation with ``scikit-learn``
@@ -269,8 +269,19 @@ necessary.
 Regressor parameters and lifting functions can easily be cross-validated using
 ``scikit-learn``:
 
-.. include:: ../examples/example_pipeline_cv.py
-   :literal:
+.. plot:: ../examples/3_example_pipeline_cv.py
+   :include-source:
+
+Asymptotic stability constraint
+-------------------------------
+
+In this example, three experimental EDMD-based regressors are compared to EDMD.
+Specifically, EDMD is compared to the asymptotic stability constraint and the
+H-infinity norm regularizer from [DF22]_ and [DF21]_, and the dissipativity
+constraint from [HIS19]_.
+
+.. plot:: ../examples/4_example_eigenvalue_comparison.py
+   :include-source:
 
 
 References
