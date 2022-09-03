@@ -14,7 +14,7 @@ pykoop
     :alt: DOI
 .. image:: https://mybinder.org/badge_logo.svg
     :target: https://mybinder.org/v2/gh/decarsg/pykoop/main?labpath=notebooks
-    :alt: Binder examples
+    :alt: Examples on binder
 
 ``pykoop`` is a Koopman operator identification library written in Python. It
 allows the user to specify Koopman lifting functions and regressors in order to
@@ -72,7 +72,7 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
     score = kp.score(eg['X_valid'])
 
 More examples are available in `examples/`, in `notebooks/`, or on
-`Binder<https://mybinder.org/v2/gh/decarsg/pykoop/main?labpath=notebooks>`_.
+`binder<https://mybinder.org/v2/gh/decarsg/pykoop/main?labpath=notebooks>`_.
 
 
 Library layout
