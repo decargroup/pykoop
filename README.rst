@@ -12,6 +12,9 @@ pykoop
 .. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.5576490.svg
     :target: https://doi.org/10.5281/zenodo.5576490
     :alt: DOI
+.. image:: https://mybinder.org/badge_logo.svg
+    :target: https://mybinder.org/v2/gh/decarsg/pykoop/main?labpath=notebooks
+    :alt: Binder examples
 
 ``pykoop`` is a Koopman operator identification library written in Python. It
 allows the user to specify Koopman lifting functions and regressors in order to
@@ -42,8 +45,8 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
     import pykoop
     from sklearn.preprocessing import MaxAbsScaler, StandardScaler
 
-    # Get sample mass-spring-damper data
-    X_msd = pykoop.example_data_msd()
+    # Get example mass-spring-damper data
+    eg = pykoop.example_data_msd()
 
     # Create pipeline
     kp = pykoop.KoopmanPipeline(
@@ -52,19 +55,24 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
             ('pl', pykoop.PolynomialLiftingFn(order=2)),
             ('ss', pykoop.SkLearnLiftingFn(StandardScaler())),
         ],
-        regressor=pykoop.Edmd(alpha=0.1),
+        regressor=pykoop.Edmd(alpha=1),
     )
 
     # Fit the pipeline
-    kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    kp.fit(
+        eg['X_train'],
+        n_inputs=eg['n_inputs'],
+        episode_feature=eg['episode_feature'],
+    )
 
     # Predict using the pipeline
-    X_initial = X_msd[[0], 1:3]
-    U = X_msd[:, [3]]
-    X_pred = kp.predict_trajectory(X_initial, U, episode_feature=False)
+    X_pred = kp.predict_trajectory(eg['x0_valid'], eg['u_valid'])
 
     # Score using the pipeline
-    score = kp.score(X_msd)
+    score = kp.score(eg['X_valid'])
+
+More examples are available in `examples/`, in `notebooks/`, or on
+`Binder<https://mybinder.org/v2/gh/decarsg/pykoop/main?labpath=notebooks>`_.
 
 
 Library layout
