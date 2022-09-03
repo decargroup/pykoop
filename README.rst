@@ -71,7 +71,7 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
     # Score using the pipeline
     score = kp.score(eg['X_valid'])
 
-More examples are available in `examples/`, in `notebooks/`, or on
+More examples are available in ``examples/``, in ``notebooks/``, or on
 `binder <https://mybinder.org/v2/gh/decarsg/pykoop/main?labpath=notebooks>`_.
 
 
