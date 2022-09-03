@@ -138,8 +138,6 @@ def example_eigenvalue_comparison() -> None:
     ax[2].set_ylabel('$u$')
     ax[0].set_title(f'True and predicted states')
     ax[0].legend(loc='upper right')
-    for a in ax.ravel():
-        a.grid(linestyle='--')
 
     # Plot results
     fig = plt.figure(figsize=(6, 6))

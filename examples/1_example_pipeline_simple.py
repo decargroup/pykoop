@@ -5,6 +5,10 @@ from sklearn.preprocessing import MaxAbsScaler, StandardScaler
 
 import pykoop
 
+plt.rc('lines', linewidth=2)
+plt.rc('axes', grid=True)
+plt.rc('grid', linestyle='--')
+
 
 def example_pipeline_simple() -> None:
     """Demonstrate how to use the Koopman pipeline."""
@@ -56,8 +60,6 @@ def example_pipeline_simple() -> None:
     ax[2].set_ylabel('$u$')
     ax[0].set_title(f'True and predicted states; MSE={-1 * score:.2e}')
     ax[0].legend(loc='upper right')
-    for a in ax.ravel():
-        a.grid(linestyle='--')
 
 
 if __name__ == '__main__':

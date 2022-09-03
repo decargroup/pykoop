@@ -6,6 +6,10 @@ from matplotlib import pyplot as plt
 import pykoop
 import pykoop.dynamic_models
 
+plt.rc('lines', linewidth=2)
+plt.rc('axes', grid=True)
+plt.rc('grid', linestyle='--')
+
 
 def example_pipeline_vdp() -> None:
     """Demonstrate how to use the Koopman pipeline."""
@@ -69,7 +73,6 @@ def example_pipeline_vdp() -> None:
     ax.set_xlabel('$x_1[k]$')
     ax.set_ylabel('$x_2[k]$')
     ax.legend()
-    ax.grid(linestyle='--')
     ax.set_title('True and predicted phase-space trajectories')
 
     # Lift validation set
@@ -116,7 +119,6 @@ def example_pipeline_vdp() -> None:
             '--',
             label='Global prediction',
         )
-        ax[i, 0].grid(linestyle='--')
         ax[i, 0].set_ylabel(rf'$\vartheta_{i + 1}$')
 
     ax[-1, 0].set_xlabel('$k$')

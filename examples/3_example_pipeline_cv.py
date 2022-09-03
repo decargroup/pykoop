@@ -8,31 +8,19 @@ from matplotlib import pyplot as plt
 import pykoop
 import pykoop.dynamic_models
 
+plt.rc('lines', linewidth=2)
+plt.rc('axes', grid=True)
+plt.rc('grid', linestyle='--')
+
 
 def example_pipeline_cv() -> None:
     """Cross-validate regressor parameters."""
     # Get example mass-spring-damper data
     eg = pykoop.example_data_msd()
 
-    # Create pipeline
-    kp = pykoop.KoopmanPipeline(
-        lifting_functions=[
-            (
-                'ma',
-                pykoop.SkLearnLiftingFn(sklearn.preprocessing.MaxAbsScaler()),
-            ),
-            (
-                'pl',
-                pykoop.PolynomialLiftingFn(order=2),
-            ),
-            (
-                'ss',
-                pykoop.SkLearnLiftingFn(
-                    sklearn.preprocessing.StandardScaler()),
-            ),
-        ],
-        regressor=pykoop.Edmd(alpha=0.1),
-    )
+    # Create pipeline. Don't need to set lifting functions since they'll be set
+    # during cross-validation.
+    kp = pykoop.KoopmanPipeline(regressor=pykoop.Edmd())
 
     # Split data episode-by-episode
     episode_feature = eg['X_train'][:, 0]
@@ -124,8 +112,6 @@ def example_pipeline_cv() -> None:
     ax[2].set_ylabel('$u$')
     ax[0].set_title(f'True and predicted states; MSE={-1 * score:.2e}')
     ax[0].legend(loc='upper right')
-    for a in ax.ravel():
-        a.grid(linestyle='--')
 
 
 if __name__ == '__main__':
