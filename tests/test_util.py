@@ -8,15 +8,17 @@ import pykoop
 
 
 @pytest.mark.parametrize(
-    'X, Xt_exp, Xi_exp, episode_feature',
+    'names_in, X, names_out, Xt_exp, Xi_exp, episode_feature',
     [
         # No episode feature
         (
+            np.array(['x0', 'x1', 'x2']),
             np.array([
                 [0, 1, 2, 3],
                 [0, np.pi, 0, -np.pi / 2],
                 [-1, -2, -1, -2],
             ]).T,
+            np.array(['x0', 'cos(x1)', 'sin(x1)', 'x2']),
             np.array([
                 [0, 1, 2, 3],
                 [1, -1, 1, 0],
@@ -32,6 +34,7 @@ import pykoop
         ),
         # Epsisode feature
         (
+            np.array(['ep', 'x0', 'x1', 'x2']),
             np.array([
                 # Episodes
                 [0, 0, 1, 1],
@@ -40,6 +43,7 @@ import pykoop
                 [0, np.pi, 0, -np.pi / 2],
                 [-1, -2, -1, -2],
             ]).T,
+            np.array(['ep', 'x0', 'cos(x1)', 'sin(x1)', 'x2']),
             np.array([
                 # Episodes
                 [0, 0, 1, 1],
@@ -61,11 +65,13 @@ import pykoop
         ),
         # Angle wraparound
         (
+            np.array(['x0', 'x1', 'x2']),
             np.array([
                 [0, 1, 2, 3],
                 [2 * np.pi, np.pi, 0, -np.pi / 2],
                 [-1, -2, -1, -2],
             ]).T,
+            np.array(['x0', 'cos(x1)', 'sin(x1)', 'x2']),
             np.array([
                 [0, 1, 2, 3],
                 [1, -1, 1, 0],
@@ -92,20 +98,38 @@ class TestAnglePreprocessorTransform:
 
     angle_feature = np.array([1])
 
-    def test_transform(self, X, Xt_exp, Xi_exp, episode_feature):
+    def test_transform(self, names_in, X, names_out, Xt_exp, Xi_exp,
+                       episode_feature):
         """Test :class:`AnglePreprocessor` transform."""
         pp = pykoop.AnglePreprocessor(angle_features=self.angle_feature)
         pp.fit(X, episode_feature=episode_feature)
         Xt = pp.transform(X)
         np.testing.assert_allclose(Xt_exp, Xt, atol=1e-15)
 
-    def test_inverse_transform(self, X, Xt_exp, Xi_exp, episode_feature):
+    def test_inverse_transform(self, names_in, X, names_out, Xt_exp, Xi_exp,
+                               episode_feature):
         """Test :class:`AnglePreprocessor` inverse transform."""
         pp = pykoop.AnglePreprocessor(angle_features=self.angle_feature)
         pp.fit(X, episode_feature=episode_feature)
         Xt = pp.transform(X)
         Xi = pp.inverse_transform(Xt)
         np.testing.assert_allclose(Xi_exp, Xi, atol=1e-15)
+
+    def test_feature_names_in(self, names_in, X, names_out, Xt_exp, Xi_exp,
+                              episode_feature):
+        """Test input feature names."""
+        pp = pykoop.AnglePreprocessor(angle_features=self.angle_feature)
+        pp.fit(X, episode_feature=episode_feature)
+        names_in_actual = pp.get_feature_names_in()
+        assert all(names_in == names_in_actual)
+
+    def test_feature_names_out(self, names_in, X, names_out, Xt_exp, Xi_exp,
+                               episode_feature):
+        """Test input feature names."""
+        pp = pykoop.AnglePreprocessor(angle_features=self.angle_feature)
+        pp.fit(X, episode_feature=episode_feature)
+        names_out_actual = pp.get_feature_names_out()
+        assert all(names_out == names_out_actual)
 
 
 @pytest.mark.parametrize(

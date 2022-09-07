@@ -441,6 +441,30 @@ class KoopmanLiftingFn(sklearn.base.BaseEstimator,
         """
         raise NotImplementedError()
 
+    def get_feature_names_in(self) -> np.ndarray:
+        """Automatically generate input feature names.
+
+        Returns
+        -------
+        np.ndarray
+            Automatically generated input feaure names.
+        """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self)
+        if ((not hasattr(self, 'feature_names_in_'))
+                or (self.feature_names_in_ is None)):
+            names = []
+            if self.episode_feature_:
+                names.append('ep')
+            for k in range(self.n_states_in_):
+                names.append(f'x{k}')
+            for k in range(self.n_inputs_in_):
+                names.append(f'u{k}')
+            feature_names_in = np.array(names)
+            return feature_names_in
+        else:
+            return self.feature_names_in_
+
 
 class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
     """Base class for Koopman lifting functions that are episode-independent.
@@ -1021,9 +1045,11 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         np.ndarray
             Predicted data matrix.
         """
+        # Check if fitted
         sklearn.utils.validation.check_is_fitted(self)
         # Check feature names
         self._check_feature_names(X, reset=False)
+        # Validate array
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Split episodes
         episodes = split_episodes(X, episode_feature=self.episode_feature_)
@@ -1250,9 +1276,11 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
     def transform(self, X: np.ndarray) -> np.ndarray:
         # noqa: D102
+        # Check if fitted
         sklearn.utils.validation.check_is_fitted(self)
         # Check feature names
         self._check_feature_names(X, reset=False)
+        # Validate input array
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Check input shape
         if X.shape[1] != self.n_features_in_:
@@ -1354,7 +1382,6 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         input_features: np.ndarray = None,
     ) -> np.ndarray:
         # noqa: D102
-        raise NotImplementedError()
         return self.feature_names_in_
 
     def get_params(self, deep: bool = True) -> Dict[str, Any]:
@@ -1576,6 +1603,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         """
         # Set feature names
         self._check_feature_names(X, reset=True)
+        # Validate input array
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Save state of episode feature
         self.episode_feature_ = episode_feature
@@ -1639,9 +1667,11 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         np.ndarray
             Transformed data matrix.
         """
+        # Check if fitted
         sklearn.utils.validation.check_is_fitted(self, 'transformers_fit_')
         # Check feature names
         self._check_feature_names(X, reset=False)
+        # Validate input array
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Check input shape
         if X.shape[1] != self.n_features_in_:
@@ -1698,9 +1728,11 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         np.ndarray
             Predicted data matrix.
         """
+        # Check if fitted
         sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
         # Check feature names
         self._check_feature_names(X, reset=False)
+        # Validate input array
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Lift data matrix
         X_trans = self.transform(X)
@@ -1729,8 +1761,8 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         input_features: np.ndarray = None,
     ) -> np.ndarray:
         # noqa: D102
+        # TODO
         raise NotImplementedError()
-        return self.feature_names_in_
 
     def score(self, X: np.ndarray, y: np.ndarray = None) -> float:
         """Calculate prediction score.
@@ -1749,9 +1781,11 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         float
             Mean squared error prediction score.
         """
+        # Check if fitted
         sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
         # Check feature names
         self._check_feature_names(X, reset=False)
+        # Validate input array
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         scorer = KoopmanPipeline.make_scorer()
         score = scorer(self, X, None)

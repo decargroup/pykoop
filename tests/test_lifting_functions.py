@@ -10,16 +10,18 @@ import pykoop
 
 
 @pytest.mark.parametrize(
-    'lf, X, Xt_exp, n_inputs, episode_feature',
+    'lf, names_in, X, names_out, Xt_exp, n_inputs, episode_feature',
     [
         # Polynomial, no episodes
         (
             pykoop.PolynomialLiftingFn(order=1),
+            np.array(['x0', 'x1', 'x2']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, -1, -2, -3, -4, -5],
                 [0, 2, 4, 5, 6, 10],
             ]).T,
+            np.array([]),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, -1, -2, -3, -4, -5],
@@ -30,10 +32,12 @@ import pykoop
         ),
         (
             pykoop.PolynomialLiftingFn(order=2),
+            np.array(['x0', 'x1']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 5, 6, 10],
             ]).T,
+            np.array([]),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 5, 6, 10],
@@ -46,11 +50,13 @@ import pykoop
         ),
         (
             pykoop.PolynomialLiftingFn(order=1),
+            np.array(['x0', 'x1', 'u0']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, -1, -2, -3, -4, -5],
                 [0, 2, 4, 5, 6, 10],
             ]).T,
+            np.array([]),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, -1, -2, -3, -4, -5],
@@ -61,10 +67,12 @@ import pykoop
         ),
         (
             pykoop.PolynomialLiftingFn(order=2),
+            np.array(['x0', 'u0']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 5, 6, 10],
             ]).T,
+            np.array([]),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, 1, 4, 9, 16, 25],
@@ -77,11 +85,13 @@ import pykoop
         ),
         (
             pykoop.PolynomialLiftingFn(order=2),
+            np.array(['x0', 'x1', 'x2']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 6, 8, 10],
                 [1, 3, 5, 7, 9, 11],
             ]).T,
+            np.array([]),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 6, 8, 10],
@@ -98,11 +108,13 @@ import pykoop
         ),
         (
             pykoop.PolynomialLiftingFn(order=2),
+            np.array(['x0', 'x1', 'u0']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 6, 8, 10],
                 [1, 3, 5, 7, 9, 11],
             ]).T,
+            np.array([]),
             np.array([
                 # State
                 [0, 1, 2, 3, 4, 5],
@@ -121,11 +133,13 @@ import pykoop
         ),
         (
             pykoop.PolynomialLiftingFn(order=2),
+            np.array(['x0', 'u0', 'u1']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 6, 8, 10],
                 [1, 3, 5, 7, 9, 11],
             ]).T,
+            np.array([]),
             np.array([
                 # State
                 [0, 1, 2, 3, 4, 5],
@@ -145,12 +159,14 @@ import pykoop
         # Polynomial, episodes
         (
             pykoop.PolynomialLiftingFn(order=1),
+            np.array(['ep', 'x0', 'x1', 'x2']),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
                 [0, -1, -2, -3, -4, -5],
                 [0, 2, 4, 5, 6, 10],
             ]).T,
+            np.array([]),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
@@ -162,11 +178,13 @@ import pykoop
         ),
         (
             pykoop.PolynomialLiftingFn(order=2),
+            np.array(['ep', 'x0', 'x1']),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 5, 6, 10],
             ]).T,
+            np.array([]),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
@@ -180,12 +198,14 @@ import pykoop
         ),
         (
             pykoop.PolynomialLiftingFn(order=1),
+            np.array(['ep', 'x0', 'x1', 'u0']),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
                 [0, -1, -2, -3, -4, -5],
                 [0, 2, 4, 5, 6, 10],
             ]).T,
+            np.array([]),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
@@ -197,11 +217,13 @@ import pykoop
         ),
         (
             pykoop.PolynomialLiftingFn(order=2),
+            np.array(['ep', 'x0', 'u0']),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 5, 6, 10],
             ]).T,
+            np.array([]),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
@@ -215,12 +237,14 @@ import pykoop
         ),
         (
             pykoop.PolynomialLiftingFn(order=2),
+            np.array(['ep', 'x0', 'x1', 'x2']),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 6, 8, 10],
                 [1, 3, 5, 7, 9, 11],
             ]).T,
+            np.array([]),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
@@ -238,12 +262,14 @@ import pykoop
         ),
         (
             pykoop.PolynomialLiftingFn(order=2),
+            np.array(['ep', 'x0', 'x1', 'u0']),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 6, 8, 10],
                 [1, 3, 5, 7, 9, 11],
             ]).T,
+            np.array([]),
             np.array([
                 # Episode
                 [0, 0, 0, 0, 1, 1],
@@ -264,12 +290,14 @@ import pykoop
         ),
         (
             pykoop.PolynomialLiftingFn(order=2),
+            np.array(['ep', 'x0', 'u0', 'u1']),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 6, 8, 10],
                 [1, 3, 5, 7, 9, 11],
             ]).T,
+            np.array([]),
             np.array([
                 # Episode
                 [0, 0, 0, 0, 1, 1],
@@ -290,11 +318,13 @@ import pykoop
         ),
         (
             pykoop.SkLearnLiftingFn(preprocessing.MaxAbsScaler()),
+            np.array(['x0', 'x1', 'x2']),
             np.array([
                 [1., -1., 2.],
                 [2., 0., 0.],
                 [0., 1., -1.],
             ]),
+            np.array([]),
             np.array([
                 [0.5, -1., 1.],
                 [1., 0., 0.],
@@ -305,12 +335,14 @@ import pykoop
         ),
         (
             pykoop.SkLearnLiftingFn(preprocessing.StandardScaler()),
+            np.array(['ep', 'x0', 'x1']),
             np.array([
                 [0, 0, 0],
                 [0, 0, 0],
                 [0, 1, 1],
                 [0, 1, 1],
             ]),
+            np.array([]),
             np.array([
                 [0, -1, -1],
                 [0, -1, -1],
@@ -326,10 +358,12 @@ import pykoop
                     func=np.log1p,
                     inverse_func=lambda x: np.exp(x) - 1,
                 )),
+            np.array(['x0', 'x1']),
             np.array([
                 [0, 1],
                 [2, 3],
             ]),
+            np.array([]),
             np.array([
                 [0., 0.69314718],
                 [1.09861229, 1.38629436],
@@ -339,10 +373,12 @@ import pykoop
         ),
         (
             pykoop.BilinearInputLiftingFn(),
+            np.array(['x0', 'x1']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [1, 2, 3, 4, 5, 6],
             ]).T,
+            np.array([]),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [1, 2, 3, 4, 5, 6],
@@ -352,6 +388,7 @@ import pykoop
         ),
         (
             pykoop.BilinearInputLiftingFn(),
+            np.array(['x0', 'x1', 'x2', 'u0']),
             np.array([
                 # States
                 [0, 1, 2, 3, 4, 5],
@@ -360,6 +397,7 @@ import pykoop
                 # Inputs
                 [5, 4, 3, 2, 1, 1],
             ]).T,
+            np.array([]),
             np.array([
                 # x
                 [0, 1, 2, 3, 4, 5],
@@ -377,6 +415,7 @@ import pykoop
         ),
         (
             pykoop.BilinearInputLiftingFn(),
+            np.array(['x0', 'x1', 'u0', 'u1']),
             np.array([
                 # States
                 [0, 1, 2, 3, 4, 5],
@@ -385,6 +424,7 @@ import pykoop
                 [6, 5, 4, 3, 2, 1],
                 [5, 4, 3, 2, 1, 1],
             ]).T,
+            np.array([]),
             np.array([
                 # x
                 [0, 1, 2, 3, 4, 5],
@@ -404,6 +444,7 @@ import pykoop
         ),
         (
             pykoop.BilinearInputLiftingFn(),
+            np.array(['x0', 'u0', 'u1', 'u2']),
             np.array([
                 # States
                 [0, 1, 2, 3, 4, 5],
@@ -412,6 +453,7 @@ import pykoop
                 [6, 5, 4, 3, 2, 1],
                 [5, 4, 3, 2, 1, 1],
             ]).T,
+            np.array([]),
             np.array([
                 # x
                 [0, 1, 2, 3, 4, 5],
@@ -434,18 +476,34 @@ import pykoop
 class TestLiftingFnTransform:
     """Test lifting function transform and inverse transform."""
 
-    def test_transform(self, lf, X, Xt_exp, n_inputs, episode_feature):
+    def test_transform(self, lf, names_in, X, names_out, Xt_exp, n_inputs,
+                       episode_feature):
         """Test lifting function transform."""
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         Xt = lf.transform(X)
         np.testing.assert_allclose(Xt_exp, Xt)
 
-    def test_inverse_transform(self, lf, X, Xt_exp, n_inputs, episode_feature):
+    def test_inverse_transform(self, lf, names_in, X, names_out, Xt_exp,
+                               n_inputs, episode_feature):
         """Test lifting function inverse transform."""
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         Xt = lf.transform(X)
         Xt_inv = lf.inverse_transform(Xt)
         np.testing.assert_allclose(X, Xt_inv)
+
+    def test_feature_names_in(self, lf, names_in, X, names_out, Xt_exp,
+                              n_inputs, episode_feature):
+        """Test input feature names."""
+        lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        names_in_actual = lf.get_feature_names_in()
+        assert all(names_in == names_in_actual)
+
+    def test_feature_names_out(self, lf, names_in, X, names_out, Xt_exp,
+                               n_inputs, episode_feature):
+        """Test input feature names."""
+        lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        names_out_actual = lf.get_feature_names_out()
+        assert all(names_out == names_out_actual)
 
 
 @pytest.mark.parametrize(
