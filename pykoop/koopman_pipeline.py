@@ -26,7 +26,9 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
     attributes.
 
     All attributes with a trailing underscore must be set in the subclass'
-    :func:`fit`.
+    :func:`fit`. Linter warnings about missing attributes can be ignored.
+    Including the attributes in the class body removes the linter errors but
+    creates Sphinx errors... pick your poison.
 
     Attributes
     ----------
