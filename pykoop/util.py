@@ -41,6 +41,8 @@ class AnglePreprocessor(koopman_pipeline.EpisodeIndependentLiftingFn):
         Minimum number of samples needed to use the transformer.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
 
     Warnings
     --------
@@ -136,6 +138,14 @@ class AnglePreprocessor(koopman_pipeline.EpisodeIndependentLiftingFn):
 
     def _validate_parameters(self) -> None:
         pass  # No constructor parameters need validation.
+
+    def get_feature_names_out(
+        self,
+        input_features: np.ndarray = None,
+    ) -> np.ndarray:
+        # noqa: D102
+        raise NotImplementedError()
+        return self.feature_names_in_
 
 
 def random_state(low, high, rng=None):

@@ -46,6 +46,8 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         Minimum number of samples needed to use the transformer.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
 
     References
     ----------
@@ -96,6 +98,14 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         # Let transformer do its own validation
         pass
 
+    def get_feature_names_out(
+        self,
+        input_features: np.ndarray = None,
+    ) -> np.ndarray:
+        # noqa: D102
+        raise NotImplementedError()
+        return self.feature_names_in_
+
 
 class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     """Lifting function to generate all monomials of the input features.
@@ -125,6 +135,8 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         Minimum number of samples needed to use the transformer.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
 
     Examples
     --------
@@ -220,6 +232,14 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         if self.order <= 0:
             raise ValueError('`order` must be greater than or equal to 1.')
 
+    def get_feature_names_out(
+        self,
+        input_features: np.ndarray = None,
+    ) -> np.ndarray:
+        # noqa: D102
+        raise NotImplementedError()
+        return self.feature_names_in_
+
 
 class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     """Lifting function to generate bilinear products of the state and input.
@@ -262,6 +282,8 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         Minimum number of samples needed to use the transformer.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
 
     Examples
     --------
@@ -303,6 +325,14 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         # No parameters to validate
         pass
 
+    def get_feature_names_out(
+        self,
+        input_features: np.ndarray = None,
+    ) -> np.ndarray:
+        # noqa: D102
+        raise NotImplementedError()
+        return self.feature_names_in_
+
 
 class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
     """Lifting function to generate delay coordinates for state and input.
@@ -327,6 +357,8 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
         Minimum number of samples needed to use the transformer.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
 
     Warnings
     --------
@@ -406,6 +438,14 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
         if self.n_delays_input < 0:
             raise ValueError(
                 '`n_delays_u` must be greater than or equal to 0.')
+
+    def get_feature_names_out(
+        self,
+        input_features: np.ndarray = None,
+    ) -> np.ndarray:
+        # noqa: D102
+        raise NotImplementedError()
+        return self.feature_names_in_
 
     @staticmethod
     def _delay(X: np.ndarray, n_delays: int) -> np.ndarray:

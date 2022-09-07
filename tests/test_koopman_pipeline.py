@@ -1,6 +1,7 @@
 """Test :mod:`koopman_pipeline`."""
 
 import numpy as np
+import pandas
 import pytest
 import sklearn.utils.estimator_checks
 from sklearn import preprocessing
@@ -94,8 +95,8 @@ class TestKoopmanPipelineTransform:
         attr = {key: getattr(lf, key) for key in attr_exp.keys()}
         assert attr == attr_exp
 
-    def test_koopman_pipeline_transform(self, lf, X, Xt_exp, n_inputs,
-                                        episode_feature, attr_exp):
+    def test_transform(self, lf, X, Xt_exp, n_inputs, episode_feature,
+                       attr_exp):
         """Test :class:`KoopmanPipeline` transform."""
         # Fit estimator
         lf.fit_transformers(
@@ -106,8 +107,8 @@ class TestKoopmanPipelineTransform:
         Xt = lf.transform(X)
         np.testing.assert_allclose(Xt, Xt_exp)
 
-    def test_koopman_pipeline_inverse_transform(self, lf, X, Xt_exp, n_inputs,
-                                                episode_feature, attr_exp):
+    def test_inverse_transform(self, lf, X, Xt_exp, n_inputs, episode_feature,
+                               attr_exp):
         """Test :class:`KoopmanPipeline` inverse transform."""
         # Fit estimator
         lf.fit_transformers(
@@ -118,6 +119,22 @@ class TestKoopmanPipelineTransform:
         Xt = lf.transform(X)
         Xi = lf.inverse_transform(Xt)
         np.testing.assert_allclose(Xi, X)
+
+    def test_feature_names(self, lf, X, Xt_exp, n_inputs, episode_feature,
+                           attr_exp):
+        """Test expected :class:`KoopmanPipeline` feature names."""
+        names = [f'x{k}' for k in range(X.shape[1])]
+        X_names = pandas.DataFrame(X, columns=names)
+        # Fit estimator
+        lf.fit_transformers(
+            X_names,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        # Test fails if ``lf.transform()`` raises an exception because the
+        # feature names do not match.
+        lf.transform(X_names)
+        assert all(lf.feature_names_in_ == names)
 
 
 class TestKoopmanPipelineFit:
@@ -145,6 +162,31 @@ class TestKoopmanPipelineFit:
             mass_spring_damper_sine_input['U_valid'],
             atol=0.1,
         )
+
+    def test_fit_feature_names(self, mass_spring_damper_sine_input):
+        """Test Koopman pipeline fit feature names."""
+        kp = pykoop.KoopmanPipeline(
+            lifting_functions=[(
+                'dl',
+                pykoop.DelayLiftingFn(
+                    n_delays_state=0,
+                    n_delays_input=0,
+                ),
+            )],
+            regressor=pykoop.Edmd(),
+        )
+        X = mass_spring_damper_sine_input['X_train']
+        names = [f'x{k}' for k in range(X.shape[1])]
+        X_names = pandas.DataFrame(X, columns=names)
+        kp.fit(
+            X_names,
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=mass_spring_damper_sine_input['episode_feature'],
+        )
+        # Test fails if ``lf.transform()`` raises an exception because the
+        # feature names do not match.
+        kp.transform(X_names)
+        assert all(kp.feature_names_in_ == names)
 
 
 class TestKoopmanPipelineScore:
