@@ -2,7 +2,7 @@
 
 import abc
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas
@@ -451,8 +451,7 @@ class KoopmanLiftingFn(sklearn.base.BaseEstimator,
         """
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
-        if ((not hasattr(self, 'feature_names_in_'))
-                or (self.feature_names_in_ is None)):
+        if getattr(self, 'feature_names_in_', None) is None:
             names = []
             if self.episode_feature_:
                 names.append('ep')
@@ -464,6 +463,23 @@ class KoopmanLiftingFn(sklearn.base.BaseEstimator,
             return feature_names_in
         else:
             return self.feature_names_in_
+
+    def _validate_feature_names(self, X: np.ndarray) -> None:
+        """Validate that input feature names are correct.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Input array.
+
+        Raises
+        ------
+        ValueError
+            If input feature names do not match fit ones in
+            ``feature_names_in_``.
+        """
+        if not np.all(_extract_feature_names(X) == self.feature_names_in_):
+            raise ValueError('Input features do not match fit features.')
 
 
 class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
@@ -514,7 +530,7 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
         # Validate constructor parameters
         self._validate_parameters()
         # Set feature names
-        self._check_feature_names(X, reset=True)
+        self.feature_names_in_ = _extract_feature_names(X)
         # Validate fit parameters
         if n_inputs < 0:
             raise ValueError('`n_inputs` must be greater than or equal to 0.')
@@ -550,7 +566,7 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
         # Check feature names
-        self._check_feature_names(X, reset=False)
+        self._validate_feature_names(X)
         # Validate data
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Check input shape
@@ -752,7 +768,7 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
         # Validate constructor parameters
         self._validate_parameters()
         # Set feature names
-        self._check_feature_names(X, reset=True)
+        self.feature_names_in_ = _extract_feature_names(X)
         # Validate fit parameters
         if n_inputs < 0:
             raise ValueError('`n_inputs` must be greater than or equal to 0.')
@@ -787,7 +803,7 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
         # Check feature names
-        self._check_feature_names(X, reset=False)
+        self._validate_feature_names(X)
         # Validate data
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Check input shape
@@ -996,7 +1012,7 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
             If constructor or fit parameters are incorrect.
         """
         # Set feature names
-        self._check_feature_names(X, reset=True)
+        self.feature_names_in_ = _extract_feature_names(X)
         # Check ``X`` differently depending on whether ``y`` is given
         if y is None:
             X = sklearn.utils.validation.check_array(
@@ -1048,7 +1064,7 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         # Check if fitted
         sklearn.utils.validation.check_is_fitted(self)
         # Check feature names
-        self._check_feature_names(X, reset=False)
+        self._validate_feature_names(X)
         # Validate array
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Split episodes
@@ -1095,6 +1111,23 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
             If constructor parameters are incorrect.
         """
         raise NotImplementedError()
+
+    def _validate_feature_names(self, X: np.ndarray) -> None:
+        """Validate that input feature names are correct.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Input array.
+
+        Raises
+        ------
+        ValueError
+            If input feature names do not match fit ones in
+            ``feature_names_in_``.
+        """
+        if not np.all(_extract_feature_names(X) == self.feature_names_in_):
+            raise ValueError('Input features do not match fit features.')
 
     # Extra estimator tags
     # https://scikit-learn.org/stable/developers/develop.html#estimator-tags
@@ -1185,7 +1218,7 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             episode_feature: bool = False) -> 'SplitPipeline':
         # noqa: D102
         # Set feature names
-        self._check_feature_names(X, reset=True)
+        self.feature_names_in_ = _extract_feature_names(X)
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Save state of episode feature
         self.episode_feature_ = episode_feature
@@ -1279,7 +1312,7 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         # Check if fitted
         sklearn.utils.validation.check_is_fitted(self)
         # Check feature names
-        self._check_feature_names(X, reset=False)
+        self._validate_feature_names(X)
         # Validate input array
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Check input shape
@@ -1602,7 +1635,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
             If constructor or fit parameters are incorrect.
         """
         # Set feature names
-        self._check_feature_names(X, reset=True)
+        self.feature_names_in_ = _extract_feature_names(X)
         # Validate input array
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Save state of episode feature
@@ -1670,7 +1703,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         # Check if fitted
         sklearn.utils.validation.check_is_fitted(self, 'transformers_fit_')
         # Check feature names
-        self._check_feature_names(X, reset=False)
+        self._validate_feature_names(X)
         # Validate input array
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Check input shape
@@ -1731,7 +1764,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         # Check if fitted
         sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
         # Check feature names
-        self._check_feature_names(X, reset=False)
+        self._validate_feature_names(X)
         # Validate input array
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         # Lift data matrix
@@ -1784,7 +1817,7 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         # Check if fitted
         sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
         # Check feature names
-        self._check_feature_names(X, reset=False)
+        self._validate_feature_names(X)
         # Validate input array
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
         scorer = KoopmanPipeline.make_scorer()
@@ -2192,6 +2225,23 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         self._set_params('lifting_functions', **kwargs)
         return self
 
+    def _validate_feature_names(self, X: np.ndarray) -> None:
+        """Validate that input feature names are correct.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Input array.
+
+        Raises
+        ------
+        ValueError
+            If input feature names do not match fit ones in
+            ``feature_names_in_``.
+        """
+        if not np.all(_extract_feature_names(X) == self.feature_names_in_):
+            raise ValueError('Input features do not match fit features.')
+
 
 def score_trajectory(
     X_predicted: np.ndarray,
@@ -2583,3 +2633,34 @@ def _weights_from_data_matrix(
         weights_list.append(weights_i)
     weights = np.concatenate(weights_list)
     return weights
+
+
+def _extract_feature_names(
+        X: Union[np.ndarray, pandas.DataFrame]) -> Optional[np.ndarray]:
+    """Extract feature names from input array.
+
+    Parameters
+    ----------
+    X : Union[np.ndarray, pandas.DataFrame]
+        Input array.
+
+    Returns
+    -------
+    Optional[np.ndarray]
+        Feature names if present, ``None`` otherwise.
+
+    Raises
+    ------
+    ValueError
+        If feature names are not strings.
+    """
+    if isinstance(X, pandas.DataFrame):
+        for name in X.columns:
+            if not isinstance(name, str):
+                log.warning(
+                    'Feature names must all be strings. When ``scikit-learn`` '
+                    'v1.2 comes out this will be upgraded to an exception.')
+                return None
+        return np.asarray(X.columns, dtype=object)
+    else:
+        return None

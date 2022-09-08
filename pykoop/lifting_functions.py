@@ -103,8 +103,8 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         input_features: np.ndarray = None,
     ) -> np.ndarray:
         # noqa: D102
-        raise NotImplementedError()
-        return self.feature_names_in_
+        # TODO
+        return np.array([])
 
 
 class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
@@ -237,8 +237,8 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         input_features: np.ndarray = None,
     ) -> np.ndarray:
         # noqa: D102
-        raise NotImplementedError()
-        return self.feature_names_in_
+        # TODO
+        return np.array([])
 
 
 class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
@@ -330,8 +330,8 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         input_features: np.ndarray = None,
     ) -> np.ndarray:
         # noqa: D102
-        raise NotImplementedError()
-        return self.feature_names_in_
+        # TODO
+        return np.array([])
 
 
 class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
@@ -444,8 +444,8 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
         input_features: np.ndarray = None,
     ) -> np.ndarray:
         # noqa: D102
-        raise NotImplementedError()
-        return self.feature_names_in_
+        # TODO
+        return np.array([])
 
     @staticmethod
     def _delay(X: np.ndarray, n_delays: int) -> np.ndarray:
