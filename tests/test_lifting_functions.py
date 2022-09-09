@@ -21,7 +21,7 @@ import pykoop
                 [0, -1, -2, -3, -4, -5],
                 [0, 2, 4, 5, 6, 10],
             ]).T,
-            np.array([]),
+            np.array(['x0', 'x1', 'x2']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, -1, -2, -3, -4, -5],
@@ -37,7 +37,7 @@ import pykoop
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 5, 6, 10],
             ]).T,
-            np.array([]),
+            np.array(['x0', 'x1', 'x0^2', 'x0*x1', 'x1^2']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 5, 6, 10],
@@ -56,7 +56,7 @@ import pykoop
                 [0, -1, -2, -3, -4, -5],
                 [0, 2, 4, 5, 6, 10],
             ]).T,
-            np.array([]),
+            np.array(['x0', 'x1', 'u0']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, -1, -2, -3, -4, -5],
@@ -72,7 +72,7 @@ import pykoop
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 5, 6, 10],
             ]).T,
-            np.array([]),
+            np.array(['x0', 'x0^2', 'u0', 'x0*u0', 'u0^2']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, 1, 4, 9, 16, 25],
@@ -91,7 +91,17 @@ import pykoop
                 [0, 2, 4, 6, 8, 10],
                 [1, 3, 5, 7, 9, 11],
             ]).T,
-            np.array([]),
+            np.array([
+                'x0',
+                'x1',
+                'x2',
+                'x0^2',
+                'x0*x1',
+                'x0*x2',
+                'x1^2',
+                'x1*x2',
+                'x2^2',
+            ]),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 6, 8, 10],
@@ -114,7 +124,17 @@ import pykoop
                 [0, 2, 4, 6, 8, 10],
                 [1, 3, 5, 7, 9, 11],
             ]).T,
-            np.array([]),
+            np.array([
+                'x0',
+                'x1',
+                'x0^2',
+                'x0*x1',
+                'x1^2',
+                'u0',
+                'x0*u0',
+                'x1*u0',
+                'u0^2',
+            ]),
             np.array([
                 # State
                 [0, 1, 2, 3, 4, 5],
@@ -139,7 +159,17 @@ import pykoop
                 [0, 2, 4, 6, 8, 10],
                 [1, 3, 5, 7, 9, 11],
             ]).T,
-            np.array([]),
+            np.array([
+                'x0',
+                'x0^2',
+                'u0',
+                'u1',
+                'x0*u0',
+                'x0*u1',
+                'u0^2',
+                'u0*u1',
+                'u1^2',
+            ]),
             np.array([
                 # State
                 [0, 1, 2, 3, 4, 5],
@@ -166,7 +196,7 @@ import pykoop
                 [0, -1, -2, -3, -4, -5],
                 [0, 2, 4, 5, 6, 10],
             ]).T,
-            np.array([]),
+            np.array(['ep', 'x0', 'x1', 'x2']),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
@@ -184,7 +214,7 @@ import pykoop
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 5, 6, 10],
             ]).T,
-            np.array([]),
+            np.array(['ep', 'x0', 'x1', 'x0^2', 'x0*x1', 'x1^2']),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
@@ -205,7 +235,7 @@ import pykoop
                 [0, -1, -2, -3, -4, -5],
                 [0, 2, 4, 5, 6, 10],
             ]).T,
-            np.array([]),
+            np.array(['ep', 'x0', 'x1', 'u0']),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
@@ -223,7 +253,7 @@ import pykoop
                 [0, 1, 2, 3, 4, 5],
                 [0, 2, 4, 5, 6, 10],
             ]).T,
-            np.array([]),
+            np.array(['ep', 'x0', 'x0^2', 'u0', 'x0*u0', 'u0^2']),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
@@ -244,7 +274,18 @@ import pykoop
                 [0, 2, 4, 6, 8, 10],
                 [1, 3, 5, 7, 9, 11],
             ]).T,
-            np.array([]),
+            np.array([
+                'ep',
+                'x0',
+                'x1',
+                'x2',
+                'x0^2',
+                'x0*x1',
+                'x0*x2',
+                'x1^2',
+                'x1*x2',
+                'x2^2',
+            ]),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
@@ -269,7 +310,18 @@ import pykoop
                 [0, 2, 4, 6, 8, 10],
                 [1, 3, 5, 7, 9, 11],
             ]).T,
-            np.array([]),
+            np.array([
+                'ep',
+                'x0',
+                'x1',
+                'x0^2',
+                'x0*x1',
+                'x1^2',
+                'u0',
+                'x0*u0',
+                'x1*u0',
+                'u0^2',
+            ]),
             np.array([
                 # Episode
                 [0, 0, 0, 0, 1, 1],
@@ -297,7 +349,18 @@ import pykoop
                 [0, 2, 4, 6, 8, 10],
                 [1, 3, 5, 7, 9, 11],
             ]).T,
-            np.array([]),
+            np.array([
+                'ep',
+                'x0',
+                'x0^2',
+                'u0',
+                'u1',
+                'x0*u0',
+                'x0*u1',
+                'u0^2',
+                'u0*u1',
+                'u1^2',
+            ]),
             np.array([
                 # Episode
                 [0, 0, 0, 0, 1, 1],
@@ -324,7 +387,11 @@ import pykoop
                 [2., 0., 0.],
                 [0., 1., -1.],
             ]),
-            np.array([]),
+            np.array([
+                'MaxAbsScaler(x0)',
+                'MaxAbsScaler(x1)',
+                'MaxAbsScaler(x2)',
+            ]),
             np.array([
                 [0.5, -1., 1.],
                 [1., 0., 0.],
@@ -342,7 +409,11 @@ import pykoop
                 [0, 1, 1],
                 [0, 1, 1],
             ]),
-            np.array([]),
+            np.array([
+                'ep',
+                'StandardScaler(x0)',
+                'StandardScaler(x1)',
+            ]),
             np.array([
                 [0, -1, -1],
                 [0, -1, -1],
@@ -363,7 +434,10 @@ import pykoop
                 [0, 1],
                 [2, 3],
             ]),
-            np.array([]),
+            np.array([
+                'FunctionTransformer(x0)',
+                'FunctionTransformer(x1)',
+            ]),
             np.array([
                 [0., 0.69314718],
                 [1.09861229, 1.38629436],
@@ -496,26 +570,28 @@ class TestLiftingFnTransform:
         """Test input feature names."""
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         names_in_actual = lf.get_feature_names_in()
-        assert all(names_in == names_in_actual)
+        assert np.all(names_in == names_in_actual)
 
     def test_feature_names_out(self, lf, names_in, X, names_out, Xt_exp,
                                n_inputs, episode_feature):
         """Test input feature names."""
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         names_out_actual = lf.get_feature_names_out()
-        assert all(names_out == names_out_actual)
+        assert np.all(names_out == names_out_actual)
 
 
 @pytest.mark.parametrize(
-    'lf, X, Xt_exp, n_inputs, episode_feature',
+    'lf, names_in, X, names_out, Xt_exp, n_inputs, episode_feature',
     [
         # Delay, no episodes
         (
             pykoop.DelayLiftingFn(n_delays_state=0, n_delays_input=0),
+            np.array(['x0', 'x1']),
             np.array([
                 [1, 2, 3, 4],
                 [-1, -2, -3, -4],
             ]).T,
+            np.array(['x0', 'x1']),
             np.array([
                 [1, 2, 3, 4],
                 [-1, -2, -3, -4],
@@ -525,10 +601,12 @@ class TestLiftingFnTransform:
         ),
         (
             pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=0),
+            np.array(['x0', 'x1']),
             np.array([
                 [1, 2, 3, 4],
                 [-1, -2, -3, -4],
             ]).T,
+            np.array(['x0', 'x1', 'D1(x0)', 'D1(x1)']),
             np.array([
                 [2, 3, 4],
                 [-2, -3, -4],
@@ -540,10 +618,19 @@ class TestLiftingFnTransform:
         ),
         (
             pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=0),
+            np.array(['x0', 'x1']),
             np.array([
                 [1, 2, 3, 4],
                 [-1, -2, -3, -4],
             ]).T,
+            np.array([
+                'x0',
+                'x1',
+                'D1(x0)',
+                'D1(x1)',
+                'D2(x0)',
+                'D2(x1)',
+            ]),
             np.array([
                 [3, 4],
                 [-3, -4],
@@ -557,10 +644,21 @@ class TestLiftingFnTransform:
         ),
         (
             pykoop.DelayLiftingFn(n_delays_state=3, n_delays_input=0),
+            np.array(['x0', 'x1']),
             np.array([
                 [1, 2, 3, 4],
                 [-1, -2, -3, -4],
             ]).T,
+            np.array([
+                'x0',
+                'x1',
+                'D1(x0)',
+                'D1(x1)',
+                'D2(x0)',
+                'D2(x1)',
+                'D3(x0)',
+                'D3(x1)',
+            ]),
             np.array([
                 [4],
                 [-4],
@@ -576,6 +674,7 @@ class TestLiftingFnTransform:
         ),
         (
             pykoop.DelayLiftingFn(n_delays_state=0, n_delays_input=0),
+            np.array(['x0', 'x1', 'u0', 'u1']),
             np.array([
                 # State
                 [1, 2, 3, 4],
@@ -584,6 +683,12 @@ class TestLiftingFnTransform:
                 [2, 3, 4, 5],
                 [0, -1, -2, -3],
             ]).T,
+            np.array([
+                'x0',
+                'x1',
+                'u0',
+                'u1',
+            ]),
             np.array([
                 # State
                 [1, 2, 3, 4],
@@ -597,6 +702,7 @@ class TestLiftingFnTransform:
         ),
         (
             pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1),
+            np.array(['x0', 'x1', 'u0', 'u1']),
             np.array([
                 # State
                 [1, 2, 3, 4],
@@ -605,6 +711,16 @@ class TestLiftingFnTransform:
                 [2, 3, 4, 5],
                 [0, -1, -2, -3],
             ]).T,
+            np.array([
+                'x0',
+                'x1',
+                'D1(x0)',
+                'D1(x1)',
+                'u0',
+                'u1',
+                'D1(u0)',
+                'D1(u1)',
+            ]),
             np.array([
                 # State
                 [2, 3, 4],
@@ -622,6 +738,7 @@ class TestLiftingFnTransform:
         ),
         (
             pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2),
+            np.array(['x0', 'x1', 'u0', 'u1']),
             np.array([
                 # State
                 [1, 2, 3, 4],
@@ -630,6 +747,20 @@ class TestLiftingFnTransform:
                 [2, 3, 4, 5],
                 [0, -1, -2, -3],
             ]).T,
+            np.array([
+                'x0',
+                'x1',
+                'D1(x0)',
+                'D1(x1)',
+                'D2(x0)',
+                'D2(x1)',
+                'u0',
+                'u1',
+                'D1(u0)',
+                'D1(u1)',
+                'D2(u0)',
+                'D2(u1)',
+            ]),
             np.array([
                 # State
                 [3, 4],
@@ -651,6 +782,7 @@ class TestLiftingFnTransform:
         ),
         (
             pykoop.DelayLiftingFn(n_delays_state=3, n_delays_input=3),
+            np.array(['x0', 'x1', 'u0', 'u1']),
             np.array([
                 # State
                 [1, 2, 3, 4],
@@ -659,6 +791,24 @@ class TestLiftingFnTransform:
                 [2, 3, 4, 5],
                 [0, -1, -2, -3],
             ]).T,
+            np.array([
+                'x0',
+                'x1',
+                'D1(x0)',
+                'D1(x1)',
+                'D2(x0)',
+                'D2(x1)',
+                'D3(x0)',
+                'D3(x1)',
+                'u0',
+                'u1',
+                'D1(u0)',
+                'D1(u1)',
+                'D2(u0)',
+                'D2(u1)',
+                'D3(u0)',
+                'D3(u1)',
+            ]),
             np.array([
                 # State
                 [4],
@@ -684,6 +834,7 @@ class TestLiftingFnTransform:
         ),
         (
             pykoop.DelayLiftingFn(n_delays_state=0, n_delays_input=1),
+            np.array(['x0', 'x1', 'u0', 'u1']),
             np.array([
                 # State
                 [1, 2, 3, 4],
@@ -692,6 +843,14 @@ class TestLiftingFnTransform:
                 [2, 3, 4, 5],
                 [0, -1, -2, -3],
             ]).T,
+            np.array([
+                'x0',
+                'x1',
+                'u0',
+                'u1',
+                'D1(u0)',
+                'D1(u1)',
+            ]),
             np.array([
                 # State
                 [2, 3, 4],
@@ -707,6 +866,7 @@ class TestLiftingFnTransform:
         ),
         (
             pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=0),
+            np.array(['x0', 'x1', 'u0', 'u1']),
             np.array([
                 # State
                 [1, 2, 3, 4],
@@ -715,6 +875,14 @@ class TestLiftingFnTransform:
                 [2, 3, 4, 5],
                 [0, -1, -2, -3],
             ]).T,
+            np.array([
+                'x0',
+                'x1',
+                'D1(x0)',
+                'D1(x1)',
+                'u0',
+                'u1',
+            ]),
             np.array([
                 # State
                 [2, 3, 4],
@@ -731,11 +899,17 @@ class TestLiftingFnTransform:
         # Delay, episodes
         (
             pykoop.DelayLiftingFn(n_delays_state=0, n_delays_input=0),
+            np.array(['ep', 'x0', 'x1']),
             np.array([
                 [0, 0, 0, 0, 1, 1, 1],
                 [1, 2, 3, 4, 5, 6, 7],
                 [-1, -2, -3, -4, -5, -6, -7],
             ]).T,
+            np.array([
+                'ep',
+                'x0',
+                'x1',
+            ]),
             np.array([
                 [0, 0, 0, 0, 1, 1, 1],
                 [1, 2, 3, 4, 5, 6, 7],
@@ -746,11 +920,19 @@ class TestLiftingFnTransform:
         ),
         (
             pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1),
+            np.array(['ep', 'x0', 'x1']),
             np.array([
                 [0, 0, 0, 0, 1, 1, 1],
                 [1, 2, 3, 4, 5, 6, 7],
                 [-1, -2, -3, -4, -5, -6, -7],
             ]).T,
+            np.array([
+                'ep',
+                'x0',
+                'x1',
+                'D1(x0)',
+                'D1(x1)',
+            ]),
             np.array([
                 [0, 0, 0, 1, 1],
                 [2, 3, 4, 6, 7],
@@ -763,11 +945,19 @@ class TestLiftingFnTransform:
         ),
         (
             pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1),
+            np.array(['ep', 'x0', 'u0']),
             np.array([
                 [0, 0, 0, 0, 1, 1, 1],
                 [1, 2, 3, 4, 5, 6, 7],
                 [-1, -2, -3, -4, -5, -6, -7],
             ]).T,
+            np.array([
+                'ep',
+                'x0',
+                'D1(x0)',
+                'u0',
+                'D1(u0)',
+            ]),
             np.array([
                 [0, 0, 0, 1, 1],
                 [2, 3, 4, 6, 7],
@@ -780,11 +970,21 @@ class TestLiftingFnTransform:
         ),
         (
             pykoop.DelayLiftingFn(n_delays_state=2, n_delays_input=2),
+            np.array(['ep', 'x0', 'x1']),
             np.array([
                 [0, 0, 0, 0, 1, 1, 1],
                 [1, 2, 3, 4, 5, 6, 7],
                 [-1, -2, -3, -4, -5, -6, -7],
             ]).T,
+            np.array([
+                'ep',
+                'x0',
+                'x1',
+                'D1(x0)',
+                'D1(x1)',
+                'D2(x0)',
+                'D2(x1)',
+            ]),
             np.array([
                 [0, 0, 1],
                 [3, 4, 7],
@@ -799,11 +999,18 @@ class TestLiftingFnTransform:
         ),
         (
             pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=0),
+            np.array(['ep', 'x0', 'u0']),
             np.array([
                 [0, 0, 0, 0, 1, 1, 1],
                 [1, 2, 3, 4, 5, 6, 7],
                 [-1, -2, -3, -4, -5, -6, -7],
             ]).T,
+            np.array([
+                'ep',
+                'x0',
+                'D1(x0)',
+                'u0',
+            ]),
             np.array([
                 [0, 0, 0, 1, 1],
                 [2, 3, 4, 6, 7],
@@ -815,11 +1022,18 @@ class TestLiftingFnTransform:
         ),
         (
             pykoop.DelayLiftingFn(n_delays_state=0, n_delays_input=1),
+            np.array(['ep', 'x0', 'u0']),
             np.array([
                 [0, 0, 0, 0, 1, 1, 1],
                 [1, 2, 3, 4, 5, 6, 7],
                 [-1, -2, -3, -4, -5, -6, -7],
             ]).T,
+            np.array([
+                'ep',
+                'x0',
+                'u0',
+                'D1(u0)',
+            ]),
             np.array([
                 [0, 0, 0, 1, 1],
                 [2, 3, 4, 6, 7],
@@ -834,13 +1048,15 @@ class TestLiftingFnTransform:
 class TestDelayLiftingFnTransform:
     """Test :class:`DelayLiftingFn` transform and inverse transform."""
 
-    def test_transform(self, lf, X, Xt_exp, n_inputs, episode_feature):
+    def test_transform(self, lf, names_in, X, names_out, Xt_exp, n_inputs,
+                       episode_feature):
         """Test :class:`DelayLiftingFn` transform."""
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         Xt = lf.transform(X)
         np.testing.assert_allclose(Xt_exp, Xt)
 
-    def test_inverse_transform(self, lf, X, Xt_exp, n_inputs, episode_feature):
+    def test_inverse_transform(self, lf, names_in, X, names_out, Xt_exp,
+                               n_inputs, episode_feature):
         """Test :class:`DelayLiftingFn` inverse transform."""
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         Xt = lf.transform(X)
@@ -859,6 +1075,22 @@ class TestDelayLiftingFnTransform:
         else:
             Xt_inv_trimmed = X[-Xt_inv.shape[0]:, :]
         np.testing.assert_allclose(Xt_inv_trimmed, Xt_inv)
+
+    def test_feature_names_in(self, lf, names_in, X, names_out, Xt_exp,
+                              n_inputs, episode_feature):
+        """Test input feature names."""
+        lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        names_in_actual = lf.get_feature_names_in()
+        assert np.all(names_in == names_in_actual)
+
+    def test_feature_names_out(self, lf, names_in, X, names_out, Xt_exp,
+                               n_inputs, episode_feature):
+        """Test input feature names."""
+        lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        names_out_actual = lf.get_feature_names_out()
+        if not np.all(names_out == names_out_actual):
+            breakpoint()
+        assert np.all(names_out == names_out_actual)
 
 
 class TestSkLearn:

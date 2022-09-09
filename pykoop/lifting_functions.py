@@ -104,7 +104,15 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         format: str = None,
     ) -> np.ndarray:
         # noqa: D102
-        return np.array([])  # TODO
+        fn = self.transformer_.__class__.__name__
+        names_out = []
+        for k in range(self.n_features_in_):
+            if self.episode_feature_ and (k == 0):
+                names_out.append(feature_names[k])
+            else:
+                names_out.append(f'{fn}({feature_names[k]})')
+        feature_names_out = np.array(names_out)
+        return feature_names_out  # TODO
 
 
 class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
@@ -165,7 +173,8 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         self.transformer_ = sklearn.preprocessing.PolynomialFeatures(
             degree=self.order,
             interaction_only=self.interaction_only,
-            include_bias=False)
+            include_bias=False,
+        )
         self.transformer_.fit(X)
         # Figure out which lifted states correspond to the original states and
         # original inputs
@@ -178,7 +187,10 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
             # form ``x_1^1 * x_2^0 * x_3^0``. In that case, the row would be
             # ``[1, 0, 0]``.
             index = np.nonzero(
-                np.all(self.transformer_.powers_ == eye[i, :], axis=1))
+                np.all(
+                    self.transformer_.powers_ == eye[i, :],
+                    axis=1,
+                ))
             # Split up the "original states" from the "original inputs"
             if i < self.n_states_in_:
                 orig_states.append(index)
@@ -190,19 +202,23 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         # go at the bottom of the output.
         # Find all input-dependent features:
         all_inputs = np.nonzero(
-            np.any(self.transformer_.powers_[:, self.n_states_in_:] != 0,
-                   axis=1))[0].astype(int)
+            np.any(
+                self.transformer_.powers_[:, self.n_states_in_:] != 0,
+                axis=1,
+            ))[0].astype(int)
         # Do a set difference to remove the unlifted input features:
         other_inputs = np.setdiff1d(all_inputs, original_input)
-        # Figure out which other lifted states contain states (but are not the
+        # Figure out which other lifted states contain states, but are not the
         # original states themselves. Accomplish this by subtracting off
         # all the other types of features we found. That is, if it's not in
         # ``original_state_features``, ``original_input_features``, or
         # ``other_input_features``, it must be in ``other_state_features``.
         other_states = np.setdiff1d(
             np.arange(self.transformer_.powers_.shape[0]),
-            np.union1d(np.union1d(original_states, original_input),
-                       other_inputs),
+            np.union1d(
+                np.union1d(original_states, original_input),
+                other_inputs,
+            ),
         ).astype(int)
         # Form new ordering of states. Input-dependent states go at the end.
         self.transform_order_ = np.concatenate(
@@ -238,7 +254,33 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         format: str = None,
     ) -> np.ndarray:
         # noqa: D102
-        return np.array([])  # TODO
+        # Deal with episode feature
+        if self.episode_feature_:
+            names_in = feature_names[1:]
+            ep = feature_names[[0]]
+        else:
+            names_in = feature_names
+            ep = None
+        # Transform feature names
+        names_tf = []
+        powers = self.transformer_.powers_
+        for ft_out in range(powers.shape[0]):
+            str_ = []
+            for ft_in in range(powers.shape[1]):
+                if powers[ft_out, ft_in] == 0:
+                    pass
+                elif powers[ft_out, ft_in] == 1:
+                    str_.append(f'{names_in[ft_in]}')
+                else:
+                    str_.append(f'{names_in[ft_in]}^{powers[ft_out, ft_in]}')
+            names_tf.append('*'.join(str_))
+        names_tf_arr = np.asarray(names_tf, dtype=object)
+        names_out = names_tf_arr[self.transform_order_]
+        if ep is not None:
+            feature_names_out = np.concatenate((ep, names_out))
+        else:
+            feature_names_out = names_out
+        return feature_names_out
 
 
 class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
@@ -445,7 +487,30 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
         format: str = None,
     ) -> np.ndarray:
         # noqa: D102
-        return np.array([])  # TODO
+        fn = 'D'
+        names_out = []
+        # Deal with episode feature
+        if self.episode_feature_:
+            names_in = feature_names[1:]
+            names_out.append(feature_names[0])
+        else:
+            names_in = feature_names
+        # Add state delays
+        for delay in range(self.n_delays_state + 1):
+            for state in range(self.n_states_in_):
+                if delay == 0:
+                    names_out.append(f'{names_in[state]}')
+                else:
+                    names_out.append(f'{fn}{delay}({names_in[state]})')
+        for delay in range(self.n_delays_input + 1):
+            for input_ in range(self.n_inputs_in_):
+                if delay == 0:
+                    names_out.append(f'{names_in[self.n_states_in_ + input_]}')
+                else:
+                    names_out.append(
+                        f'{fn}{delay}({names_in[self.n_states_in_ + input_]})')
+        feature_names_out = np.array(names_out)
+        return feature_names_out  # TODO
 
     @staticmethod
     def _delay(X: np.ndarray, n_delays: int) -> np.ndarray:
