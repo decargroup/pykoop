@@ -1397,6 +1397,102 @@ class TestLiftRetract:
         np.testing.assert_allclose(X_r[:, 1:], X[:, lf.n_states_in_ + 1:])
 
 
+class TestFeatureNames:
+    """Test feature naming."""
+
+    string_names = np.array(['a', 'b', 'c'], dtype=object)
+
+    different_string_names = np.array(['c', 'b', 'c'], dtype=object)
+
+    numerical_names = np.array([1, 2, 3], dtype=object)
+
+    mixed_names = np.array(['a', 2, 'c'], dtype=object)
+
+    numerical_data = np.array([
+        [1, 2, 3, 4, 5, 6],
+        [-1, -2, -3, -4, -5, -6],
+        [2, 4, 6, 8, 10, 12],
+    ]).T
+
+    def test_valid_names(self):
+        """Test invalid feature names."""
+        X = pandas.DataFrame(self.numerical_data, columns=self.string_names)
+        kp = pykoop.KoopmanPipeline(
+            lifting_functions=None,
+            regressor=pykoop.Edmd(),
+        )
+        kp.fit(X)
+        kp.transform(X)
+
+    def test_invalid_names(self):
+        """Test invalid feature names."""
+        X_invalid = pandas.DataFrame(
+            self.numerical_data,
+            columns=self.mixed_names,
+        )
+        kp = pykoop.KoopmanPipeline(
+            lifting_functions=None,
+            regressor=pykoop.Edmd(),
+        )
+        kp.fit(X_invalid)
+        assert kp.feature_names_in_ is None
+
+    def test_numerical_names(self):
+        """Test numerical feature names."""
+        X_invalid = pandas.DataFrame(
+            self.numerical_data,
+            columns=self.numerical_names,
+        )
+        kp = pykoop.KoopmanPipeline(
+            lifting_functions=None,
+            regressor=pykoop.Edmd(),
+        )
+        kp.fit(X_invalid)
+        assert kp.feature_names_in_ is None
+
+    @pytest.mark.parametrize('X_fit, X_transform', [
+        (
+            pandas.DataFrame(
+                numerical_data,
+                columns=string_names,
+            ),
+            pandas.DataFrame(
+                numerical_data,
+                columns=mixed_names,
+            ),
+        ),
+        (
+            pandas.DataFrame(
+                numerical_data,
+                columns=mixed_names,
+            ),
+            pandas.DataFrame(
+                numerical_data,
+                columns=string_names,
+            ),
+        ),
+        (
+            pandas.DataFrame(
+                numerical_data,
+                columns=string_names,
+            ),
+            pandas.DataFrame(
+                numerical_data,
+                columns=different_string_names,
+            ),
+        ),
+    ])
+    def test_different_fit_transform(self, X_fit, X_transform):
+        """Test numerical feature names."""
+        kp = pykoop.KoopmanPipeline(
+            lifting_functions=None,
+            regressor=pykoop.Edmd(),
+        )
+        kp.fit(X_fit)
+        with pytest.raises(ValueError):
+            kp.transform(X_transform)
+
+
 class TestSkLearn:
     """Test scikit-learn compatibility."""
 
