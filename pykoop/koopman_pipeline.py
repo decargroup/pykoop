@@ -422,9 +422,32 @@ class KoopmanLiftingFn(sklearn.base.BaseEstimator,
         raise NotImplementedError()
 
     @abc.abstractmethod
+    def _transform_feature_names(
+        self,
+        feature_names: np.ndarray,
+        format: str = None,
+    ) -> np.ndarray:
+        """Transform feature names.
+
+        Parameters
+        ----------
+        feature_names : np.ndarray
+            Feature names.
+        format : str
+            Feature name formatting method. Possible values are ``'plaintext'``
+            (default if ``None``) or ``'latex'``.
+
+        Returns
+        -------
+        np.ndarray
+            Transformed feature names.
+        """
+        raise NotImplementedError()
+
     def get_feature_names_out(
         self,
         input_features: np.ndarray = None,
+        format: str = None,
     ) -> np.ndarray:
         """Get output feature names.
 
@@ -433,16 +456,26 @@ class KoopmanLiftingFn(sklearn.base.BaseEstimator,
         input_features : np.ndarray
             Array of string input feature names. If provided, they are checked
             against ``feature_names_in_``. If ``None``, ignored.
+        format : str
+            Feature name formatting method. Possible values are ``'plaintext'``
+            (default if ``None``) or ``'latex'``.
 
         Returns
         -------
         np.ndarray
             Output feature names.
         """
-        raise NotImplementedError()
+        feature_names_in = self.get_feature_names_in()
+        return self._transform_feature_names(feature_names_in, format)
 
-    def get_feature_names_in(self) -> np.ndarray:
+    def get_feature_names_in(self, format: str = None) -> np.ndarray:
         """Automatically generate input feature names.
+
+        Parameters
+        ----------
+        format : str
+            Feature name formatting method. Possible values are ``'plaintext'``
+            (default if ``None``) or ``'latex'``.
 
         Returns
         -------
@@ -451,16 +484,13 @@ class KoopmanLiftingFn(sklearn.base.BaseEstimator,
         """
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
-        if getattr(self, 'feature_names_in_', None) is None:
-            names = []
-            if self.episode_feature_:
-                names.append('ep')
-            for k in range(self.n_states_in_):
-                names.append(f'x{k}')
-            for k in range(self.n_inputs_in_):
-                names.append(f'u{k}')
-            feature_names_in = np.array(names)
-            return feature_names_in
+        if self.feature_names_in_ is None:
+            return _generate_feature_names(
+                self.n_states_in_,
+                self.n_inputs_in_,
+                self.episode_feature_,
+                format,
+            )
         else:
             return self.feature_names_in_
 
@@ -1410,13 +1440,6 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         # functions, we know ``n_samples_in == n_samples_out``.
         return n_samples_out
 
-    def get_feature_names_out(
-        self,
-        input_features: np.ndarray = None,
-    ) -> np.ndarray:
-        # noqa: D102
-        return self.feature_names_in_
-
     def get_params(self, deep: bool = True) -> Dict[str, Any]:
         # noqa: D102
         # A bit inefficient to do this twice but it's not the end of the world.
@@ -1431,6 +1454,14 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         self._set_params('lifting_functions_state', **kwargs)
         self._set_params('lifting_functions_input', **kwargs)
         return self
+
+    def _transform_feature_names(
+        self,
+        feature_names: np.ndarray,
+        format: str = None,
+    ) -> np.ndarray:
+        # noqa: D102
+        return feature_names  # TODO
 
 
 class KoopmanPipeline(metaestimators._BaseComposition,
@@ -1789,13 +1820,55 @@ class KoopmanPipeline(metaestimators._BaseComposition,
             X_pred_inv = X_pred_pad_inv
         return X_pred_inv
 
+    def get_feature_names_in(self, format: str = None) -> np.ndarray:
+        """Automatically generate input feature names.
+
+        Parameters
+        ----------
+        format : str
+            Feature name formatting method. Possible values are ``'plaintext'``
+            (default if ``None``) or ``'latex'``.
+
+        Returns
+        -------
+        np.ndarray
+            Automatically generated input feaure names.
+        """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self)
+        if self.feature_names_in_ is None:
+            return _generate_feature_names(
+                self.n_states_in_,
+                self.n_inputs_in_,
+                self.episode_feature_,
+                format,
+            )
+        else:
+            return self.feature_names_in_
+
     def get_feature_names_out(
         self,
         input_features: np.ndarray = None,
+        format: str = None,
     ) -> np.ndarray:
-        # noqa: D102
-        # TODO
-        raise NotImplementedError()
+        """Get output feature names.
+
+        Parameters
+        ----------
+        input_features : np.ndarray
+            Array of string input feature names. If provided, they are checked
+            against ``feature_names_in_``. If ``None``, ignored.
+        format : str
+            Feature name formatting method. Possible values are ``'plaintext'``
+            (default if ``None``) or ``'latex'``.
+
+        Returns
+        -------
+        np.ndarray
+            Output feature names.
+        """
+        feature_names_in = self.get_feature_names_in()
+        return self._transform_feature_names(feature_names_in, format)
 
     def score(self, X: np.ndarray, y: np.ndarray = None) -> float:
         """Calculate prediction score.
@@ -2225,6 +2298,28 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         self._set_params('lifting_functions', **kwargs)
         return self
 
+    def _transform_feature_names(
+        self,
+        feature_names: np.ndarray,
+        format: str = None,
+    ) -> np.ndarray:
+        """Transform feature names.
+
+        Parameters
+        ----------
+        feature_names : np.ndarray
+            Feature names.
+        format : str
+            Feature name formatting method. Possible values are ``'plaintext'``
+            (default if ``None``) or ``'latex'``.
+
+        Returns
+        -------
+        np.ndarray
+            Transformed feature names.
+        """
+        raise NotImplementedError()  # TODO
+
     def _validate_feature_names(self, X: np.ndarray) -> None:
         """Validate that input feature names are correct.
 
@@ -2633,6 +2728,42 @@ def _weights_from_data_matrix(
         weights_list.append(weights_i)
     weights = np.concatenate(weights_list)
     return weights
+
+
+def _generate_feature_names(
+    n_states_in: int,
+    n_inputs_in: int,
+    episode_feature: bool,
+    format: str = None,
+) -> np.ndarray:
+    """Generate feature names.
+
+    Parameters
+    ----------
+    n_states_in : int
+        Number of states.
+    n_inputs_in : int
+        Number of inputs.
+    episode_feature : bool
+        Presence of episode feature.
+    format : str
+        Feature name formatting method. Possible values are ``'plaintext'``
+        (default if ``None``) or ``'latex'``.
+
+    Returns
+    -------
+    np.ndarray
+        Generated states.
+    """
+    names = []
+    if episode_feature:
+        names.append('ep')
+    for k in range(n_states_in):
+        names.append(f'x{k}')
+    for k in range(n_inputs_in):
+        names.append(f'u{k}')
+    feature_names_in = np.array(names)
+    return feature_names_in
 
 
 def _extract_feature_names(

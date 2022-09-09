@@ -98,13 +98,13 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         # Let transformer do its own validation
         pass
 
-    def get_feature_names_out(
+    def _transform_feature_names(
         self,
-        input_features: np.ndarray = None,
+        feature_names: np.ndarray,
+        format: str = None,
     ) -> np.ndarray:
         # noqa: D102
-        # TODO
-        return np.array([])
+        return np.array([])  # TODO
 
 
 class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
@@ -232,13 +232,13 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         if self.order <= 0:
             raise ValueError('`order` must be greater than or equal to 1.')
 
-    def get_feature_names_out(
+    def _transform_feature_names(
         self,
-        input_features: np.ndarray = None,
+        feature_names: np.ndarray,
+        format: str = None,
     ) -> np.ndarray:
         # noqa: D102
-        # TODO
-        return np.array([])
+        return np.array([])  # TODO
 
 
 class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
@@ -325,13 +325,13 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         # No parameters to validate
         pass
 
-    def get_feature_names_out(
+    def _transform_feature_names(
         self,
-        input_features: np.ndarray = None,
+        feature_names: np.ndarray,
+        format: str = None,
     ) -> np.ndarray:
         # noqa: D102
-        # TODO
-        return np.array([])
+        return np.array([])  # TODO
 
 
 class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
@@ -439,13 +439,13 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
             raise ValueError(
                 '`n_delays_u` must be greater than or equal to 0.')
 
-    def get_feature_names_out(
+    def _transform_feature_names(
         self,
-        input_features: np.ndarray = None,
+        feature_names: np.ndarray,
+        format: str = None,
     ) -> np.ndarray:
         # noqa: D102
-        # TODO
-        return np.array([])
+        return np.array([])  # TODO
 
     @staticmethod
     def _delay(X: np.ndarray, n_delays: int) -> np.ndarray:

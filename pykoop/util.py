@@ -139,22 +139,22 @@ class AnglePreprocessor(koopman_pipeline.EpisodeIndependentLiftingFn):
     def _validate_parameters(self) -> None:
         pass  # No constructor parameters need validation.
 
-    def get_feature_names_out(
+    def _transform_feature_names(
         self,
-        input_features: np.ndarray = None,
+        feature_names: np.ndarray,
+        format: str = None,
     ) -> np.ndarray:
         # noqa: D102
-        names_in = self.get_feature_names_in()
         names_out = []
         if self.episode_feature_:
             names_out.append('ep')
         for k in range(self.n_states_in_ + self.n_inputs_in_):
             name_idx = k + 1 if self.episode_feature_ else k
             if self.angles_in_[k]:
-                names_out.append(f'cos({names_in[name_idx]})')
-                names_out.append(f'sin({names_in[name_idx]})')
+                names_out.append(f'cos({feature_names[name_idx]})')
+                names_out.append(f'sin({feature_names[name_idx]})')
             else:
-                names_out.append(names_in[name_idx])
+                names_out.append(feature_names[name_idx])
         feature_names_out = np.array(names_out)
         return feature_names_out
 
