@@ -17,32 +17,66 @@ log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
 
 
-class _LiftRetractMixin(metaclass=abc.ABCMeta):
-    """Mixin providing more convenient lift/retract functions.
-
-    Assumes child class implements :func:`transform` and
-    :func:`inverse_transform`. See :class:`KoopmanLiftingFn` and
-    :class:`KoopmanPipeline`` for details concerning the class methods and
-    attributes.
+class KoopmanLiftingFn(sklearn.base.BaseEstimator,
+                       sklearn.base.TransformerMixin,
+                       metaclass=abc.ABCMeta):
+    """Base class for Koopman lifting functions.
 
     All attributes with a trailing underscore must be set in the subclass'
-    :func:`fit`. Linter warnings about missing attributes can be ignored.
-    Including the attributes in the class body removes the linter errors but
-    creates Sphinx errors... pick your poison.
+    :func:`fit`.
 
     Attributes
     ----------
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
     n_states_in_ : int
         Number of states before transformation.
     n_inputs_in_ : int
         Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
     n_states_out_ : int
         Number of states after transformation.
     n_inputs_out_ : int
         Number of inputs after transformation.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
     """
+
+    @abc.abstractmethod
+    def fit(self,
+            X: np.ndarray,
+            y: np.ndarray = None,
+            n_inputs: int = 0,
+            episode_feature: bool = False) -> 'KoopmanLiftingFn':
+        """Fit the lifting function.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+        y : np.ndarray
+            Ignored.
+        n_inputs : int
+            Number of input features at the end of ``X``.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+
+        Returns
+        -------
+        KoopmanLiftingFn
+            Instance of itself.
+
+        Raises
+        -----
+        ValueError
+            If constructor or fit parameters are incorrect.
+        """
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def transform(self, X: np.ndarray) -> np.ndarray:
@@ -73,6 +107,22 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
         -------
         np.ndarray
             Inverted transformed data matrix.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def n_samples_in(self, n_samples_out: int = 1) -> int:
+        """Calculate number of input samples required for given output length.
+
+        Parameters
+        ----------
+        n_samples_out : int
+            Number of samples needed at the output.
+
+        Returns
+        -------
+        int
+            Number of samples needed at the input.
         """
         raise NotImplementedError()
 
@@ -309,117 +359,6 @@ class _LiftRetractMixin(metaclass=abc.ABCMeta):
         else:
             Xt = Xt_pad[:, self.n_states_in_:]
         return Xt
-
-
-class KoopmanLiftingFn(sklearn.base.BaseEstimator,
-                       sklearn.base.TransformerMixin,
-                       _LiftRetractMixin,
-                       metaclass=abc.ABCMeta):
-    """Base class for Koopman lifting functions.
-
-    All attributes with a trailing underscore must be set in the subclass'
-    :func:`fit`.
-
-    Attributes
-    ----------
-    n_features_in_ : int
-        Number of features before transformation, including episode feature.
-    n_states_in_ : int
-        Number of states before transformation.
-    n_inputs_in_ : int
-        Number of inputs before transformation.
-    n_features_out_ : int
-        Number of features after transformation, including episode feature.
-    n_states_out_ : int
-        Number of states after transformation.
-    n_inputs_out_ : int
-        Number of inputs after transformation.
-    min_samples_ : int
-        Minimum number of samples needed to use the transformer.
-    episode_feature_ : bool
-        Indicates if episode feature was present during :func:`fit`.
-    feature_names_in_ : np.ndarray
-        Array of input feature name strings.
-    """
-
-    @abc.abstractmethod
-    def fit(self,
-            X: np.ndarray,
-            y: np.ndarray = None,
-            n_inputs: int = 0,
-            episode_feature: bool = False) -> 'KoopmanLiftingFn':
-        """Fit the lifting function.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Data matrix.
-        y : np.ndarray
-            Ignored.
-        n_inputs : int
-            Number of input features at the end of ``X``.
-        episode_feature : bool
-            True if first feature indicates which episode a timestep is from.
-
-        Returns
-        -------
-        KoopmanLiftingFn
-            Instance of itself.
-
-        Raises
-        -----
-        ValueError
-            If constructor or fit parameters are incorrect.
-        """
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def transform(self, X: np.ndarray) -> np.ndarray:
-        """Transform data.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Data matrix.
-
-        Returns
-        -------
-        np.ndarray
-            Transformed data matrix.
-        """
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def inverse_transform(self, X: np.ndarray) -> np.ndarray:
-        """Invert transformed data.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Transformed data matrix.
-
-        Returns
-        -------
-        np.ndarray
-            Inverted transformed data matrix.
-        """
-        raise NotImplementedError()
-
-    @abc.abstractmethod
-    def n_samples_in(self, n_samples_out: int = 1) -> int:
-        """Calculate number of input samples required for given output length.
-
-        Parameters
-        ----------
-        n_samples_out : int
-            Number of samples needed at the output.
-
-        Returns
-        -------
-        int
-            Number of samples needed at the input.
-        """
-        raise NotImplementedError()
 
     @abc.abstractmethod
     def _transform_feature_names(
@@ -1464,9 +1403,7 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         return feature_names  # TODO
 
 
-class KoopmanPipeline(metaestimators._BaseComposition,
-                      sklearn.base.BaseEstimator,
-                      sklearn.base.TransformerMixin, _LiftRetractMixin):
+class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     """Meta-estimator for chaining lifting functions with an estimator.
 
     Attributes
@@ -1700,21 +1637,12 @@ class KoopmanPipeline(metaestimators._BaseComposition,
             self.n_features_out_ = last_pp.n_features_out_
             self.n_states_out_ = last_pp.n_states_out_
             self.n_inputs_out_ = last_pp.n_inputs_out_
-            # Compute minimum number of samples needed by transformer.
-            # Each transformer knows how many input samples it needs to produce
-            # a given number of output samples.  Knowing we just want one
-            # sample at the output, we work backwards to figure out how many
-            # samples we need at the beginning of the pipeline.
-            n_samples_out = 1
-            for _, tf in self.lifting_functions_[::-1]:
-                n_samples_out = tf.n_samples_in(n_samples_out)
-            self.min_samples_ = n_samples_out
         else:
             # Fall back on input dimensions
             self.n_features_out_ = self.n_features_in_
             self.n_states_out_ = self.n_states_in_
             self.n_inputs_out_ = self.n_inputs_in_
-            self.min_samples_ = 1
+        self.min_samples_ = self.n_samples_in(1)
         self.transformers_fit_ = True
         return self
 
@@ -1776,6 +1704,19 @@ class KoopmanPipeline(metaestimators._BaseComposition,
             X_out = lf.inverse_transform(X_out)
         return X_out
 
+    def n_samples_in(self, n_samples_out: int = 1) -> int:
+        # noqa: D102
+        # Compute minimum number of samples needed by transformer.
+        # Each transformer knows how many input samples it needs to produce
+        # a given number of output samples.  Knowing we just want one
+        # sample at the output, we work backwards to figure out how many
+        # samples we need at the beginning of the pipeline.
+        n_samples_in = n_samples_out
+        if self.lifting_functions is not None:
+            for _, tf in self.lifting_functions[::-1]:
+                n_samples_in = tf.n_samples_in(n_samples_in)
+        return n_samples_in
+
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Perform a single-step prediction for each state in each episode.
 
@@ -1819,56 +1760,6 @@ class KoopmanPipeline(metaestimators._BaseComposition,
         else:
             X_pred_inv = X_pred_pad_inv
         return X_pred_inv
-
-    def get_feature_names_in(self, format: str = None) -> np.ndarray:
-        """Automatically generate input feature names.
-
-        Parameters
-        ----------
-        format : str
-            Feature name formatting method. Possible values are ``'plaintext'``
-            (default if ``None``) or ``'latex'``.
-
-        Returns
-        -------
-        np.ndarray
-            Automatically generated input feaure names.
-        """
-        # Ensure fit has been done
-        sklearn.utils.validation.check_is_fitted(self)
-        if self.feature_names_in_ is None:
-            return _generate_feature_names(
-                self.n_states_in_,
-                self.n_inputs_in_,
-                self.episode_feature_,
-                format,
-            )
-        else:
-            return self.feature_names_in_
-
-    def get_feature_names_out(
-        self,
-        input_features: np.ndarray = None,
-        format: str = None,
-    ) -> np.ndarray:
-        """Get output feature names.
-
-        Parameters
-        ----------
-        input_features : np.ndarray
-            Array of string input feature names. If provided, they are checked
-            against ``feature_names_in_``. If ``None``, ignored.
-        format : str
-            Feature name formatting method. Possible values are ``'plaintext'``
-            (default if ``None``) or ``'latex'``.
-
-        Returns
-        -------
-        np.ndarray
-            Output feature names.
-        """
-        feature_names_in = self.get_feature_names_in()
-        return self._transform_feature_names(feature_names_in, format)
 
     def score(self, X: np.ndarray, y: np.ndarray = None) -> float:
         """Calculate prediction score.
@@ -2319,23 +2210,6 @@ class KoopmanPipeline(metaestimators._BaseComposition,
             Transformed feature names.
         """
         raise NotImplementedError()  # TODO
-
-    def _validate_feature_names(self, X: np.ndarray) -> None:
-        """Validate that input feature names are correct.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Input array.
-
-        Raises
-        ------
-        ValueError
-            If input feature names do not match fit ones in
-            ``feature_names_in_``.
-        """
-        if not np.all(_extract_feature_names(X) == self.feature_names_in_):
-            raise ValueError('Input features do not match fit features.')
 
 
 def score_trajectory(
