@@ -452,7 +452,7 @@ import pykoop
                 [0, 1, 2, 3, 4, 5],
                 [1, 2, 3, 4, 5, 6],
             ]).T,
-            np.array([]),
+            np.array(['x0', 'x1']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [1, 2, 3, 4, 5, 6],
@@ -471,7 +471,15 @@ import pykoop
                 # Inputs
                 [5, 4, 3, 2, 1, 1],
             ]).T,
-            np.array([]),
+            np.array([
+                'x0',
+                'x1',
+                'x2',
+                'u0',
+                'x0*u0',
+                'x1*u0',
+                'x2*u0',
+            ]),
             np.array([
                 # x
                 [0, 1, 2, 3, 4, 5],
@@ -498,7 +506,16 @@ import pykoop
                 [6, 5, 4, 3, 2, 1],
                 [5, 4, 3, 2, 1, 1],
             ]).T,
-            np.array([]),
+            np.array([
+                'x0',
+                'x1',
+                'u0',
+                'u1',
+                'x0*u0',
+                'x1*u0',
+                'x0*u1',
+                'x1*u1',
+            ]),
             np.array([
                 # x
                 [0, 1, 2, 3, 4, 5],
@@ -518,8 +535,9 @@ import pykoop
         ),
         (
             pykoop.BilinearInputLiftingFn(),
-            np.array(['x0', 'u0', 'u1', 'u2']),
+            np.array(['ep', 'x0', 'u0', 'u1', 'u2']),
             np.array([
+                [0, 0, 0, 1, 1, 1],
                 # States
                 [0, 1, 2, 3, 4, 5],
                 # Inputs
@@ -527,8 +545,18 @@ import pykoop
                 [6, 5, 4, 3, 2, 1],
                 [5, 4, 3, 2, 1, 1],
             ]).T,
-            np.array([]),
             np.array([
+                'ep',
+                'x0',
+                'u0',
+                'u1',
+                'u2',
+                'x0*u0',
+                'x0*u1',
+                'x0*u2',
+            ]),
+            np.array([
+                [0, 0, 0, 1, 1, 1],
                 # x
                 [0, 1, 2, 3, 4, 5],
                 # u
@@ -543,7 +571,7 @@ import pykoop
                 [0, 4, 6, 6, 4, 5],
             ]).T,
             3,
-            False,
+            True,
         ),
     ],
 )

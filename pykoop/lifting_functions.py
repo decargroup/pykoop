@@ -373,7 +373,23 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         format: str = None,
     ) -> np.ndarray:
         # noqa: D102
-        return np.array([])  # TODO
+        names_out = []
+        # Deal with episode feature
+        if self.episode_feature_:
+            names_in = feature_names[1:]
+            names_out.append(feature_names[0])
+        else:
+            names_in = feature_names
+        # Add states and inputs
+        for ft in range(self.n_states_in_ + self.n_inputs_in_):
+            names_out.append(names_in[ft])
+        # Add products
+        for ft_u in range(self.n_states_in_,
+                          self.n_states_in_ + self.n_inputs_in_):
+            for ft_x in range(self.n_states_in_):
+                names_out.append(f'{names_in[ft_x]}*{names_in[ft_u]}')
+        feature_names_out = np.array(names_out)
+        return feature_names_out  # TODO
 
 
 class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
@@ -502,6 +518,7 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
                     names_out.append(f'{names_in[state]}')
                 else:
                     names_out.append(f'{fn}{delay}({names_in[state]})')
+        # Add input delays
         for delay in range(self.n_delays_input + 1):
             for input_ in range(self.n_inputs_in_):
                 if delay == 0:
