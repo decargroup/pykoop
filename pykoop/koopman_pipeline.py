@@ -1243,7 +1243,7 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         for _, lf in self.lifting_functions_input_:
             X_out_input = lf.fit_transform(
                 X_out_input,
-                n_inputs=0,  # TODO IS THIS RIGHT?
+                n_inputs=X_out_input.shape[1],
                 episode_feature=self.episode_feature_,
             )
         # Compute output dimensions for states
@@ -1261,11 +1261,12 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         if len(self.lifting_functions_input_) > 0:
             # Compute number of output states
             last_tf = self.lifting_functions_input_[-1][1]
-            if last_tf.n_inputs_out_ != 0:
+            if last_tf.n_states_out_ != 0:
                 raise RuntimeError(f'Lifting function {last_tf} was called '
-                                   'with `n_inputs=0` but `n_inputs_out_` is '
-                                   'not 0. Is it implemented correctly?')
-            self.n_inputs_out_ = last_tf.n_states_out_
+                                   f'with `n_inputs={last_tf.n_inputs_in_}` '
+                                   'but `n_states_out_` is not 0. Is it '
+                                   'implemented correctly?')
+            self.n_inputs_out_ = last_tf.n_inputs_out_
         else:
             self.n_inputs_out_ = self.n_inputs_in_
         # Compute number of features and minimum samples needed
@@ -1430,8 +1431,7 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         # Recombine
         if self.episode_feature_:
             feature_names_out = np.concatenate((
-                names_out_state[[0]],
-                names_out_state[1:],
+                names_out_state,
                 names_out_input[1:],
             ))
         else:
