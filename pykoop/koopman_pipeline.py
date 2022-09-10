@@ -2209,7 +2209,10 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         np.ndarray
             Transformed feature names.
         """
-        raise NotImplementedError()  # TODO
+        names_out = feature_names
+        for _, lf in self.lifting_functions_:
+            names_out = lf._transform_feature_names(names_out, format)
+        return names_out
 
 
 def score_trajectory(

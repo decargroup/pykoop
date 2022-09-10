@@ -10,18 +10,20 @@ import pykoop
 
 
 @pytest.mark.parametrize(
-    'lf, X, Xt_exp, n_inputs, episode_feature, attr_exp',
+    'lf, names_in, X, names_out, Xt_exp, n_inputs, episode_feature, attr_exp',
     [
         (
             pykoop.KoopmanPipeline(
                 lifting_functions=None,
                 regressor=None,
             ),
+            np.array(['x0', 'x1', 'u0']),
             np.array([
                 [1, 2, 3, 4, 5, 6],
                 [-1, -2, -3, -4, -5, -6],
                 [2, 4, 6, 8, 10, 12],
             ]).T,
+            np.array(['x0', 'x1', 'u0']),
             np.array([
                 [1, 2, 3, 4, 5, 6],
                 [-1, -2, -3, -4, -5, -6],
@@ -50,11 +52,20 @@ import pykoop
                 )],
                 regressor=None,
             ),
+            np.array(['x0', 'x1', 'u0']),
             np.array([
                 [1, 2, 3, 4, 5, 6],
                 [-1, -2, -3, -4, -5, -6],
                 [2, 4, 6, 8, 10, 12],
             ]).T,
+            np.array([
+                'x0',
+                'x1',
+                'D1(x0)',
+                'D1(x1)',
+                'u0',
+                'D1(u0)',
+            ]),
             np.array([
                 # State
                 [2, 3, 4, 5, 6],
@@ -77,13 +88,95 @@ import pykoop
                 'min_samples_': 2,
             },
         ),
+        (
+            pykoop.KoopmanPipeline(
+                lifting_functions=[
+                    ('pl', pykoop.PolynomialLiftingFn(order=2)),
+                    ('sc', pykoop.SkLearnLiftingFn(
+                        preprocessing.MaxAbsScaler())),
+                ],
+                regressor=None,
+            ),
+            np.array(['x0', 'u0']),
+            np.array([
+                [1, 2, 3, 4, 5, 10],
+                [-1, -2, -3, -4, -5, -10],
+            ]).T,
+            np.array([
+                'MaxAbsScaler(x0)',
+                'MaxAbsScaler(x0^2)',
+                'MaxAbsScaler(u0)',
+                'MaxAbsScaler(x0*u0)',
+                'MaxAbsScaler(u0^2)',
+            ]),
+            np.array([
+                [1 / 10, 2 / 10, 3 / 10, 4 / 10, 5 / 10, 1],
+                [1 / 100, 4 / 100, 9 / 100, 16 / 100, 25 / 100, 1],
+                # Inputs
+                [-1 / 10, -2 / 10, -3 / 10, -4 / 10, -5 / 10, -1],
+                [-1 / 100, -4 / 100, -9 / 100, -16 / 100, -25 / 100, -1],
+                [1 / 100, 4 / 100, 9 / 100, 16 / 100, 25 / 100, 1],
+            ]).T,
+            1,
+            False,
+            {
+                'n_features_in_': 2,
+                'n_states_in_': 1,
+                'n_inputs_in_': 1,
+                'n_features_out_': 5,
+                'n_states_out_': 2,
+                'n_inputs_out_': 3,
+                'min_samples_': 1,
+            },
+        ),
+        (
+            pykoop.KoopmanPipeline(
+                lifting_functions=[
+                    ('sc', pykoop.SkLearnLiftingFn(
+                        preprocessing.MaxAbsScaler())),
+                    ('pl', pykoop.PolynomialLiftingFn(order=2)),
+                ],
+                regressor=None,
+            ),
+            np.array(['x0', 'u0']),
+            np.array([
+                [1, 2, 3, 4, 5, 10],
+                [-1, -2, -3, -4, -5, -10],
+            ]).T,
+            np.array([
+                'MaxAbsScaler(x0)',
+                'MaxAbsScaler(x0)^2',
+                'MaxAbsScaler(u0)',
+                'MaxAbsScaler(x0)*MaxAbsScaler(u0)',
+                'MaxAbsScaler(u0)^2',
+            ]),
+            np.array([
+                [1 / 10, 2 / 10, 3 / 10, 4 / 10, 5 / 10, 1],
+                [1 / 100, 4 / 100, 9 / 100, 16 / 100, 25 / 100, 1],
+                # Inputs
+                [-1 / 10, -2 / 10, -3 / 10, -4 / 10, -5 / 10, -1],
+                [-1 / 100, -4 / 100, -9 / 100, -16 / 100, -25 / 100, -1],
+                [1 / 100, 4 / 100, 9 / 100, 16 / 100, 25 / 100, 1],
+            ]).T,
+            1,
+            False,
+            {
+                'n_features_in_': 2,
+                'n_states_in_': 1,
+                'n_inputs_in_': 1,
+                'n_features_out_': 5,
+                'n_states_out_': 2,
+                'n_inputs_out_': 3,
+                'min_samples_': 1,
+            },
+        ),
     ],
 )
 class TestKoopmanPipelineTransform:
     """Test :class:`KoopmanPipeline` transform and inverse transform."""
 
-    def test_koopman_pipeline_attrs(self, lf, X, Xt_exp, n_inputs,
-                                    episode_feature, attr_exp):
+    def test_koopman_pipeline_attrs(self, lf, names_in, X, names_out, Xt_exp,
+                                    n_inputs, episode_feature, attr_exp):
         """Test expected :class:`KoopmanPipeline` object attributes."""
         # Fit estimator
         lf.fit_transformers(
@@ -95,8 +188,8 @@ class TestKoopmanPipelineTransform:
         attr = {key: getattr(lf, key) for key in attr_exp.keys()}
         assert attr == attr_exp
 
-    def test_transform(self, lf, X, Xt_exp, n_inputs, episode_feature,
-                       attr_exp):
+    def test_transform(self, lf, names_in, X, names_out, Xt_exp, n_inputs,
+                       episode_feature, attr_exp):
         """Test :class:`KoopmanPipeline` transform."""
         # Fit estimator
         lf.fit_transformers(
@@ -107,8 +200,8 @@ class TestKoopmanPipelineTransform:
         Xt = lf.transform(X)
         np.testing.assert_allclose(Xt, Xt_exp)
 
-    def test_inverse_transform(self, lf, X, Xt_exp, n_inputs, episode_feature,
-                               attr_exp):
+    def test_inverse_transform(self, lf, names_in, X, names_out, Xt_exp,
+                               n_inputs, episode_feature, attr_exp):
         """Test :class:`KoopmanPipeline` inverse transform."""
         # Fit estimator
         lf.fit_transformers(
@@ -120,21 +213,27 @@ class TestKoopmanPipelineTransform:
         Xi = lf.inverse_transform(Xt)
         np.testing.assert_allclose(Xi, X)
 
-    def test_feature_names(self, lf, X, Xt_exp, n_inputs, episode_feature,
-                           attr_exp):
-        """Test expected :class:`KoopmanPipeline` feature names."""
-        names = [f'x{k}' for k in range(X.shape[1])]
-        X_names = pandas.DataFrame(X, columns=names)
-        # Fit estimator
+    def test_feature_names_in(self, lf, names_in, X, names_out, Xt_exp,
+                              n_inputs, episode_feature, attr_exp):
+        """Test input feature names."""
         lf.fit_transformers(
-            X_names,
+            X,
             n_inputs=n_inputs,
             episode_feature=episode_feature,
         )
-        # Test fails if ``lf.transform()`` raises an exception because the
-        # feature names do not match.
-        lf.transform(X_names)
-        assert all(lf.feature_names_in_ == names)
+        names_in_actual = lf.get_feature_names_in()
+        assert np.all(names_in == names_in_actual)
+
+    def test_feature_names_out(self, lf, names_in, X, names_out, Xt_exp,
+                               n_inputs, episode_feature, attr_exp):
+        """Test input feature names."""
+        lf.fit_transformers(
+            X,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        names_out_actual = lf.get_feature_names_out()
+        assert np.all(names_out == names_out_actual)
 
 
 class TestKoopmanPipelineFit:
@@ -1196,7 +1295,8 @@ class TestSplitCombineEpisodes:
                 'min_samples_': 1,
             },
         ),
-    ])
+    ],
+)
 class TestSplitPipeline:
     """Test :class:`SplitPipeline`."""
 
