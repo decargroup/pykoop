@@ -1243,7 +1243,7 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         for _, lf in self.lifting_functions_input_:
             X_out_input = lf.fit_transform(
                 X_out_input,
-                n_inputs=0,
+                n_inputs=0,  # TODO IS THIS RIGHT?
                 episode_feature=self.episode_feature_,
             )
         # Compute output dimensions for states
@@ -1400,7 +1400,46 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         format: str = None,
     ) -> np.ndarray:
         # noqa: D102
-        return feature_names  # TODO
+        # Deal with episode feature
+        if self.episode_feature_:
+            names_in = feature_names[1:]
+            ep = feature_names[[0]]
+        else:
+            names_in = feature_names
+            ep = None
+        # Split states and inputs
+        # breakpoint()
+        names_in_state = names_in[:self.n_states_in_]
+        names_in_input = names_in[self.n_states_in_:]
+        if self.episode_feature_:
+            names_in_state = np.hstack((ep, names_in_state))
+            names_in_input = np.hstack((ep, names_in_input))
+        # Transform state and input
+        names_out_state = names_in_state
+        for _, lf in self.lifting_functions_state_:
+            names_out_state = lf._transform_feature_names(
+                names_out_state,
+                format,
+            )
+        names_out_input = names_in_input
+        for _, lf in self.lifting_functions_input_:
+            names_out_input = lf._transform_feature_names(
+                names_out_input,
+                format,
+            )
+        # Recombine
+        if self.episode_feature_:
+            feature_names_out = np.concatenate((
+                names_out_state[[0]],
+                names_out_state[1:],
+                names_out_input[1:],
+            ))
+        else:
+            feature_names_out = np.concatenate((
+                names_out_state,
+                names_out_input,
+            ))
+        return feature_names_out
 
 
 class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):

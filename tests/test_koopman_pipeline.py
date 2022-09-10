@@ -1113,7 +1113,7 @@ class TestSplitCombineEpisodes:
 
 
 @pytest.mark.parametrize(
-    'lf, X, Xt_exp, n_inputs, episode_feature, attr_exp',
+    'lf, names_in, X, names_out, Xt_exp, n_inputs, episode_feature, attr_exp',
     [
         # Basic, without episode feature
         (
@@ -1121,12 +1121,14 @@ class TestSplitCombineEpisodes:
                 lifting_functions_state=None,
                 lifting_functions_input=None,
             ),
+            np.array(['x0', 'x1', 'u0', 'u1']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [5, 4, 3, 2, 1, 0],
                 [4, 5, 6, 7, 8, 9],
                 [0, 8, 7, 6, 5, 4],
             ]).T,
+            np.array(['x0', 'x1', 'u0', 'u1']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [5, 4, 3, 2, 1, 0],
@@ -1151,6 +1153,7 @@ class TestSplitCombineEpisodes:
                 lifting_functions_state=None,
                 lifting_functions_input=None,
             ),
+            np.array(['ep', 'x0', 'x1', 'u0', 'u1']),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
@@ -1158,6 +1161,7 @@ class TestSplitCombineEpisodes:
                 [4, 5, 6, 7, 8, 9],
                 [0, 8, 7, 6, 5, 4],
             ]).T,
+            np.array(['ep', 'x0', 'x1', 'u0', 'u1']),
             np.array([
                 [0, 0, 0, 0, 1, 1],
                 [0, 1, 2, 3, 4, 5],
@@ -1186,12 +1190,22 @@ class TestSplitCombineEpisodes:
                 )],
                 lifting_functions_input=None,
             ),
+            np.array(['x0', 'x1', 'u0', 'u1']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [5, 4, 3, 2, 1, 0],
                 [4, 5, 6, 7, 8, 9],
                 [0, 8, 7, 6, 5, 4],
             ]).T,
+            np.array([
+                'x0',
+                'x1',
+                'x0^2',
+                'x0*x1',
+                'x1^2',
+                'u0',
+                'u1',
+            ]),
             np.array([
                 # State
                 [0, 1, 2, 3, 4, 5],
@@ -1224,12 +1238,22 @@ class TestSplitCombineEpisodes:
                     pykoop.PolynomialLiftingFn(order=2),
                 )],
             ),
+            np.array(['x0', 'x1', 'u0', 'u1']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [5, 4, 3, 2, 1, 0],
                 [4, 5, 6, 7, 8, 9],
                 [0, 8, 7, 6, 5, 4],
             ]).T,
+            np.array([
+                'x0',
+                'x1',
+                'u0',
+                'u1',
+                'u0^2',
+                'u0*u1',
+                'u1^2',
+            ]),
             np.array([
                 # State
                 [0, 1, 2, 3, 4, 5],
@@ -1265,12 +1289,23 @@ class TestSplitCombineEpisodes:
                     pykoop.PolynomialLiftingFn(order=2),
                 )],
             ),
+            np.array(['x0', 'x1', 'u0', 'u1']),
             np.array([
                 [0, 1, 2, 3, 4, 5],
                 [5, 4, 3, 2, 1, 0],
                 [4, 5, 6, 7, 8, 9],
                 [0, 8, 7, 6, 5, 4],
             ]).T,
+            np.array([
+                'x0',
+                'x1',
+                'x0*x1',
+                'u0',
+                'u1',
+                'u0^2',
+                'u0*u1',
+                'u1^2',
+            ]),
             np.array([
                 # State
                 [0, 1, 2, 3, 4, 5],
@@ -1300,8 +1335,8 @@ class TestSplitCombineEpisodes:
 class TestSplitPipeline:
     """Test :class:`SplitPipeline`."""
 
-    def test_split_lifting_fn_attrs(self, lf, X, Xt_exp, n_inputs,
-                                    episode_feature, attr_exp):
+    def test_split_lifting_fn_attrs(self, lf, names_in, X, names_out, Xt_exp,
+                                    n_inputs, episode_feature, attr_exp):
         """Test expected :class:`SplitPipeline` object attributes."""
         # Fit estimator
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
@@ -1309,15 +1344,17 @@ class TestSplitPipeline:
         attr = {key: getattr(lf, key) for key in attr_exp.keys()}
         assert attr == attr_exp
 
-    def test_split_lifting_fn_transform(self, lf, X, Xt_exp, n_inputs,
-                                        episode_feature, attr_exp):
+    def test_split_lifting_fn_transform(self, lf, names_in, X, names_out,
+                                        Xt_exp, n_inputs, episode_feature,
+                                        attr_exp):
         """Test :class:`SplitPipeline` transform."""
         # Fit estimator
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         Xt = lf.transform(X)
         np.testing.assert_allclose(Xt, Xt_exp)
 
-    def test_split_lifting_fn_inverse_transform(self, lf, X, Xt_exp, n_inputs,
+    def test_split_lifting_fn_inverse_transform(self, lf, names_in, X,
+                                                names_out, Xt_exp, n_inputs,
                                                 episode_feature, attr_exp):
         """Test :class:`SplitPipeline` inverse transform."""
         # Fit estimator
@@ -1325,6 +1362,20 @@ class TestSplitPipeline:
         Xt = lf.transform(X)
         Xi = lf.inverse_transform(Xt)
         np.testing.assert_allclose(Xi, X)
+
+    def test_feature_names_in(self, lf, names_in, X, names_out, Xt_exp,
+                              n_inputs, episode_feature, attr_exp):
+        """Test input feature names."""
+        lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        names_in_actual = lf.get_feature_names_in()
+        assert np.all(names_in == names_in_actual)
+
+    def test_feature_names_out(self, lf, names_in, X, names_out, Xt_exp,
+                               n_inputs, episode_feature, attr_exp):
+        """Test input feature names."""
+        lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        names_out_actual = lf.get_feature_names_out()
+        assert np.all(names_out == names_out_actual)
 
 
 @pytest.mark.parametrize(
