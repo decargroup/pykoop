@@ -405,7 +405,11 @@ class KoopmanLiftingFn(sklearn.base.BaseEstimator,
             Output feature names.
         """
         feature_names_in = self.get_feature_names_in()
-        return self._transform_feature_names(feature_names_in, format)
+        feature_names_out = self._transform_feature_names(
+            feature_names_in,
+            format,
+        )
+        return feature_names_out
 
     def get_feature_names_in(self, format: str = None) -> np.ndarray:
         """Automatically generate input feature names.
@@ -2672,12 +2676,20 @@ def _generate_feature_names(
         Generated states.
     """
     names = []
-    if episode_feature:
-        names.append('ep')
-    for k in range(n_states_in):
-        names.append(f'x{k}')
-    for k in range(n_inputs_in):
-        names.append(f'u{k}')
+    if format == 'latex':
+        if episode_feature:
+            names.append(r'\mathrm{episode}')
+        for k in range(n_states_in):
+            names.append(f'x_{{{k}}}')
+        for k in range(n_inputs_in):
+            names.append(f'u_{{{k}}}')
+    else:
+        if episode_feature:
+            names.append('ep')
+        for k in range(n_states_in):
+            names.append(f'x{k}')
+        for k in range(n_inputs_in):
+            names.append(f'u{k}')
     feature_names_in = np.array(names)
     return feature_names_in
 

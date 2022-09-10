@@ -104,7 +104,10 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         format: str = None,
     ) -> np.ndarray:
         # noqa: D102
-        fn = self.transformer_.__class__.__name__
+        if format == 'latex':
+            fn = rf'\mathrm{{{self.transformer_.__class__.__name__}}}'
+        else:
+            fn = self.transformer_.__class__.__name__
         names_out = []
         for k in range(self.n_features_in_):
             if self.episode_feature_ and (k == 0):
@@ -112,7 +115,7 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
             else:
                 names_out.append(f'{fn}({feature_names[k]})')
         feature_names_out = np.array(names_out)
-        return feature_names_out  # TODO
+        return feature_names_out
 
 
 class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
@@ -254,6 +257,14 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         format: str = None,
     ) -> np.ndarray:
         # noqa: D102
+        if format == 'latex':
+            times = ' '
+            pre = '{'
+            post = '}'
+        else:
+            times = '*'
+            pre = ''
+            post = ''
         # Deal with episode feature
         if self.episode_feature_:
             names_in = feature_names[1:]
@@ -272,8 +283,9 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
                 elif powers[ft_out, ft_in] == 1:
                     str_.append(f'{names_in[ft_in]}')
                 else:
-                    str_.append(f'{names_in[ft_in]}^{powers[ft_out, ft_in]}')
-            names_tf.append('*'.join(str_))
+                    exp = f'{pre}{powers[ft_out, ft_in]}{post}'
+                    str_.append(f'{names_in[ft_in]}^{exp}')
+            names_tf.append(times.join(str_))
         names_tf_arr = np.asarray(names_tf, dtype=object)
         names_out = names_tf_arr[self.transform_order_]
         if ep is not None:
@@ -373,6 +385,10 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         format: str = None,
     ) -> np.ndarray:
         # noqa: D102
+        if format == 'latex':
+            times = ' '
+        else:
+            times = '*'
         names_out = []
         # Deal with episode feature
         if self.episode_feature_:
@@ -387,9 +403,9 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         for ft_u in range(self.n_states_in_,
                           self.n_states_in_ + self.n_inputs_in_):
             for ft_x in range(self.n_states_in_):
-                names_out.append(f'{names_in[ft_x]}*{names_in[ft_u]}')
+                names_out.append(f'{names_in[ft_x]}{times}{names_in[ft_u]}')
         feature_names_out = np.array(names_out)
-        return feature_names_out  # TODO
+        return feature_names_out
 
 
 class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
@@ -503,7 +519,14 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
         format: str = None,
     ) -> np.ndarray:
         # noqa: D102
-        fn = 'D'
+        if format == 'latex':
+            fn = 'D_'
+            pre = '{'
+            post = '}'
+        else:
+            fn = 'D'
+            pre = ''
+            post = ''
         names_out = []
         # Deal with episode feature
         if self.episode_feature_:
@@ -517,7 +540,8 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
                 if delay == 0:
                     names_out.append(f'{names_in[state]}')
                 else:
-                    names_out.append(f'{fn}{delay}({names_in[state]})')
+                    names_out.append(
+                        f'{fn}{pre}{delay}{post}({names_in[state]})')
         # Add input delays
         for delay in range(self.n_delays_input + 1):
             for input_ in range(self.n_inputs_in_):
@@ -525,9 +549,10 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
                     names_out.append(f'{names_in[self.n_states_in_ + input_]}')
                 else:
                     names_out.append(
-                        f'{fn}{delay}({names_in[self.n_states_in_ + input_]})')
+                        f'{fn}{pre}{delay}{post}'
+                        f'({names_in[self.n_states_in_ + input_]})')
         feature_names_out = np.array(names_out)
-        return feature_names_out  # TODO
+        return feature_names_out
 
     @staticmethod
     def _delay(X: np.ndarray, n_delays: int) -> np.ndarray:

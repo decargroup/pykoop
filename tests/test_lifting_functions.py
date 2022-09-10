@@ -1116,8 +1116,104 @@ class TestDelayLiftingFnTransform:
         """Test input feature names."""
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         names_out_actual = lf.get_feature_names_out()
-        if not np.all(names_out == names_out_actual):
-            breakpoint()
+        assert np.all(names_out == names_out_actual)
+
+
+@pytest.mark.parametrize(
+    'lf, names_in, X, names_out, n_inputs, episode_feature',
+    [
+        (
+            pykoop.PolynomialLiftingFn(order=2),
+            np.array(['x_{0}', 'x_{1}', 'u_{0}']),
+            np.array([
+                [0, 1, 2, 3, 4, 5],
+                [0, 2, 4, 6, 8, 10],
+                [1, 3, 5, 7, 9, 11],
+            ]).T,
+            np.array([
+                'x_{0}',
+                'x_{1}',
+                'x_{0}^{2}',
+                'x_{0} x_{1}',
+                'x_{1}^{2}',
+                'u_{0}',
+                'x_{0} u_{0}',
+                'x_{1} u_{0}',
+                'u_{0}^{2}',
+            ]),
+            1,
+            False,
+        ),
+        (
+            pykoop.PolynomialLiftingFn(order=1),
+            np.array([r'\mathrm{episode}', 'x_{0}', 'x_{1}', 'x_{2}']),
+            np.array([
+                [0, 0, 0, 0, 1, 1],
+                [0, 1, 2, 3, 4, 5],
+                [0, -1, -2, -3, -4, -5],
+                [0, 2, 4, 5, 6, 10],
+            ]).T,
+            np.array([r'\mathrm{episode}', 'x_{0}', 'x_{1}', 'x_{2}']),
+            0,
+            True,
+        ),
+        (
+            pykoop.SkLearnLiftingFn(preprocessing.MaxAbsScaler()),
+            np.array(['x_{0}', 'x_{1}', 'x_{2}']),
+            np.array([
+                [1., -1., 2.],
+                [2., 0., 0.],
+                [0., 1., -1.],
+            ]),
+            np.array([
+                r'\mathrm{MaxAbsScaler}(x_{0})',
+                r'\mathrm{MaxAbsScaler}(x_{1})',
+                r'\mathrm{MaxAbsScaler}(x_{2})',
+            ]),
+            0,
+            False,
+        ),
+        (
+            pykoop.BilinearInputLiftingFn(),
+            np.array(['x_{0}', 'x_{1}', 'x_{2}', 'u_{0}']),
+            np.array([
+                # States
+                [0, 1, 2, 3, 4, 5],
+                [1, 2, 3, 4, 5, 6],
+                [6, 5, 4, 3, 2, 1],
+                # Inputs
+                [5, 4, 3, 2, 1, 1],
+            ]).T,
+            np.array([
+                'x_{0}',
+                'x_{1}',
+                'x_{2}',
+                'u_{0}',
+                'x_{0} u_{0}',
+                'x_{1} u_{0}',
+                'x_{2} u_{0}',
+            ]),
+            1,
+            False,
+        ),
+    ],
+)
+class TestLiftingFnLatexFeatureNames:
+    """Test lifting function LaTeX feature names."""
+
+    def test_feature_names_in(self, lf, names_in, X, names_out, n_inputs,
+                              episode_feature):
+        """Test input feature names."""
+        lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        names_in_actual = lf.get_feature_names_in(format='latex')
+        assert np.all(names_in == names_in_actual)
+
+    def test_feature_names_out(self, lf, names_in, X, names_out, n_inputs,
+                               episode_feature):
+        """Test input feature names."""
+        X_named = pandas.DataFrame(X, columns=names_in)
+        lf.fit(X_named, n_inputs=n_inputs, episode_feature=episode_feature)
+        names_out_actual = lf.get_feature_names_out(format='latex')
         assert np.all(names_out == names_out_actual)
 
 
