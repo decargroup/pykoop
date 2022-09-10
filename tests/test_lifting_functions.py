@@ -1211,8 +1211,7 @@ class TestLiftingFnLatexFeatureNames:
     def test_feature_names_out(self, lf, names_in, X, names_out, n_inputs,
                                episode_feature):
         """Test input feature names."""
-        X_named = pandas.DataFrame(X, columns=names_in)
-        lf.fit(X_named, n_inputs=n_inputs, episode_feature=episode_feature)
+        lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         names_out_actual = lf.get_feature_names_out(format='latex')
         assert np.all(names_out == names_out_actual)
 

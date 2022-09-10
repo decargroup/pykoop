@@ -404,7 +404,7 @@ class KoopmanLiftingFn(sklearn.base.BaseEstimator,
         np.ndarray
             Output feature names.
         """
-        feature_names_in = self.get_feature_names_in()
+        feature_names_in = self.get_feature_names_in(format)
         feature_names_out = self._transform_feature_names(
             feature_names_in,
             format,
