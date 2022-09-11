@@ -223,6 +223,7 @@ class TestKoopmanPipelineTransform:
         )
         names_in_actual = lf.get_feature_names_in()
         assert np.all(names_in == names_in_actual)
+        assert names_in_actual.dtype == object
 
     def test_feature_names_out(self, lf, names_in, X, names_out, Xt_exp,
                                n_inputs, episode_feature, attr_exp):
@@ -234,6 +235,7 @@ class TestKoopmanPipelineTransform:
         )
         names_out_actual = lf.get_feature_names_out()
         assert np.all(names_out == names_out_actual)
+        assert names_out_actual.dtype == object
 
 
 class TestKoopmanPipelineFit:
@@ -1369,6 +1371,7 @@ class TestSplitPipeline:
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         names_in_actual = lf.get_feature_names_in()
         assert np.all(names_in == names_in_actual)
+        assert names_in_actual.dtype == object
 
     def test_feature_names_out(self, lf, names_in, X, names_out, Xt_exp,
                                n_inputs, episode_feature, attr_exp):
@@ -1376,6 +1379,7 @@ class TestSplitPipeline:
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         names_out_actual = lf.get_feature_names_out()
         assert np.all(names_out == names_out_actual)
+        assert names_out_actual.dtype == object
 
 
 @pytest.mark.parametrize(

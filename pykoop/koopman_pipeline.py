@@ -430,14 +430,15 @@ class KoopmanLiftingFn(
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
         if self.feature_names_in_ is None:
-            return _generate_feature_names(
+            feature_names_in = _generate_feature_names(
                 self.n_states_in_,
                 self.n_inputs_in_,
                 self.episode_feature_,
                 format,
             )
         else:
-            return self.feature_names_in_
+            feature_names_in = self.feature_names_in_
+        return feature_names_in
 
     def _validate_feature_names(self, X: np.ndarray) -> None:
         """Validate that input feature names are correct.
@@ -1441,12 +1442,14 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             feature_names_out = np.concatenate((
                 names_out_state,
                 names_out_input[1:],
-            ))
+            ),
+                                               dtype=object)
         else:
             feature_names_out = np.concatenate((
                 names_out_state,
                 names_out_input,
-            ))
+            ),
+                                               dtype=object)
         return feature_names_out
 
 

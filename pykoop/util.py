@@ -145,18 +145,30 @@ class AnglePreprocessor(koopman_pipeline.EpisodeIndependentLiftingFn):
         format: str = None,
     ) -> np.ndarray:
         # noqa: D102
+        if format == 'latex':
+            cos = r'\cos'
+            sin = r'\sin'
+            pre = '{'
+            post = '}'
+        else:
+            cos = 'cos'
+            sin = 'sin'
+            pre = ''
+            post = ''
         names_out = []
         if self.episode_feature_:
-            names_out.append('ep')
+            names_out.append(feature_names[0])
         for k in range(self.n_states_in_ + self.n_inputs_in_):
             name_idx = k + 1 if self.episode_feature_ else k
             if self.angles_in_[k]:
-                names_out.append(f'cos({feature_names[name_idx]})')
-                names_out.append(f'sin({feature_names[name_idx]})')
+                names_out.append(
+                    f'{cos}{pre}({feature_names[name_idx]}){post}')
+                names_out.append(
+                    f'{sin}{pre}({feature_names[name_idx]}){post}')
             else:
                 names_out.append(feature_names[name_idx])
-        feature_names_out = np.array(names_out)
-        return feature_names_out  # TODO
+        feature_names_out = np.array(names_out, dtype=object)
+        return feature_names_out
 
 
 def random_state(low, high, rng=None):

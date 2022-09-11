@@ -122,6 +122,7 @@ class TestAnglePreprocessorTransform:
         pp.fit(X, episode_feature=episode_feature)
         names_in_actual = pp.get_feature_names_in()
         assert all(names_in == names_in_actual)
+        assert names_in_actual.dtype == object
 
     def test_feature_names_out(self, names_in, X, names_out, Xt_exp, Xi_exp,
                                episode_feature):
@@ -130,6 +131,7 @@ class TestAnglePreprocessorTransform:
         pp.fit(X, episode_feature=episode_feature)
         names_out_actual = pp.get_feature_names_out()
         assert all(names_out == names_out_actual)
+        assert names_out_actual.dtype == object
 
 
 @pytest.mark.parametrize(
@@ -179,6 +181,52 @@ class TestAnglePreprocessorFeatureOrder:
         pp = pykoop.AnglePreprocessor(angle_features=angle_feature)
         pp.fit(self.X, episode_feature=False)
         np.testing.assert_allclose(sin, pp.sin_out_)
+
+
+@pytest.mark.parametrize(
+    'names_in, X, names_out, n_inputs, episode_feature',
+    [
+        (
+            np.array(['x_{0}', 'x_{1}', 'x_{2}']),
+            np.array([
+                [0, 1, 2, 3],
+                [0, np.pi, 0, -np.pi / 2],
+                [-1, -2, -1, -2],
+            ]).T,
+            np.array(['x_{0}', r'\cos{(x_{1})}', r'\sin{(x_{1})}', 'x_{2}']),
+            0,
+            False,
+        ),
+    ],
+)
+class TestLiftingFnLatexFeatureNames:
+    """Test lifting function LaTeX feature names.
+
+    Attributes
+    ----------
+    angle_feature : np.ndarray
+        Array of feature indices that are angles.
+    """
+
+    angle_feature = np.array([1])
+
+    def test_feature_names_in(self, names_in, X, names_out, n_inputs,
+                              episode_feature):
+        """Test input feature names."""
+        pp = pykoop.AnglePreprocessor(angle_features=self.angle_feature)
+        pp.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        names_in_actual = pp.get_feature_names_in(format='latex')
+        assert np.all(names_in == names_in_actual)
+        assert names_in_actual.dtype == object
+
+    def test_feature_names_out(self, names_in, X, names_out, n_inputs,
+                               episode_feature):
+        """Test input feature names."""
+        pp = pykoop.AnglePreprocessor(angle_features=self.angle_feature)
+        pp.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        names_out_actual = pp.get_feature_names_out(format='latex')
+        assert np.all(names_out == names_out_actual)
+        assert names_out_actual.dtype == object
 
 
 class TestSkLearn:

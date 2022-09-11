@@ -118,7 +118,7 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
                 names_out.append(feature_names[k])
             else:
                 names_out.append(f'{fn}({feature_names[k]})')
-        feature_names_out = np.array(names_out)
+        feature_names_out = np.array(names_out, dtype=object)
         return feature_names_out
 
 
@@ -297,9 +297,9 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         names_tf_arr = np.asarray(names_tf, dtype=object)
         names_out = names_tf_arr[self.transform_order_]
         if ep is not None:
-            feature_names_out = np.concatenate((ep, names_out))
+            feature_names_out = np.concatenate((ep, names_out), dtype=object)
         else:
-            feature_names_out = names_out
+            feature_names_out = names_out.astype(object)
         return feature_names_out
 
 
@@ -416,7 +416,7 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
                           self.n_states_in_ + self.n_inputs_in_):
             for ft_x in range(self.n_states_in_):
                 names_out.append(f'{names_in[ft_x]}{times}{names_in[ft_u]}')
-        feature_names_out = np.array(names_out)
+        feature_names_out = np.array(names_out, dtype=object)
         return feature_names_out
 
 
@@ -567,7 +567,7 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
                     names_out.append(
                         f'{fn}{pre}{delay}{post}'
                         f'({names_in[self.n_states_in_ + input_]})')
-        feature_names_out = np.array(names_out)
+        feature_names_out = np.array(names_out, dtype=object)
         return feature_names_out
 
     @staticmethod

@@ -599,6 +599,7 @@ class TestLiftingFnTransform:
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         names_in_actual = lf.get_feature_names_in()
         assert np.all(names_in == names_in_actual)
+        assert names_in_actual.dtype == object
 
     def test_feature_names_out(self, lf, names_in, X, names_out, Xt_exp,
                                n_inputs, episode_feature):
@@ -606,6 +607,7 @@ class TestLiftingFnTransform:
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         names_out_actual = lf.get_feature_names_out()
         assert np.all(names_out == names_out_actual)
+        assert names_out_actual.dtype == object
 
 
 @pytest.mark.parametrize(
@@ -1110,6 +1112,7 @@ class TestDelayLiftingFnTransform:
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         names_in_actual = lf.get_feature_names_in()
         assert np.all(names_in == names_in_actual)
+        assert names_in_actual.dtype == object
 
     def test_feature_names_out(self, lf, names_in, X, names_out, Xt_exp,
                                n_inputs, episode_feature):
@@ -1117,6 +1120,7 @@ class TestDelayLiftingFnTransform:
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         names_out_actual = lf.get_feature_names_out()
         assert np.all(names_out == names_out_actual)
+        assert names_out_actual.dtype == object
 
 
 @pytest.mark.parametrize(
@@ -1207,6 +1211,7 @@ class TestLiftingFnLatexFeatureNames:
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         names_in_actual = lf.get_feature_names_in(format='latex')
         assert np.all(names_in == names_in_actual)
+        assert names_in_actual.dtype == object
 
     def test_feature_names_out(self, lf, names_in, X, names_out, n_inputs,
                                episode_feature):
@@ -1214,6 +1219,7 @@ class TestLiftingFnLatexFeatureNames:
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         names_out_actual = lf.get_feature_names_out(format='latex')
         assert np.all(names_out == names_out_actual)
+        assert names_out_actual.dtype == object
 
 
 class TestSkLearn:
