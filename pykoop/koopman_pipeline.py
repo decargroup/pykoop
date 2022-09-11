@@ -17,9 +17,11 @@ log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
 
 
-class KoopmanLiftingFn(sklearn.base.BaseEstimator,
-                       sklearn.base.TransformerMixin,
-                       metaclass=abc.ABCMeta):
+class KoopmanLiftingFn(
+        sklearn.base.BaseEstimator,
+        sklearn.base.TransformerMixin,
+        metaclass=abc.ABCMeta,
+):
     """Base class for Koopman lifting functions.
 
     All attributes with a trailing underscore must be set in the subclass'
@@ -935,6 +937,8 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         Indicates if episode feature was present during :func:`fit`.
     coef_ : np.ndarray
         Fit coefficient matrix.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
     """
 
     # Array check parameters for :func:`fit` when ``X`` and ``y` are given
@@ -1483,10 +1487,16 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     Apply a basic Koopman pipeline to mass-spring-damper data
 
     >>> kp = pykoop.KoopmanPipeline(
+    ...     lifting_functions=[('pl', pykoop.PolynomialLiftingFn(order=2))],
     ...     regressor=pykoop.Edmd(),
     ... )
     >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
-    KoopmanPipeline(regressor=Edmd())
+    KoopmanPipeline(lifting_functions=[('pl', PolynomialLiftingFn(order=2))],
+    regressor=Edmd())
+    >>> kp.get_feature_names_in().tolist()
+    ['ep', 'x0', 'x1', 'u0']
+    >>> kp.get_feature_names_out().tolist()
+    ['ep', 'x0', 'x1', 'x0^2', 'x0*x1', 'x1^2', 'u0', 'x0*u0', 'x1*u0', 'u0^2']
 
     Apply more sophisticated Koopman pipeline to mass-spring-damper data
 
@@ -2690,7 +2700,7 @@ def _generate_feature_names(
             names.append(f'x{k}')
         for k in range(n_inputs_in):
             names.append(f'u{k}')
-    feature_names_in = np.array(names)
+    feature_names_in = np.array(names, dtype=object)
     return feature_names_in
 
 

@@ -61,6 +61,10 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     ...     sklearn.preprocessing.StandardScaler())
     >>> std_scaler.fit(X_msd, n_inputs=1, episode_feature=True)
     SkLearnLiftingFn(transformer=StandardScaler())
+    >>> std_scaler.get_feature_names_in().tolist()
+    ['ep', 'x0', 'x1', 'u0']
+    >>> std_scaler.get_feature_names_out().tolist()
+    ['ep', 'StandardScaler(x0)', 'StandardScaler(x1)', 'StandardScaler(u0)']
     >>> X_msd_pp = std_scaler.transform(X_msd)
     >>> np.mean(X_msd_pp[:, 1:], axis=0)
     array([...])
@@ -156,6 +160,10 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     >>> poly = pykoop.PolynomialLiftingFn(order=2)
     >>> poly.fit(X_msd, n_inputs=1, episode_feature=True)
     PolynomialLiftingFn(order=2)
+    >>> poly.get_feature_names_in().tolist()
+    ['ep', 'x0', 'x1', 'u0']
+    >>> poly.get_feature_names_out().tolist()
+    ['ep', 'x0', 'x1', 'x0^2', 'x0*x1', 'x1^2', 'u0', 'x0*u0', 'x1*u0', 'u0^2']
     >>> Xt_msd = poly.transform(X_msd[:2, :])
     """
 
@@ -346,6 +354,10 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     >>> bilin = pykoop.BilinearInputLiftingFn()
     >>> bilin.fit(X_msd, n_inputs=1, episode_feature=True)
     BilinearInputLiftingFn()
+    >>> bilin.get_feature_names_in().tolist()
+    ['ep', 'x0', 'x1', 'u0']
+    >>> bilin.get_feature_names_out().tolist()
+    ['ep', 'x0', 'x1', 'u0', 'x0*u0', 'x1*u0']
     >>> Xt_msd = bilin.transform(X_msd[:2, :])
     """
 
@@ -449,6 +461,10 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
     >>> delay = pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1)
     >>> delay.fit(X_msd, n_inputs=1, episode_feature=True)
     DelayLiftingFn(n_delays_input=1, n_delays_state=1)
+    >>> delay.get_feature_names_in().tolist()
+    ['ep', 'x0', 'x1', 'u0']
+    >>> delay.get_feature_names_out().tolist()
+    ['ep', 'x0', 'x1', 'D1(x0)', 'D1(x1)', 'u0', 'D1(u0)']
     >>> Xt_msd = delay.transform(X_msd[:3, :])
     """
 

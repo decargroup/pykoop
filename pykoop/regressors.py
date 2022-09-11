@@ -27,6 +27,8 @@ class Edmd(koopman_pipeline.KoopmanRegressor):
         Number of inputs input.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
     coef_ : np.ndarray
         Fit coefficient matrix.
 
@@ -95,6 +97,8 @@ class Dmdc(koopman_pipeline.KoopmanRegressor):
         Number of inputs input.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
     coef_ : np.ndarray
         Fit coefficient matrix.
 
@@ -214,6 +218,8 @@ class Dmd(koopman_pipeline.KoopmanRegressor):
         Number of inputs input.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
     coef_ : np.ndarray
         Fit coefficient matrix.
 

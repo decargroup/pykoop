@@ -68,6 +68,8 @@ class LmiRegressor(koopman_pipeline.KoopmanRegressor):
         Number of inputs input.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
     coef_ : np.ndarray
         Fit coefficient matrix.
     """
@@ -132,6 +134,8 @@ class LmiEdmd(LmiRegressor):
         Number of inputs input.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
     coef_ : np.ndarray
         Fit coefficient matrix.
 
@@ -430,6 +434,8 @@ class LmiDmdc(LmiRegressor):
         Number of inputs input.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
     coef_ : np.ndarray
         Fit coefficient matrix.
 
@@ -700,6 +706,8 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
         Number of inputs input.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
     coef_ : np.ndarray
         Fit coefficient matrix.
 
@@ -944,6 +952,8 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
         Number of inputs input.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
     coef_ : np.ndarray
         Fit coefficient matrix.
 
@@ -1200,6 +1210,8 @@ class LmiEdmdHinfReg(LmiRegressor):
         Number of inputs input.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
     coef_ : np.ndarray
         Fit coefficient matrix.
 
@@ -1531,6 +1543,8 @@ class LmiDmdcHinfReg(LmiRegressor):
         Number of inputs input.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
     coef_ : np.ndarray
         Fit coefficient matrix
 
@@ -1876,6 +1890,8 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         Number of inputs input.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
     coef_ : np.ndarray
         Fit coefficient matrix.
 
@@ -2157,6 +2173,8 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         Number of inputs input.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
     coef_ : np.ndarray
         Fit coefficient matrix.
     """
@@ -2321,6 +2339,7 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         self.n_states_in_ = self.hinf_regressor_.n_states_in_
         self.n_inputs_in_ = self.hinf_regressor_.n_inputs_in_
         self.episode_feature_ = self.hinf_regressor_.episode_feature_
+        self.feature_names_in_ = self.hinf_regressor_.feature_names_in_
         self.coef_ = self.hinf_regressor_.coef_
         return self
 
