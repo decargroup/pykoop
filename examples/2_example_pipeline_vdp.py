@@ -96,6 +96,9 @@ def example_pipeline_vdp() -> None:
         return_input=True,
     )
 
+    # Get feature names
+    names = kp.get_feature_names_out(format='latex')
+
     fig, ax = plt.subplots(
         kp.n_states_out_,
         1,
@@ -119,7 +122,7 @@ def example_pipeline_vdp() -> None:
             '--',
             label='Global prediction',
         )
-        ax[i, 0].set_ylabel(rf'$\vartheta_{i + 1}$')
+        ax[i, 0].set_ylabel(rf'$\vartheta_{i + 1} = {names[i + 1]}$')
 
     ax[-1, 0].set_xlabel('$k$')
     ax[0, 0].set_title('True and predicted lifted states')

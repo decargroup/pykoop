@@ -46,6 +46,8 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         Minimum number of samples needed to use the transformer.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
 
     References
     ----------
@@ -59,6 +61,10 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     ...     sklearn.preprocessing.StandardScaler())
     >>> std_scaler.fit(X_msd, n_inputs=1, episode_feature=True)
     SkLearnLiftingFn(transformer=StandardScaler())
+    >>> std_scaler.get_feature_names_in().tolist()
+    ['ep', 'x0', 'x1', 'u0']
+    >>> std_scaler.get_feature_names_out().tolist()
+    ['ep', 'StandardScaler(x0)', 'StandardScaler(x1)', 'StandardScaler(u0)']
     >>> X_msd_pp = std_scaler.transform(X_msd)
     >>> np.mean(X_msd_pp[:, 1:], axis=0)
     array([...])
@@ -96,6 +102,25 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         # Let transformer do its own validation
         pass
 
+    def _transform_feature_names(
+        self,
+        feature_names: np.ndarray,
+        format: str = None,
+    ) -> np.ndarray:
+        # noqa: D102
+        if format == 'latex':
+            fn = rf'\mathrm{{{self.transformer_.__class__.__name__}}}'
+        else:
+            fn = self.transformer_.__class__.__name__
+        names_out = []
+        for k in range(self.n_features_in_):
+            if self.episode_feature_ and (k == 0):
+                names_out.append(feature_names[k])
+            else:
+                names_out.append(f'{fn}({feature_names[k]})')
+        feature_names_out = np.array(names_out, dtype=object)
+        return feature_names_out
+
 
 class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     """Lifting function to generate all monomials of the input features.
@@ -125,6 +150,8 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         Minimum number of samples needed to use the transformer.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
 
     Examples
     --------
@@ -133,6 +160,10 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     >>> poly = pykoop.PolynomialLiftingFn(order=2)
     >>> poly.fit(X_msd, n_inputs=1, episode_feature=True)
     PolynomialLiftingFn(order=2)
+    >>> poly.get_feature_names_in().tolist()
+    ['ep', 'x0', 'x1', 'u0']
+    >>> poly.get_feature_names_out().tolist()
+    ['ep', 'x0', 'x1', 'x0^2', 'x0*x1', 'x1^2', 'u0', 'x0*u0', 'x1*u0', 'u0^2']
     >>> Xt_msd = poly.transform(X_msd[:2, :])
     """
 
@@ -153,7 +184,8 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         self.transformer_ = sklearn.preprocessing.PolynomialFeatures(
             degree=self.order,
             interaction_only=self.interaction_only,
-            include_bias=False)
+            include_bias=False,
+        )
         self.transformer_.fit(X)
         # Figure out which lifted states correspond to the original states and
         # original inputs
@@ -166,7 +198,10 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
             # form ``x_1^1 * x_2^0 * x_3^0``. In that case, the row would be
             # ``[1, 0, 0]``.
             index = np.nonzero(
-                np.all(self.transformer_.powers_ == eye[i, :], axis=1))
+                np.all(
+                    self.transformer_.powers_ == eye[i, :],
+                    axis=1,
+                ))
             # Split up the "original states" from the "original inputs"
             if i < self.n_states_in_:
                 orig_states.append(index)
@@ -178,19 +213,23 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         # go at the bottom of the output.
         # Find all input-dependent features:
         all_inputs = np.nonzero(
-            np.any(self.transformer_.powers_[:, self.n_states_in_:] != 0,
-                   axis=1))[0].astype(int)
+            np.any(
+                self.transformer_.powers_[:, self.n_states_in_:] != 0,
+                axis=1,
+            ))[0].astype(int)
         # Do a set difference to remove the unlifted input features:
         other_inputs = np.setdiff1d(all_inputs, original_input)
-        # Figure out which other lifted states contain states (but are not the
+        # Figure out which other lifted states contain states, but are not the
         # original states themselves. Accomplish this by subtracting off
         # all the other types of features we found. That is, if it's not in
         # ``original_state_features``, ``original_input_features``, or
         # ``other_input_features``, it must be in ``other_state_features``.
         other_states = np.setdiff1d(
             np.arange(self.transformer_.powers_.shape[0]),
-            np.union1d(np.union1d(original_states, original_input),
-                       other_inputs),
+            np.union1d(
+                np.union1d(original_states, original_input),
+                other_inputs,
+            ),
         ).astype(int)
         # Form new ordering of states. Input-dependent states go at the end.
         self.transform_order_ = np.concatenate(
@@ -219,6 +258,49 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     def _validate_parameters(self) -> None:
         if self.order <= 0:
             raise ValueError('`order` must be greater than or equal to 1.')
+
+    def _transform_feature_names(
+        self,
+        feature_names: np.ndarray,
+        format: str = None,
+    ) -> np.ndarray:
+        # noqa: D102
+        if format == 'latex':
+            times = ' '
+            pre = '{'
+            post = '}'
+        else:
+            times = '*'
+            pre = ''
+            post = ''
+        # Deal with episode feature
+        if self.episode_feature_:
+            names_in = feature_names[1:]
+            ep = feature_names[[0]]
+        else:
+            names_in = feature_names
+            ep = None
+        # Transform feature names
+        names_tf = []
+        powers = self.transformer_.powers_
+        for ft_out in range(powers.shape[0]):
+            str_ = []
+            for ft_in in range(powers.shape[1]):
+                if powers[ft_out, ft_in] == 0:
+                    pass
+                elif powers[ft_out, ft_in] == 1:
+                    str_.append(f'{names_in[ft_in]}')
+                else:
+                    exp = f'{pre}{powers[ft_out, ft_in]}{post}'
+                    str_.append(f'{names_in[ft_in]}^{exp}')
+            names_tf.append(times.join(str_))
+        names_tf_arr = np.asarray(names_tf, dtype=object)
+        names_out = names_tf_arr[self.transform_order_]
+        if ep is not None:
+            feature_names_out = np.concatenate((ep, names_out), dtype=object)
+        else:
+            feature_names_out = names_out.astype(object)
+        return feature_names_out
 
 
 class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
@@ -262,6 +344,8 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         Minimum number of samples needed to use the transformer.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
 
     Examples
     --------
@@ -270,6 +354,10 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     >>> bilin = pykoop.BilinearInputLiftingFn()
     >>> bilin.fit(X_msd, n_inputs=1, episode_feature=True)
     BilinearInputLiftingFn()
+    >>> bilin.get_feature_names_in().tolist()
+    ['ep', 'x0', 'x1', 'u0']
+    >>> bilin.get_feature_names_out().tolist()
+    ['ep', 'x0', 'x1', 'u0', 'x0*u0', 'x1*u0']
     >>> Xt_msd = bilin.transform(X_msd[:2, :])
     """
 
@@ -303,6 +391,34 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         # No parameters to validate
         pass
 
+    def _transform_feature_names(
+        self,
+        feature_names: np.ndarray,
+        format: str = None,
+    ) -> np.ndarray:
+        # noqa: D102
+        if format == 'latex':
+            times = ' '
+        else:
+            times = '*'
+        names_out = []
+        # Deal with episode feature
+        if self.episode_feature_:
+            names_in = feature_names[1:]
+            names_out.append(feature_names[0])
+        else:
+            names_in = feature_names
+        # Add states and inputs
+        for ft in range(self.n_states_in_ + self.n_inputs_in_):
+            names_out.append(names_in[ft])
+        # Add products
+        for ft_u in range(self.n_states_in_,
+                          self.n_states_in_ + self.n_inputs_in_):
+            for ft_x in range(self.n_states_in_):
+                names_out.append(f'{names_in[ft_x]}{times}{names_in[ft_u]}')
+        feature_names_out = np.array(names_out, dtype=object)
+        return feature_names_out
+
 
 class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
     """Lifting function to generate delay coordinates for state and input.
@@ -327,6 +443,8 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
         Minimum number of samples needed to use the transformer.
     episode_feature_ : bool
         Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
 
     Warnings
     --------
@@ -343,6 +461,10 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
     >>> delay = pykoop.DelayLiftingFn(n_delays_state=1, n_delays_input=1)
     >>> delay.fit(X_msd, n_inputs=1, episode_feature=True)
     DelayLiftingFn(n_delays_input=1, n_delays_state=1)
+    >>> delay.get_feature_names_in().tolist()
+    ['ep', 'x0', 'x1', 'u0']
+    >>> delay.get_feature_names_out().tolist()
+    ['ep', 'x0', 'x1', 'D1(x0)', 'D1(x1)', 'u0', 'D1(u0)']
     >>> Xt_msd = delay.transform(X_msd[:3, :])
     """
 
@@ -406,6 +528,47 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
         if self.n_delays_input < 0:
             raise ValueError(
                 '`n_delays_u` must be greater than or equal to 0.')
+
+    def _transform_feature_names(
+        self,
+        feature_names: np.ndarray,
+        format: str = None,
+    ) -> np.ndarray:
+        # noqa: D102
+        if format == 'latex':
+            fn = 'D_'
+            pre = '{'
+            post = '}'
+        else:
+            fn = 'D'
+            pre = ''
+            post = ''
+        names_out = []
+        # Deal with episode feature
+        if self.episode_feature_:
+            names_in = feature_names[1:]
+            names_out.append(feature_names[0])
+        else:
+            names_in = feature_names
+        # Add state delays
+        for delay in range(self.n_delays_state + 1):
+            for state in range(self.n_states_in_):
+                if delay == 0:
+                    names_out.append(f'{names_in[state]}')
+                else:
+                    names_out.append(
+                        f'{fn}{pre}{delay}{post}({names_in[state]})')
+        # Add input delays
+        for delay in range(self.n_delays_input + 1):
+            for input_ in range(self.n_inputs_in_):
+                if delay == 0:
+                    names_out.append(f'{names_in[self.n_states_in_ + input_]}')
+                else:
+                    names_out.append(
+                        f'{fn}{pre}{delay}{post}'
+                        f'({names_in[self.n_states_in_ + input_]})')
+        feature_names_out = np.array(names_out, dtype=object)
+        return feature_names_out
 
     @staticmethod
     def _delay(X: np.ndarray, n_delays: int) -> np.ndarray:

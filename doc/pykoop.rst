@@ -91,8 +91,20 @@ the lifting function objects. Koopman regressors also support being fit with a
 single data matrix, which they will split and time-shift according to the
 episode feature.
 
+If the input is a :class:`pandas.DataFrame`, then ``pykoop`` will store the
+column names in ``feature_names_in_`` upon fitting. This applies to both
+:class:`pykoop.KoopmanLiftingFn` and :class:`pykoop.KoopmanRegressor`. If these
+feature names are specified, calling ``get_feature_names_in()`` will return
+them. If they do not exist, this function will return auto-generated ones. For
+instances of :class:`pykoop.KoopmanLiftingFn`, calling
+``get_feature_names_out()`` will generate the feature names of the lifted
+states. Note that :class:`pandas.DataFrame` instances are converted to
+:class:`numpy.ndarray` instances as soon as they are processed by ``pykoop``.
+You can recreate them using something like ``pandas.DataFrame(X_lifted,
+columns=lf.get_feature_names_out())``.
+
 The following class and function implementations are located in
-``pykoop.koopman_pipeline``, but have been imported into the ``pykoop``
+:mod:`pykoop.koopman_pipeline`, but have been imported into the ``pykoop``
 namespace for convenience.
 
 .. autosummary::

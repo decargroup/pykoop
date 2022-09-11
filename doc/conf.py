@@ -48,12 +48,14 @@ autodoc_default_options = {
 
 autosummary_generate = True
 
+# Path to ``objects.inv``
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
     'numpy': ('https://numpy.org/doc/stable/', None),
     'scipy': ('https://docs.scipy.org/doc/scipy/', None),
     'matplotlib': ('https://matplotlib.org/stable/', None),
     'scikit-learn': ('https://scikit-learn.org/stable/', None),
+    'pandas': ('https://pandas.pydata.org/docs/', None),
 }
 
 # Add any paths that contain templates here, relative to this directory.
