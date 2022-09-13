@@ -5,10 +5,10 @@ PICOS
 pandas
 optht
 Deprecated
+matplotlib
 
 pytest
 pytest-regressions
-matplotlib
 
 sphinx
 sphinx-rtd-theme

@@ -9,6 +9,7 @@ import pandas
 import sklearn.base
 import sklearn.metrics
 from deprecated import deprecated
+from matplotlib import pyplot as plt
 
 from ._sklearn_metaestimators import metaestimators
 
@@ -361,6 +362,89 @@ class KoopmanLiftingFn(
         else:
             Xt = Xt_pad[:, self.n_states_in_:]
         return Xt
+
+    def plot_trajectory(
+        self,
+        X: np.ndarray,
+        episode_feature: bool = None,
+        episode_style: str = None,
+        subplots_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot lifted data matrix.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
+        episode_style : str
+            If ``'columns'``, each episode is a column (default). If
+            ``'overlay'``, states from each episode are plotted overtop of each
+            other in different colors.
+        subplots_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplots()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+        """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self)
+        # Transform data
+        Xt = self.lift(X, episode_feature=episode_feature)
+        # Split episodes
+        eps = split_episodes(
+            Xt,
+            episode_feature=(self.episode_feature_
+                             if episode_feature is None else episode_feature),
+        )
+        # Figure out dimensions
+        n_row = eps[0][1].shape[1]
+        n_eps = len(eps)
+        n_col = 1 if episode_style == 'overlay' else n_eps
+        # Create figure
+        subplots_args = {} if subplots_kw is None else subplots_kw
+        subplots_args.update({
+            'squeeze': False,
+            'constrained_layout': True,
+            'sharex': 'col',
+            'sharey': 'row',
+        })
+        fig, ax = plt.subplots(n_row, n_col, **subplots_args)
+        # Set up plot arguments
+        plot_args = {} if plot_kw is None else plot_kw
+        plot_args.pop('label', None)
+        # Plot results
+        for row in range(n_row):
+            for ep in range(n_eps):
+                if episode_style == 'overlay':
+                    ax[row, 0].plot(
+                        eps[ep][1][:, row],
+                        label=f'Ep. {int(eps[ep][0])}',
+                        **plot_args,
+                    )
+                else:
+                    ax[row, ep].plot(eps[ep][1][:, row], **plot_args)
+        # Set y labels
+        for row in range(n_row):
+            ax[row, 0].set_ylabel(rf'$\psi_{{{row}}}$')
+        # Set x labels and titles
+        for col in range(n_col):
+            if episode_style != 'overlay':
+                ax[0, col].set_title(f'Ep. {int(eps[col][0])}')
+            ax[-1, col].set_xlabel('$k$')
+        # Set legend
+        if episode_style == 'overlay':
+            fig.legend(*ax[0, 0].get_legend_handles_labels())
+        fig.align_labels()
+        return fig, ax
 
     @abc.abstractmethod
     def _transform_feature_names(
