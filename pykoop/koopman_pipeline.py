@@ -363,7 +363,7 @@ class KoopmanLiftingFn(
             Xt = Xt_pad[:, self.n_states_in_:]
         return Xt
 
-    def plot_trajectory(
+    def plot_lifted_trajectory(
         self,
         X: np.ndarray,
         episode_feature: bool = None,
@@ -1714,12 +1714,16 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         self.regressor_fit_ = True
         return self
 
-    def fit_transformers(self,
-                         X: np.ndarray,
-                         y: np.ndarray = None,
-                         n_inputs: int = 0,
-                         episode_feature: bool = False) -> 'KoopmanPipeline':
+    def fit_transformers(
+        self,
+        X: np.ndarray,
+        y: np.ndarray = None,
+        n_inputs: int = 0,
+        episode_feature: bool = False,
+    ) -> 'KoopmanPipeline':
         """Fit only the lifting functions in the pipeline.
+
+        .. todo:: Rename to ``partial_fit``.
 
         Parameters
         ----------
@@ -2015,6 +2019,9 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     ) -> np.ndarray:
         """Predict state trajectory given input for each episode.
 
+        .. todo:: Allow X_initial to be specified in the style of ``predict_multistep``
+        .. todo:: Write example section
+
         Parameters
         ----------
         X_initial : np.ndarray
@@ -2177,6 +2184,107 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             episode_feature=episode_feature,
         )
         return combined_episodes
+
+    def plot_predicted_trajectory(
+        self,
+        X_initial: np.ndarray,
+        U: np.ndarray,
+        relift_state: bool = True,
+        plot_lifted: bool = False,
+        plot_input: bool = False,
+        episode_feature: bool = None,
+        episode_style: str = None,
+        subplots_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot predicted trajectory.
+
+        Parameters
+        ----------
+        X_initial : np.ndarray
+            Initial state.
+        U : np.ndarray
+            Input. Length of prediction is governed by length of input.
+        relift_state : bool
+            If true, retract and re-lift state between prediction steps
+            (default). Otherwise, only retract the state after all predictions
+            are made. Correspond to the local and global error definitions of
+            [MAM22]_.
+        plot_lifted : bool
+            If true, plot the lifted state. If false, plot the original
+            state (default).
+        plot_input : bool
+            If true, plot the input as well as the state. If false, plot
+            only the original state (default).
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
+        episode_style : str
+            If ``'columns'``, each episode is a column (default). If
+            ``'overlay'``, states from each episode are plotted overtop of each
+            other in different colors.
+        subplots_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplots()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+        """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self)
+        # Predict trajectory
+        Xp = self.predict_trajectory(
+            X_initial,
+            U,
+            relift_state=relift_state,
+            return_lifted=plot_lifted,
+            return_input=plot_input,
+            episode_feature=episode_feature,
+        )
+        # Split episodes
+        eps = split_episodes(
+            Xp,
+            episode_feature=(self.episode_feature_
+                             if episode_feature is None else episode_feature),
+        )
+        # Figure out dimensions
+        n_row = eps[0][1].shape[1]
+        n_eps = len(eps)
+        n_col = 1 if episode_style == 'overlay' else n_eps
+        # Create figure
+        subplots_args = {} if subplots_kw is None else subplots_kw
+        subplots_args.update({
+            'squeeze': False,
+            'constrained_layout': True,
+            'sharex': 'col',
+            'sharey': 'row',
+        })
+        fig, ax = plt.subplots(n_row, n_col, **subplots_args)
+        # Set up plot arguments
+        plot_args = {} if plot_kw is None else plot_kw
+        plot_args.pop('label', None)
+        # TODO HOW TO HANDLE GROUND TRUTH? ALLOW FLEXIBLE X INPUT
+        # Plot results
+        for row in range(n_row):
+            for ep in range(n_eps):
+                if episode_style == 'overlay':
+                    ax[row, 0].plot(
+                        eps[ep][1][:, row],
+                        label=f'Ep. {int(eps[ep][0])}',
+                        **plot_args,
+                    )
+                    ax[row, 0].plot(
+                        eps[ep][1][:, row],
+                        label=f'Ep. {int(eps[ep][0])}',
+                        **plot_args,
+                    )
+                else:
+                    ax[row, ep].plot(eps[ep][1][:, row], **plot_args)
+                    ax[row, ep].plot(eps[ep][1][:, row], **plot_args)
 
     @staticmethod
     def make_scorer(
