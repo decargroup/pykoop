@@ -10,6 +10,7 @@ import sklearn.base
 import sklearn.metrics
 from deprecated import deprecated
 from matplotlib import pyplot as plt
+from scipy import linalg
 
 from ._sklearn_metaestimators import metaestimators
 
@@ -1281,6 +1282,136 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         ------
         ValueError
             If constructor parameters are incorrect.
+        """
+        raise NotImplementedError()
+
+    def plot_bode(
+        self,
+        t_step: float,
+        f_min: float = 0,
+        f_max: float = None,
+        n_points: int = 1000,
+        decibels: bool = True,
+        subplots_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot frequency response of Koopman system.
+
+        Parameters
+        ----------
+        t_step : float
+            Sampling timestep.
+        f_min : float
+            Minimum frequency to plot.
+        f_max : float
+            Maximum frequency to plot.
+        n_points : int
+            Number of frequecy points to plot.
+        decibels : bool
+            Plot gain in dB (default is true).
+        subplots_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplots()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+
+        Raises
+        ------
+        ValueError
+            If ``f_min`` is less than zero or ``f_max`` is greater than the
+            Nyquist frequency.
+        """
+        # Get Koopman ``A`` and ``B`` matrices
+        koop_mat = self.coef_.T
+        A = koop_mat[:, :koop_mat.shape[0]]
+        B = koop_mat[:, koop_mat.shape[0]:]
+
+        def _sigma_bar_G(f):
+            """Compute Bode plot at given frequency."""
+            z = np.exp(1j * 2 * np.pi * f * t_step)
+            G = linalg.solve((np.diag([z] * A.shape[0]) - A), B)
+            return linalg.svdvals(G)[0]
+
+        # Generate frequency response data
+        f_samp = 1 / t_step
+        if f_min < 0:
+            raise ValueError('`f_min` must be at least 0.')
+        if f_max is None:
+            f_max = f_samp / 2
+        if f_max > f_samp / 2:
+            raise ValueError(
+                '`f_max` must be less than the Nyquist frequency.')
+        f_plot = np.linspace(f_min, f_max, n_points)
+        bode = []
+        for k in range(f_plot.size):
+            bode.append(_sigma_bar_G(f_plot[k]))
+        mag = np.array(bode)
+        mag_db = 20 * np.log10(mag)
+        # Create figure
+        subplots_args = {} if subplots_kw is None else subplots_kw
+        subplots_args.update({
+            'constrained_layout': True,
+        })
+        fig, ax = plt.subplots(**subplots_args)
+        # Set up plot arguments
+        plot_args = {} if plot_kw is None else plot_kw
+        # Plot data
+        ylabel = r'$\bar{\sigma}\left({\bf G}(e^{j \theta})\right)$'
+        if decibels:
+            ax.semilogx(f_plot, mag_db)
+            ax.set_ylabel(f'{ylabel} (dB)')
+        else:
+            ax.semilogx(f_plot, mag)
+            ax.set_ylabel(f'{ylabel} (unitless gain)')
+        ax.set_xlabel(r'$f$ (Hz)')
+        return fig, ax
+
+    def plot_eigenvalues(
+        self,
+        subplots_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot eigenvalues of Koopman matrices.
+
+        Parameters
+        ----------
+        subplots_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplots()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+        """
+        raise NotImplementedError()
+
+    def plot_svd(
+        self,
+        subplots_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot singular values of Koopman matrices.
+
+        Parameters
+        ----------
+        subplots_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplots()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
         """
         raise NotImplementedError()
 
