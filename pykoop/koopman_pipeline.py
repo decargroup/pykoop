@@ -1326,6 +1326,7 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
             If ``f_min`` is less than zero or ``f_max`` is greater than the
             Nyquist frequency.
         """
+        sklearn.utils.validation.check_is_fitted(self)
         # Get Koopman ``A`` and ``B`` matrices
         koop_mat = self.coef_.T
         A = koop_mat[:, :koop_mat.shape[0]]
@@ -1395,6 +1396,7 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
             Matplotlib :class:`plt.Figure` object and two-dimensional array of
             :class:`plt.Axes` objects.
         """
+        sklearn.utils.validation.check_is_fitted(self)
         # Get Koopman ``A`` matrix
         koop_mat = self.coef_.T
         A = koop_mat[:, :koop_mat.shape[0]]
@@ -1446,6 +1448,7 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
             Matplotlib :class:`plt.Figure` object and two-dimensional array of
             :class:`plt.Axes` objects.
         """
+        sklearn.utils.validation.check_is_fitted(self)
         U = self.coef_.T
         p_theta, p = U.shape
         # Create figure
@@ -1497,7 +1500,37 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
             Matplotlib :class:`plt.Figure` object and two-dimensional array of
             :class:`plt.Axes` objects.
         """
-        raise NotImplementedError()
+        sklearn.utils.validation.check_is_fitted(self)
+        koop_mat = self.coef_.T
+        A = koop_mat[:, :koop_mat.shape[0]]
+        B = koop_mat[:, koop_mat.shape[0]:]
+        # Create figure
+        subplots_args = {} if subplots_kw is None else subplots_kw
+        subplots_args.update({
+            'squeeze': True,
+            'constrained_layout': True,
+            'sharey': 'row',
+        })
+        fig, ax = plt.subplots(1, 3, **subplots_args)
+        # Compute singular values
+        sv_U = linalg.svdvals(koop_mat)
+        sv_A = linalg.svdvals(A)
+        sv_B = linalg.svdvals(B)
+        # Plot singular values
+        plot_args = {} if plot_kw is None else plot_kw
+        plot_args.update({
+            'marker': '.',
+        })
+        ax[0].semilogy(sv_U, **plot_args)
+        ax[1].semilogy(sv_A, **plot_args)
+        ax[2].semilogy(sv_B, **plot_args)
+        ax[0].set_xlabel(r'$i$')
+        ax[1].set_xlabel(r'$i$')
+        ax[2].set_xlabel(r'$i$')
+        ax[0].set_ylabel(r'$\sigma_i({\bf U})$')
+        ax[1].set_ylabel(r'$\sigma_i({\bf A})$')
+        ax[2].set_ylabel(r'$\sigma_i({\bf B})$')
+        return fig, ax
 
     def _validate_feature_names(self, X: np.ndarray) -> None:
         """Validate that input feature names are correct.
@@ -2589,7 +2622,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             :class:`plt.Axes` objects.
         """
         # Ensure fit has been done
-        sklearn.utils.validation.check_is_fitted(self)
+        sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
         # Set episode feature if unspecified
         if episode_feature is None:
             episode_feature = self.episode_feature_
