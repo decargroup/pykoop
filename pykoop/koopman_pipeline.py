@@ -1363,20 +1363,75 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         # Plot data
         ylabel = r'$\bar{\sigma}\left({\bf G}(e^{j \theta})\right)$'
         if decibels:
-            ax.semilogx(f_plot, mag_db)
+            ax.semilogx(f_plot, mag_db, **plot_kw)
             ax.set_ylabel(f'{ylabel} (dB)')
         else:
-            ax.semilogx(f_plot, mag)
+            ax.semilogx(f_plot, mag, **plot_kw)
             ax.set_ylabel(f'{ylabel} (unitless gain)')
         ax.set_xlabel(r'$f$ (Hz)')
         return fig, ax
 
     def plot_eigenvalues(
         self,
+        unit_circle: bool = True,
+        figure_kw: Dict[str, Any] = None,
+        subplot_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot eigenvalues of Koopman ``A`` matrix.
+
+        Parameters
+        ----------
+        figure_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.figure()`.
+        subplot_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplot()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+        """
+        # Get Koopman ``A`` matrix
+        koop_mat = self.coef_.T
+        A = koop_mat[:, :koop_mat.shape[0]]
+        # Calculate eigenvalues
+        eigv = linalg.eig(A)[0]
+        # Create figure
+        figure_args = {} if figure_kw is None else figure_kw
+        fig = plt.figure(**figure_args)
+        subplot_args = {} if subplot_kw is None else subplot_kw
+        subplot_args.pop('projection', None)
+        ax = plt.subplot(projection='polar', **subplot_args)
+        plot_args = {} if plot_kw is None else plot_kw
+        # Plot eigenvalues
+        ax.scatter(np.angle(eigv), np.absolute(eigv), **plot_args)
+        # Plot unit circle
+        if unit_circle:
+            plot_args.pop('linestyle', None)
+            plot_args.pop('color', None)
+            th = np.linspace(0, 2 * np.pi)
+            ax.plot(
+                th,
+                np.ones(th.shape),
+                linestyle='--',
+                color='k',
+                **plot_args,
+            )
+        # Set labels
+        ax.set_xlabel(r'$\mathrm{Re}(\lambda)$')
+        ax.set_ylabel(r'$\mathrm{Im}(\lambda)$', labelpad=30)
+        return fig, ax
+
+    def plot_koopman_matrix(
+        self,
         subplots_kw: Dict[str, Any] = None,
         plot_kw: Dict[str, Any] = None,
     ) -> Tuple[plt.Figure, np.ndarray]:
-        """Plot eigenvalues of Koopman matrices.
+        """Plot heatmap of Koopman matrices.
 
         Parameters
         ----------
@@ -2853,6 +2908,8 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
                                  'samples but at least `min_samples_`='
                                  f'{self.min_samples_} samples are required.')
         return episodes
+
+    # TODO ADD DELEGATE METHODS
 
 
 def score_trajectory(
