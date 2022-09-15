@@ -8,6 +8,7 @@ import numpy as np
 import pandas
 import sklearn.base
 import sklearn.metrics
+import sklearn.utils.metaestimators
 from deprecated import deprecated
 from matplotlib import pyplot as plt
 from scipy import linalg
@@ -1364,10 +1365,10 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         # Plot data
         ylabel = r'$\bar{\sigma}\left({\bf G}(e^{j \theta})\right)$'
         if decibels:
-            ax.semilogx(f_plot, mag_db, **plot_kw)
+            ax.semilogx(f_plot, mag_db, **plot_args)
             ax.set_ylabel(f'{ylabel} (dB)')
         else:
-            ax.semilogx(f_plot, mag, **plot_kw)
+            ax.semilogx(f_plot, mag, **plot_args)
             ax.set_ylabel(f'{ylabel} (unitless gain)')
         ax.set_xlabel(r'$f$ (Hz)')
         return fig, ax
@@ -2971,7 +2972,135 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
                                  f'{self.min_samples_} samples are required.')
         return episodes
 
-    # TODO ADD DELEGATE METHODS
+    @sklearn.utils.metaestimators.if_delegate_has_method('regressor_')
+    def plot_bode(
+        self,
+        t_step: float,
+        f_min: float = 0,
+        f_max: float = None,
+        n_points: int = 1000,
+        decibels: bool = True,
+        subplots_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot frequency response of Koopman system.
+
+        Parameters
+        ----------
+        t_step : float
+            Sampling timestep.
+        f_min : float
+            Minimum frequency to plot.
+        f_max : float
+            Maximum frequency to plot.
+        n_points : int
+            Number of frequecy points to plot.
+        decibels : bool
+            Plot gain in dB (default is true).
+        subplots_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplots()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+
+        Raises
+        ------
+        ValueError
+            If ``f_min`` is less than zero or ``f_max`` is greater than the
+            Nyquist frequency.
+        """
+        return self.regressor_.plot_bode(
+            t_step,
+            f_min,
+            f_max,
+            n_points,
+            decibels,
+            subplots_kw,
+            plot_kw,
+        )
+
+    @sklearn.utils.metaestimators.if_delegate_has_method('regressor_')
+    def plot_eigenvalues(
+        self,
+        unit_circle: bool = True,
+        figure_kw: Dict[str, Any] = None,
+        subplot_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot eigenvalues of Koopman ``A`` matrix.
+
+        Parameters
+        ----------
+        figure_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.figure()`.
+        subplot_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplot()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+        """
+        return self.regressor_.plot_eigenvalues(
+            unit_circle,
+            figure_kw,
+            subplot_kw,
+            plot_kw,
+        )
+
+    @sklearn.utils.metaestimators.if_delegate_has_method('regressor_')
+    def plot_koopman_matrix(
+        self,
+        subplots_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot heatmap of Koopman matrices.
+
+        Parameters
+        ----------
+        subplots_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplots()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+        """
+        return self.regressor_.plot_koopman_matrix(subplots_kw, plot_kw)
+
+    @sklearn.utils.metaestimators.if_delegate_has_method('regressor_')
+    def plot_svd(
+        self,
+        subplots_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot singular values of Koopman matrices.
+
+        Parameters
+        ----------
+        subplots_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplots()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+        """
+        return self.regressor_.plot_svd(subplots_kw, plot_kw)
 
 
 def score_trajectory(
