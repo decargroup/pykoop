@@ -1446,7 +1446,36 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
             Matplotlib :class:`plt.Figure` object and two-dimensional array of
             :class:`plt.Axes` objects.
         """
-        raise NotImplementedError()
+        U = self.coef_.T
+        p_theta, p = U.shape
+        # Create figure
+        subplots_args = {} if subplots_kw is None else subplots_kw
+        subplots_args.update({
+            'constrained_layout': True,
+        })
+        fig, ax = plt.subplots(**subplots_args)
+        # Get max magnitude for colorbar
+        mag = np.max(np.abs(U))
+        plot_args = {} if plot_kw is None else plot_kw
+        plot_args.update({
+            'vmin': -mag,
+            'vmax': mag,
+            'cmap': 'seismic',
+        })
+        im = ax.matshow(U, **plot_args)
+        # Plot line to separate ``A`` and ``B``
+        ax.vlines(
+            p_theta - 0.5,
+            -0.5,
+            p_theta - 0.5,
+            linestyle='--',
+            color='k',
+            linewidth=2,
+        )
+        ax.text(0, p_theta, r'${\bf A}$')
+        ax.text(p_theta, p_theta, r'${\bf B}$')
+        fig.colorbar(im, ax=ax)
+        return fig, ax
 
     def plot_svd(
         self,
