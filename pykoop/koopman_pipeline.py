@@ -51,11 +51,13 @@ class KoopmanLiftingFn(
     """
 
     @abc.abstractmethod
-    def fit(self,
-            X: np.ndarray,
-            y: np.ndarray = None,
-            n_inputs: int = 0,
-            episode_feature: bool = False) -> 'KoopmanLiftingFn':
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray = None,
+        n_inputs: int = 0,
+        episode_feature: bool = False,
+    ) -> 'KoopmanLiftingFn':
         """Fit the lifting function.
 
         Parameters
@@ -433,8 +435,11 @@ class KoopmanLiftingFn(
                 else:
                     ax[row, ep].plot(eps[ep][1][:, row], **plot_args)
         # Set y labels
+        names = self.get_feature_names_out(symbols_only=True, format='latex')
+        if self.episode_feature_:
+            names = np.delete(names, 0)
         for row in range(n_row):
-            ax[row, 0].set_ylabel(rf'$\psi_{{{row}}}$')
+            ax[row, 0].set_ylabel(f'${names[row]}$')
         # Set x labels and titles
         for col in range(n_col):
             if episode_style != 'overlay':
@@ -442,7 +447,8 @@ class KoopmanLiftingFn(
             ax[-1, col].set_xlabel('$k$')
         # Set legend
         if episode_style == 'overlay':
-            fig.legend(*ax[0, 0].get_legend_handles_labels())
+            fig.legend(*ax[0, 0].get_legend_handles_labels(),
+                       loc='upper right')
         fig.align_labels()
         return fig, ax
 
@@ -472,6 +478,7 @@ class KoopmanLiftingFn(
     def get_feature_names_out(
         self,
         input_features: np.ndarray = None,
+        symbols_only: bool = False,
         format: str = None,
     ) -> np.ndarray:
         """Get output feature names.
@@ -481,6 +488,9 @@ class KoopmanLiftingFn(
         input_features : np.ndarray
             Array of string input feature names. If provided, they are checked
             against ``feature_names_in_``. If ``None``, ignored.
+        symbols_only : bool
+            If true, only return symbols (``theta_0``, ``upsilon_0``, etc.).
+            Otherwise, returns the full equations (default).
         format : str
             Feature name formatting method. Possible values are ``'plaintext'``
             (default if ``None``) or ``'latex'``.
@@ -490,11 +500,17 @@ class KoopmanLiftingFn(
         np.ndarray
             Output feature names.
         """
-        feature_names_in = self.get_feature_names_in(format)
-        feature_names_out = self._transform_feature_names(
-            feature_names_in,
-            format,
-        )
+        if symbols_only:
+            feature_names_out = self._generate_feature_names(
+                lifted=True,
+                format=format,
+            )
+        else:
+            feature_names_in = self.get_feature_names_in(format)
+            feature_names_out = self._transform_feature_names(
+                feature_names_in,
+                format,
+            )
         return feature_names_out
 
     def get_feature_names_in(self, format: str = None) -> np.ndarray:
@@ -514,11 +530,9 @@ class KoopmanLiftingFn(
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
         if self.feature_names_in_ is None:
-            feature_names_in = _generate_feature_names(
-                self.n_states_in_,
-                self.n_inputs_in_,
-                self.episode_feature_,
-                format,
+            feature_names_in = self._generate_feature_names(
+                lifted=False,
+                format=format,
             )
         else:
             feature_names_in = self.feature_names_in_
@@ -540,6 +554,61 @@ class KoopmanLiftingFn(
         """
         if not np.all(_extract_feature_names(X) == self.feature_names_in_):
             raise ValueError('Input features do not match fit features.')
+
+    def _generate_feature_names(
+        self,
+        lifted: bool = False,
+        format: str = None,
+    ) -> np.ndarray:
+        """Generate feature names.
+
+        Parameters
+        ----------
+        lifted : bool
+            If true, return lifted feature names. If false, return unlifted
+            feature names (default).
+        format : str
+            Feature name formatting method. Possible values are ``'plaintext'``
+            (default if ``None``) or ``'latex'``.
+
+        Returns
+        -------
+        np.ndarray
+            Generated states.
+        """
+        names = []
+        if lifted:
+            if format == 'latex':
+                if self.episode_feature_:
+                    names.append(r'\mathrm{episode}')
+                for k in range(self.n_states_out_):
+                    names.append(rf'\vartheta_{{{k}}}')
+                for k in range(self.n_inputs_out_):
+                    names.append(rf'\upsilon_{{{k}}}')
+            else:
+                if self.episode_feature_:
+                    names.append('ep')
+                for k in range(self.n_states_out_):
+                    names.append(f'theta{k}')
+                for k in range(self.n_inputs_out_):
+                    names.append(f'upsilon{k}')
+        else:
+            if format == 'latex':
+                if self.episode_feature_:
+                    names.append(r'\mathrm{episode}')
+                for k in range(self.n_states_in_):
+                    names.append(f'x_{{{k}}}')
+                for k in range(self.n_inputs_in_):
+                    names.append(f'u_{{{k}}}')
+            else:
+                if self.episode_feature_:
+                    names.append('ep')
+                for k in range(self.n_states_in_):
+                    names.append(f'x{k}')
+                for k in range(self.n_inputs_in_):
+                    names.append(f'u{k}')
+        feature_names_in = np.array(names, dtype=object)
+        return feature_names_in
 
 
 class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
@@ -2010,7 +2079,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
     def predict_trajectory(
         self,
-        X_initial: np.ndarray,
+        X0_or_X: np.ndarray,
         U: np.ndarray = None,
         relift_state: bool = True,
         return_lifted: bool = False,
@@ -2021,13 +2090,13 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
         Parameters
         ----------
-        X_initial : np.ndarray
+        X0_or_X : np.ndarray
             Initial state if ``U`` is specified. If ``U`` is ``None``, then
             treated as the initial state and full input in one matrix, where
             the remaining states are ignored.
         U : np.ndarray
             Input. Length of prediction is governed by length of input. If
-            ``None``, input is taken from last features of ``X_initial``.
+            ``None``, input is taken from last features of ``X0_or_X``.
         relift_state : bool
             If true, retract and re-lift state between prediction steps
             (default). Otherwise, only retract the state after all predictions
@@ -2095,7 +2164,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         B = koop_mat[:, koop_mat.shape[0]:]
         # Split episodes
         episodes = self._split_state_input_episodes(
-            X_initial,
+            X0_or_X,
             U,
             episode_feature=episode_feature,
         )
@@ -2209,12 +2278,13 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
     def plot_predicted_trajectory(
         self,
-        X_initial: np.ndarray,
-        U: np.ndarray,
+        X0_or_X: np.ndarray,
+        U: np.ndarray = None,
         relift_state: bool = True,
         plot_lifted: bool = False,
         plot_input: bool = False,
         episode_feature: bool = None,
+        plot_ground_truth: bool = True,
         episode_style: str = None,
         subplots_kw: Dict[str, Any] = None,
         plot_kw: Dict[str, Any] = None,
@@ -2223,10 +2293,13 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
         Parameters
         ----------
-        X_initial : np.ndarray
-            Initial state.
+        X0_or_X : np.ndarray
+            Initial state if ``U`` is specified. If ``U`` is ``None``, then
+            treated as the ground truth trajectory from which the initial state
+            and full input are extracted.
         U : np.ndarray
-            Input. Length of prediction is governed by length of input.
+            Input. Length of prediction is governed by length of input. If
+            ``None``, input is taken from last features of ``X0_or_X``.
         relift_state : bool
             If true, retract and re-lift state between prediction steps
             (default). Otherwise, only retract the state after all predictions
@@ -2241,6 +2314,9 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         episode_feature : bool
             True if first feature indicates which episode a timestep is from.
             If ``None``, ``self.episode_feature_`` is used.
+        plot_ground_truth : bool
+            Plot contents of ``X0_or_X`` as ground truth if ``U`` is ``None``.
+            Ignored if ``U`` is not ``None``.
         episode_style : str
             If ``'columns'``, each episode is a column (default). If
             ``'overlay'``, states from each episode are plotted overtop of each
@@ -2258,25 +2334,44 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         """
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
+        # Set episode feature if unspecified
+        if episode_feature is None:
+            episode_feature = self.episode_feature_
         # Predict trajectory
         Xp = self.predict_trajectory(
-            X_initial,
+            X0_or_X,
             U,
             relift_state=relift_state,
             return_lifted=plot_lifted,
             return_input=plot_input,
             episode_feature=episode_feature,
         )
-        # Split episodes
-        eps = split_episodes(
-            Xp,
-            episode_feature=(self.episode_feature_
-                             if episode_feature is None else episode_feature),
-        )
-        # Figure out dimensions
-        n_row = eps[0][1].shape[1]
+        # Split episodes. `eps`` only contains inputs if they are to be
+        # plotted. ``eps_gt`` truth always contains inputs, even if they are
+        # not plotted.
+        eps = split_episodes(Xp, episode_feature=episode_feature)
+        if plot_ground_truth and (U is None):
+            if plot_lifted:
+                X_gt = self.lift(X0_or_X, episode_feature=episode_feature)
+            else:
+                X_gt = X0_or_X
+            eps_gt = split_episodes(X_gt, episode_feature=episode_feature)
+        else:
+            eps_gt = None
+        # Figure out dimensions.
+        if plot_lifted:
+            if plot_input:
+                n_row = self.n_states_out_ + self.n_inputs_out_
+            else:
+                n_row = self.n_states_out_
+        else:
+            if plot_input:
+                n_row = self.n_states_in_ + self.n_inputs_in_
+            else:
+                n_row = self.n_states_in_
         n_eps = len(eps)
         n_col = 1 if episode_style == 'overlay' else n_eps
+        n_states = self.n_states_out_ if plot_lifted else self.n_states_in_
         # Create figure
         subplots_args = {} if subplots_kw is None else subplots_kw
         subplots_args.update({
@@ -2289,24 +2384,60 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         # Set up plot arguments
         plot_args = {} if plot_kw is None else plot_kw
         plot_args.pop('label', None)
-        # TODO HOW TO HANDLE GROUND TRUTH? ALLOW FLEXIBLE X INPUT
+        plot_args.pop('color', None)
+        plot_args.pop('linestyle', None)
         # Plot results
         for row in range(n_row):
             for ep in range(n_eps):
                 if episode_style == 'overlay':
-                    ax[row, 0].plot(
+                    line_pred = ax[row, 0].plot(
                         eps[ep][1][:, row],
-                        label=f'Ep. {int(eps[ep][0])}',
+                        label=f'Ep. {int(eps[ep][0])} prediction',
                         **plot_args,
                     )
-                    ax[row, 0].plot(
-                        eps[ep][1][:, row],
-                        label=f'Ep. {int(eps[ep][0])}',
-                        **plot_args,
-                    )
+                    if eps_gt is not None and row < n_states:
+                        ax[row, 0].plot(
+                            eps_gt[ep][1][:, row],
+                            label=f'Ep. {int(eps[ep][0])} ground truth',
+                            linestyle='--',
+                            color=line_pred[0].get_color(),
+                            **plot_args,
+                        )
                 else:
-                    ax[row, ep].plot(eps[ep][1][:, row], **plot_args)
-                    ax[row, ep].plot(eps[ep][1][:, row], **plot_args)
+                    line_pred = ax[row, ep].plot(
+                        eps[ep][1][:, row],
+                        label=f'Prediction',
+                        **plot_args,
+                    )
+                    if eps_gt is not None and row < n_states:
+                        ax[row, ep].plot(
+                            eps_gt[ep][1][:, row],
+                            label=f'Ground truth',
+                            linestyle='--',
+                            **plot_args,
+                        )
+        # Set y labels
+        if plot_lifted:
+            names = self.get_feature_names_out(
+                symbols_only=True,
+                format='latex',
+            )
+        else:
+            names = self.get_feature_names_in(format='latex')
+        if self.episode_feature_:
+            names = np.delete(names, 0)
+        for row in range(n_row):
+            ax[row, 0].set_ylabel(f'${names[row]}$')
+        for col in range(n_col):
+            if episode_style != 'overlay':
+                ax[0, col].set_title(f'Ep. {int(eps[col][0])}')
+            ax[-1, col].set_xlabel('$k$')
+        # Set legend
+        fig.legend(
+            *ax[0, 0].get_legend_handles_labels(),
+            loc='upper right',
+            bbox_to_anchor=(1, 1) if episode_style == 'overlay' else (1, 0.95),
+        )
 
     @staticmethod
     def make_scorer(
@@ -2486,7 +2617,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
     def _split_state_input_episodes(
         self,
-        X_initial: np.ndarray,
+        X0_or_X: np.ndarray,
         U: np.ndarray = None,
         episode_feature: bool = False,
     ) -> List[Tuple[float, np.ndarray, np.ndarray]]:
@@ -2494,13 +2625,13 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
         Parameters
         ----------
-        X_initial : np.ndarray
+        X0_or_X : np.ndarray
             Initial state if ``U`` is specified. If ``U`` is ``None``, then
             treated as the initial state and full input in one matrix, where
             the remaining states are ignored.
         U : np.ndarray
             Input. Length of prediction is governed by length of input. If
-            ``None``, input is taken from last features of ``X_initial``.
+            ``None``, input is taken from last features of ``X0_or_X``.
         episode_feature : bool
             True if first feature indicates which episode a timestep is from.
 
@@ -2515,11 +2646,11 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             If input dimensions are incorrect.
         """
         if U is None:
-            if X_initial.shape[1] != self.n_features_in_:
-                raise ValueError('Invalid dimensions for ``X_initial``. If '
-                                 '``U=None``, ``X_initial`` must contain '
+            if X0_or_X.shape[1] != self.n_features_in_:
+                raise ValueError('Invalid dimensions for ``X0_or_X``. If '
+                                 '``U=None``, ``X0_or_X`` must contain '
                                  'states and inputs.')
-            ep_X = split_episodes(X_initial, episode_feature=episode_feature)
+            ep_X = split_episodes(X0_or_X, episode_feature=episode_feature)
             episodes = [(
                 ex[0],
                 ex[1][:self.min_samples_, :self.n_states_in_],
@@ -2527,14 +2658,14 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             ) for ex in ep_X]
         else:
             ep = 1 if episode_feature else 0
-            if X_initial.shape[1] != self.n_states_in_ + ep:
-                raise ValueError('Invalid dimensions for ``X_initial``. If '
-                                 '``U`` is specified, ``X_initial`` must '
+            if X0_or_X.shape[1] != self.n_states_in_ + ep:
+                raise ValueError('Invalid dimensions for ``X0_or_X``. If '
+                                 '``U`` is specified, ``X0_or_X`` must '
                                  'contain only states.')
             if U.shape[1] != self.n_inputs_in_ + ep:
                 raise ValueError('Invalid dimensions for ``U``. If ``U`` is '
                                  'specified, it must contain only inputs.')
-            ep_X0 = split_episodes(X_initial, episode_feature=episode_feature)
+            ep_X0 = split_episodes(X0_or_X, episode_feature=episode_feature)
             ep_U = split_episodes(U, episode_feature=episode_feature)
             episodes = [(ex[0], ex[1], eu[1]) for (ex, eu) in zip(ep_X0, ep_U)]
         # Check length of episode.
@@ -2940,50 +3071,6 @@ def _weights_from_data_matrix(
         weights_list.append(weights_i)
     weights = np.concatenate(weights_list)
     return weights
-
-
-def _generate_feature_names(
-    n_states_in: int,
-    n_inputs_in: int,
-    episode_feature: bool,
-    format: str = None,
-) -> np.ndarray:
-    """Generate feature names.
-
-    Parameters
-    ----------
-    n_states_in : int
-        Number of states.
-    n_inputs_in : int
-        Number of inputs.
-    episode_feature : bool
-        Presence of episode feature.
-    format : str
-        Feature name formatting method. Possible values are ``'plaintext'``
-        (default if ``None``) or ``'latex'``.
-
-    Returns
-    -------
-    np.ndarray
-        Generated states.
-    """
-    names = []
-    if format == 'latex':
-        if episode_feature:
-            names.append(r'\mathrm{episode}')
-        for k in range(n_states_in):
-            names.append(f'x_{{{k}}}')
-        for k in range(n_inputs_in):
-            names.append(f'u_{{{k}}}')
-    else:
-        if episode_feature:
-            names.append('ep')
-        for k in range(n_states_in):
-            names.append(f'x{k}')
-        for k in range(n_inputs_in):
-            names.append(f'u{k}')
-    feature_names_in = np.array(names, dtype=object)
-    return feature_names_in
 
 
 def _extract_feature_names(
