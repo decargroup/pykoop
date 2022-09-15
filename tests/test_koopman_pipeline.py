@@ -952,6 +952,48 @@ class TestPrediction:
             X_sim_exp[[k], :] = Xp[[-1], :]
         np.testing.assert_allclose(X_sim, X_sim_exp)
 
+    def test_predict_trajectory_no_U(self, kp, mass_spring_damper_sine_input):
+        """Test :func:`predict_trajectory`."""
+        msg = 'Test only works when there is no episode feature.'
+        assert (not mass_spring_damper_sine_input['episode_feature']), msg
+        # Fit estimator
+        kp.fit(
+            mass_spring_damper_sine_input['X_train'],
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=False,
+        )
+        # Extract initial conditions
+        x0 = pykoop.extract_initial_conditions(
+            mass_spring_damper_sine_input['X_train'],
+            kp.min_samples_,
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=False,
+        )
+        # Extract input
+        u = pykoop.extract_input(
+            mass_spring_damper_sine_input['X_train'],
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=False,
+        )
+        # Predict new states
+        X_sim = kp.predict_trajectory(
+            mass_spring_damper_sine_input['X_train'],
+            U=None,
+            episode_feature=False,
+            relift_state=True,
+        )
+        # Predict manually
+        X_sim_exp = np.zeros(X_sim.shape)
+        X_sim_exp[:kp.min_samples_, :] = x0
+        for k in range(kp.min_samples_, u.shape[0]):
+            X = np.hstack((
+                X_sim_exp[(k - kp.min_samples_):k, :],
+                u[(k - kp.min_samples_):k, :],
+            ))
+            Xp = kp.predict(X)
+            X_sim_exp[[k], :] = Xp[[-1], :]
+        np.testing.assert_allclose(X_sim, X_sim_exp)
+
     def test_predict_multistep(self, kp, mass_spring_damper_sine_input):
         """Test :func:`predict_multistep` (deprecated)."""
         msg = 'Test only works when there is no episode feature.'
@@ -1646,6 +1688,104 @@ class TestFeatureNames:
         kp.fit(X_fit)
         with pytest.raises(ValueError):
             kp.transform(X_transform)
+
+
+@pytest.mark.parametrize(
+    'kp, X, n_inputs, episode_feature',
+    [
+        (
+            pykoop.KoopmanPipeline(regressor=pykoop.Edmd()),
+            np.array([
+                [0, 0, 0, 1, 1, 1],
+                [1, 2, 3, 4, 5, 7],
+                [6, 5, 4, 3, 2, 1],
+            ]).T,
+            1,
+            True,
+        ),
+    ],
+)
+class TestSplitStateInputEpisodes:
+    """Test :func:`pykoop.KoopmanPipeline._split_state_input_episodes`."""
+
+    def test_X_initial_onearg(self, kp, X, n_inputs, episode_feature):
+        """Test state with one argument (input is ``None``)."""
+        kp.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        episodes = kp._split_state_input_episodes(X, None, episode_feature)
+        # Extract initial conditions
+        x0 = pykoop.extract_initial_conditions(
+            X,
+            kp.min_samples_,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        X_actual = pykoop.combine_episodes(
+            [(ep[0], ep[1]) for ep in episodes],
+            episode_feature=episode_feature,
+        )
+        np.testing.assert_allclose(X_actual, x0)
+
+    def test_U_onearg(self, kp, X, n_inputs, episode_feature):
+        """Test input with one argument (input is ``None``)."""
+        kp.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        episodes = kp._split_state_input_episodes(X, None, episode_feature)
+        # Extract input
+        u = pykoop.extract_input(
+            X,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        u_actual = pykoop.combine_episodes(
+            [(ep[0], ep[2]) for ep in episodes],
+            episode_feature=episode_feature,
+        )
+        np.testing.assert_allclose(u_actual, u)
+
+    def test_X_initial_twoarg(self, kp, X, n_inputs, episode_feature):
+        """Test state with two arguments (input is not ``None``)."""
+        # Extract initial conditions
+        x0 = pykoop.extract_initial_conditions(
+            X,
+            kp.min_samples_,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        # Extract input
+        u = pykoop.extract_input(
+            X,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        kp.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        episodes = kp._split_state_input_episodes(x0, u, episode_feature)
+        ep_X0 = pykoop.split_episodes(
+            x0,
+            episode_feature=episode_feature,
+        )
+        # ep_U = split_episodes(U, episode_feature=episode_feature)
+        for e in range(len(episodes)):
+            np.testing.assert_allclose(episodes[e][1], ep_X0[e][1])
+
+    def test_U_twoarg(self, kp, X, n_inputs, episode_feature):
+        """Test input with two arguments (input is not ``None``)."""
+        # Extract initial conditions
+        x0 = pykoop.extract_initial_conditions(
+            X,
+            kp.min_samples_,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        # Extract input
+        u = pykoop.extract_input(
+            X,
+            n_inputs=n_inputs,
+            episode_feature=episode_feature,
+        )
+        kp.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        episodes = kp._split_state_input_episodes(x0, u, episode_feature)
+        ep_U = pykoop.split_episodes(u, episode_feature=episode_feature)
+        for e in range(len(episodes)):
+            np.testing.assert_allclose(episodes[e][2], ep_U[e][1])
 
 
 class TestSkLearn:

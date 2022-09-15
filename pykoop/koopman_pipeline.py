@@ -2011,7 +2011,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     def predict_trajectory(
         self,
         X_initial: np.ndarray,
-        U: np.ndarray,
+        U: np.ndarray = None,
         relift_state: bool = True,
         return_lifted: bool = False,
         return_input: bool = False,
@@ -2019,15 +2019,17 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     ) -> np.ndarray:
         """Predict state trajectory given input for each episode.
 
-        .. todo:: Allow X_initial to be specified in the style of ``predict_multistep``
         .. todo:: Write example section
 
         Parameters
         ----------
         X_initial : np.ndarray
-            Initial state.
+            Initial state if ``U`` is specified. If ``U`` is ``None``, then
+            treated as the initial state and full input in one matrix, where
+            the remaining states are ignored.
         U : np.ndarray
-            Input. Length of prediction is governed by length of input.
+            Input. Length of prediction is governed by length of input. If
+            ``None``, input is taken from last features of ``X_initial``.
         relift_state : bool
             If true, retract and re-lift state between prediction steps
             (default). Otherwise, only retract the state after all predictions
@@ -2065,21 +2067,14 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         A = koop_mat[:, :koop_mat.shape[0]]
         B = koop_mat[:, koop_mat.shape[0]:]
         # Split episodes
-        ep_X0 = split_episodes(X_initial, episode_feature=episode_feature)
-        ep_U = split_episodes(U, episode_feature=episode_feature)
-        episodes = [(ex[0], ex[1], eu[1]) for (ex, eu) in zip(ep_X0, ep_U)]
+        episodes = self._split_state_input_episodes(
+            X_initial,
+            U,
+            episode_feature=episode_feature,
+        )
         # Predict for each episode
         predictions: List[Tuple[float, np.ndarray]] = []
         for (i, X0_i, U_i) in episodes:
-            # Check length of episode.
-            if X0_i.shape[0] != self.min_samples_:
-                raise ValueError(f'Initial condition in episode {i} has '
-                                 f'{X0_i.shape[0]} samples but `min_samples_`='
-                                 f'{self.min_samples_} samples are required.')
-            if U_i.shape[0] < self.min_samples_:
-                raise ValueError(f'Input in episode {i} has {U_i.shape[0]} '
-                                 'samples but at least `min_samples_`='
-                                 f'{self.min_samples_} samples are required.')
             crash_index = None
             # Iterate over episode and make predictions
             if relift_state:
@@ -2461,6 +2456,71 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         for _, lf in self.lifting_functions_:
             names_out = lf._transform_feature_names(names_out, format)
         return names_out
+
+    def _split_state_input_episodes(
+        self,
+        X_initial: np.ndarray,
+        U: np.ndarray = None,
+        episode_feature: bool = False,
+    ) -> List[Tuple[float, np.ndarray, np.ndarray]]:
+        """Break initial conditions and inputs into episodes.
+
+        Parameters
+        ----------
+        X_initial : np.ndarray
+            Initial state if ``U`` is specified. If ``U`` is ``None``, then
+            treated as the initial state and full input in one matrix, where
+            the remaining states are ignored.
+        U : np.ndarray
+            Input. Length of prediction is governed by length of input. If
+            ``None``, input is taken from last features of ``X_initial``.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+
+        Returns
+        -------
+        List[Tuple[float, np.ndarray, np.ndarray]]
+            List of episode indices, initial conditions, and inputs.
+
+        Raises
+        ------
+        ValueError
+            If input dimensions are incorrect.
+        """
+        if U is None:
+            if X_initial.shape[1] != self.n_features_in_:
+                raise ValueError('Invalid dimensions for ``X_initial``. If '
+                                 '``U=None``, ``X_initial`` must contain '
+                                 'states and inputs.')
+            ep_X = split_episodes(X_initial, episode_feature=episode_feature)
+            episodes = [(
+                ex[0],
+                ex[1][:self.min_samples_, :self.n_states_in_],
+                ex[1][:, self.n_states_in_:],
+            ) for ex in ep_X]
+        else:
+            ep = 1 if episode_feature else 0
+            if X_initial.shape[1] != self.n_states_in_ + ep:
+                raise ValueError('Invalid dimensions for ``X_initial``. If '
+                                 '``U`` is specified, ``X_initial`` must '
+                                 'contain only states.')
+            if U.shape[1] != self.n_inputs_in_ + ep:
+                raise ValueError('Invalid dimensions for ``U``. If ``U`` is '
+                                 'specified, it must contain only inputs.')
+            ep_X0 = split_episodes(X_initial, episode_feature=episode_feature)
+            ep_U = split_episodes(U, episode_feature=episode_feature)
+            episodes = [(ex[0], ex[1], eu[1]) for (ex, eu) in zip(ep_X0, ep_U)]
+        # Check length of episode.
+        for (i, X0_i, U_i) in episodes:
+            if X0_i.shape[0] != self.min_samples_:
+                raise ValueError(f'Initial condition in episode {i} has '
+                                 f'{X0_i.shape[0]} samples but `min_samples_`='
+                                 f'{self.min_samples_} samples are required.')
+            if U_i.shape[0] < self.min_samples_:
+                raise ValueError(f'Input in episode {i} has {U_i.shape[0]} '
+                                 'samples but at least `min_samples_`='
+                                 f'{self.min_samples_} samples are required.')
+        return episodes
 
 
 def score_trajectory(
