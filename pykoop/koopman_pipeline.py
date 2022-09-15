@@ -2019,8 +2019,6 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     ) -> np.ndarray:
         """Predict state trajectory given input for each episode.
 
-        .. todo:: Write example section
-
         Parameters
         ----------
         X_initial : np.ndarray
@@ -2056,6 +2054,35 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         ------
         ValueError
             If an episode is shorter than ``min_samples_``.
+
+        Examples
+        --------
+        Predict trajectory with one argument
+
+        >>> kp = pykoop.KoopmanPipeline(
+        ...     lifting_functions=[
+        ...         ('pl', pykoop.PolynomialLiftingFn(order=2)),
+        ...     ],
+        ...     regressor=pykoop.Edmd(),
+        ... )
+        >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+        KoopmanPipeline(lifting_functions=[('pl',
+        PolynomialLiftingFn(order=2))], regressor=Edmd())
+        >>> X_pred = kp.predict_trajectory(X_msd)
+
+        Predict trajectory with two arguments
+        >>> x0 = pykoop.extract_initial_conditions(
+        ...     X_msd,
+        ...     min_samples=kp.min_samples_,
+        ...     n_inputs=1,
+        ...     episode_feature=True,
+        ... )
+        >>> u = pykoop.extract_input(
+        ...     X_msd,
+        ...     n_inputs=1,
+        ...     episode_feature=True,
+        ... )
+        >>> X_pred = kp.predict_trajectory(x0, u)
         """
         # Check fit
         sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
