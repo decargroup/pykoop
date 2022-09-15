@@ -435,9 +435,11 @@ class KoopmanLiftingFn(
                 else:
                     ax[row, ep].plot(eps[ep][1][:, row], **plot_args)
         # Set y labels
-        names = self.get_feature_names_out(symbols_only=True, format='latex')
-        if self.episode_feature_:
-            names = np.delete(names, 0)
+        names = self.get_feature_names_out(
+            symbols_only=True,
+            format='latex',
+            episode_feature=episode_feature,
+        )
         for row in range(n_row):
             ax[row, 0].set_ylabel(f'${names[row]}$')
         # Set x labels and titles
@@ -480,6 +482,7 @@ class KoopmanLiftingFn(
         input_features: np.ndarray = None,
         symbols_only: bool = False,
         format: str = None,
+        episode_feature: bool = None,
     ) -> np.ndarray:
         """Get output feature names.
 
@@ -494,26 +497,49 @@ class KoopmanLiftingFn(
         format : str
             Feature name formatting method. Possible values are ``'plaintext'``
             (default if ``None``) or ``'latex'``.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
 
         Returns
         -------
         np.ndarray
             Output feature names.
         """
+        # Handle episode feature
+        if episode_feature is None:
+            episode_feature = self.episode_feature_
+        # Generate features
         if symbols_only:
             feature_names_out = self._generate_feature_names(
                 lifted=True,
                 format=format,
+                episode_feature=episode_feature,
             )
         else:
             feature_names_in = self.get_feature_names_in(format)
-            feature_names_out = self._transform_feature_names(
+            feature_names_tf = self._transform_feature_names(
                 feature_names_in,
                 format,
             )
+            # Handle episode feature after the fact
+            if episode_feature and not self.episode_feature_:
+                ep = self._generate_feature_names(
+                    format=format,
+                    episode_feature=True,
+                )[[0]]
+                feature_names_out = np.concatenate((ep, feature_names_tf))
+            elif self.episode_feature_ and not episode_feature:
+                feature_names_out = np.delete(feature_names_tf, 0)
+            else:
+                feature_names_out = feature_names_tf
         return feature_names_out
 
-    def get_feature_names_in(self, format: str = None) -> np.ndarray:
+    def get_feature_names_in(
+        self,
+        format: str = None,
+        episode_feature: bool = None,
+    ) -> np.ndarray:
         """Automatically generate input feature names.
 
         Parameters
@@ -521,6 +547,9 @@ class KoopmanLiftingFn(
         format : str
             Feature name formatting method. Possible values are ``'plaintext'``
             (default if ``None``) or ``'latex'``.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
 
         Returns
         -------
@@ -529,10 +558,15 @@ class KoopmanLiftingFn(
         """
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
+        # Handle episode feature
+        if episode_feature is None:
+            episode_feature = self.episode_feature_
+        # Generate features
         if self.feature_names_in_ is None:
             feature_names_in = self._generate_feature_names(
                 lifted=False,
                 format=format,
+                episode_feature=episode_feature,
             )
         else:
             feature_names_in = self.feature_names_in_
@@ -559,6 +593,7 @@ class KoopmanLiftingFn(
         self,
         lifted: bool = False,
         format: str = None,
+        episode_feature: bool = None,
     ) -> np.ndarray:
         """Generate feature names.
 
@@ -570,23 +605,29 @@ class KoopmanLiftingFn(
         format : str
             Feature name formatting method. Possible values are ``'plaintext'``
             (default if ``None``) or ``'latex'``.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
 
         Returns
         -------
         np.ndarray
             Generated states.
         """
+        # Handle episode feature
+        if episode_feature is None:
+            episode_feature = self.episode_feature_
         names = []
         if lifted:
             if format == 'latex':
-                if self.episode_feature_:
+                if episode_feature:
                     names.append(r'\mathrm{episode}')
                 for k in range(self.n_states_out_):
                     names.append(rf'\vartheta_{{{k}}}')
                 for k in range(self.n_inputs_out_):
                     names.append(rf'\upsilon_{{{k}}}')
             else:
-                if self.episode_feature_:
+                if episode_feature:
                     names.append('ep')
                 for k in range(self.n_states_out_):
                     names.append(f'theta{k}')
@@ -594,14 +635,14 @@ class KoopmanLiftingFn(
                     names.append(f'upsilon{k}')
         else:
             if format == 'latex':
-                if self.episode_feature_:
+                if episode_feature:
                     names.append(r'\mathrm{episode}')
                 for k in range(self.n_states_in_):
                     names.append(f'x_{{{k}}}')
                 for k in range(self.n_inputs_in_):
                     names.append(f'u_{{{k}}}')
             else:
-                if self.episode_feature_:
+                if episode_feature:
                     names.append('ep')
                 for k in range(self.n_states_in_):
                     names.append(f'x{k}')
@@ -2421,11 +2462,13 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             names = self.get_feature_names_out(
                 symbols_only=True,
                 format='latex',
+                episode_feature=episode_feature,
             )
         else:
-            names = self.get_feature_names_in(format='latex')
-        if self.episode_feature_:
-            names = np.delete(names, 0)
+            names = self.get_feature_names_in(
+                format='latex',
+                episode_feature=episode_feature,
+            )
         for row in range(n_row):
             ax[row, 0].set_ylabel(f'${names[row]}$')
         for col in range(n_col):
