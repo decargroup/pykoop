@@ -438,7 +438,7 @@ class KoopmanLiftingFn(
         names = self.get_feature_names_out(
             symbols_only=True,
             format='latex',
-            episode_feature=episode_feature,
+            episode_feature=False,
         )
         for row in range(n_row):
             ax[row, 0].set_ylabel(f'${names[row]}$')
@@ -2462,12 +2462,12 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             names = self.get_feature_names_out(
                 symbols_only=True,
                 format='latex',
-                episode_feature=episode_feature,
+                episode_feature=False,
             )
         else:
             names = self.get_feature_names_in(
                 format='latex',
-                episode_feature=episode_feature,
+                episode_feature=False,
             )
         for row in range(n_row):
             ax[row, 0].set_ylabel(f'${names[row]}$')

@@ -91,27 +91,7 @@ def example_pipeline_cv() -> None:
     score = best_estimator.score(eg['X_valid'])
 
     # Plot results
-    fig, ax = plt.subplots(
-        best_estimator.n_states_in_ + best_estimator.n_inputs_in_,
-        1,
-        constrained_layout=True,
-        sharex=True,
-        figsize=(6, 6),
-    )
-    # Plot true trajectory
-    ax[0].plot(eg['t'], eg['X_valid'][:, 1], label='True trajectory')
-    ax[1].plot(eg['t'], eg['X_valid'][:, 2])
-    ax[2].plot(eg['t'], eg['X_valid'][:, 3])
-    # Plot predicted trajectory
-    ax[0].plot(eg['t'], X_pred[:, 1], '--', label='Predicted trajectory')
-    ax[1].plot(eg['t'], X_pred[:, 2], '--')
-    # Add labels
-    ax[-1].set_xlabel('$t$')
-    ax[0].set_ylabel('$x(t)$')
-    ax[1].set_ylabel(r'$\dot{x}(t)$')
-    ax[2].set_ylabel('$u$')
-    ax[0].set_title(f'True and predicted states; MSE={-1 * score:.2e}')
-    ax[0].legend(loc='upper right')
+    best_estimator.plot_predicted_trajectory(eg['X_valid'], plot_input=True)
 
 
 if __name__ == '__main__':
