@@ -34,6 +34,7 @@ setuptools.setup(
         'pandas>=1.3.1',
         'optht>=0.2.0',
         'Deprecated>=1.2.13',
+        'matplotlib>=3.5.1',
     ],
     extra_require={
         'MOSEK solver': ['mosek>=9.2.49'],

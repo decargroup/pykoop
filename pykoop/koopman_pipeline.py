@@ -8,7 +8,10 @@ import numpy as np
 import pandas
 import sklearn.base
 import sklearn.metrics
+import sklearn.utils.metaestimators
 from deprecated import deprecated
+from matplotlib import pyplot as plt
+from scipy import linalg
 
 from ._sklearn_metaestimators import metaestimators
 
@@ -50,11 +53,13 @@ class KoopmanLiftingFn(
     """
 
     @abc.abstractmethod
-    def fit(self,
-            X: np.ndarray,
-            y: np.ndarray = None,
-            n_inputs: int = 0,
-            episode_feature: bool = False) -> 'KoopmanLiftingFn':
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray = None,
+        n_inputs: int = 0,
+        episode_feature: bool = False,
+    ) -> 'KoopmanLiftingFn':
         """Fit the lifting function.
 
         Parameters
@@ -362,6 +367,95 @@ class KoopmanLiftingFn(
             Xt = Xt_pad[:, self.n_states_in_:]
         return Xt
 
+    def plot_lifted_trajectory(
+        self,
+        X: np.ndarray,
+        episode_feature: bool = None,
+        episode_style: str = None,
+        subplots_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot lifted data matrix.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
+        episode_style : str
+            If ``'columns'``, each episode is a column (default). If
+            ``'overlay'``, states from each episode are plotted overtop of each
+            other in different colors.
+        subplots_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplots()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+        """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self)
+        # Transform data
+        Xt = self.lift(X, episode_feature=episode_feature)
+        # Split episodes
+        eps = split_episodes(
+            Xt,
+            episode_feature=(self.episode_feature_
+                             if episode_feature is None else episode_feature),
+        )
+        # Figure out dimensions
+        n_row = eps[0][1].shape[1]
+        n_eps = len(eps)
+        n_col = 1 if episode_style == 'overlay' else n_eps
+        # Create figure
+        subplots_args = {} if subplots_kw is None else subplots_kw
+        subplots_args.update({
+            'squeeze': False,
+            'constrained_layout': True,
+            'sharex': 'col',
+            'sharey': 'row',
+        })
+        fig, ax = plt.subplots(n_row, n_col, **subplots_args)
+        # Set up plot arguments
+        plot_args = {} if plot_kw is None else plot_kw
+        plot_args.pop('label', None)
+        # Plot results
+        for row in range(n_row):
+            for ep in range(n_eps):
+                if episode_style == 'overlay':
+                    ax[row, 0].plot(
+                        eps[ep][1][:, row],
+                        label=f'Ep. {int(eps[ep][0])}',
+                        **plot_args,
+                    )
+                else:
+                    ax[row, ep].plot(eps[ep][1][:, row], **plot_args)
+        # Set y labels
+        names = self.get_feature_names_out(
+            symbols_only=True,
+            format='latex',
+            episode_feature=False,
+        )
+        for row in range(n_row):
+            ax[row, 0].set_ylabel(f'${names[row]}$')
+        # Set x labels and titles
+        for col in range(n_col):
+            if episode_style != 'overlay':
+                ax[0, col].set_title(f'Ep. {int(eps[col][0])}')
+            ax[-1, col].set_xlabel('$k$')
+        # Set legend
+        if episode_style == 'overlay':
+            fig.legend(*ax[0, 0].get_legend_handles_labels(),
+                       loc='upper right')
+        fig.align_labels()
+        return fig, ax
+
     @abc.abstractmethod
     def _transform_feature_names(
         self,
@@ -388,7 +482,9 @@ class KoopmanLiftingFn(
     def get_feature_names_out(
         self,
         input_features: np.ndarray = None,
+        symbols_only: bool = False,
         format: str = None,
+        episode_feature: bool = None,
     ) -> np.ndarray:
         """Get output feature names.
 
@@ -397,23 +493,55 @@ class KoopmanLiftingFn(
         input_features : np.ndarray
             Array of string input feature names. If provided, they are checked
             against ``feature_names_in_``. If ``None``, ignored.
+        symbols_only : bool
+            If true, only return symbols (``theta_0``, ``upsilon_0``, etc.).
+            Otherwise, returns the full equations (default).
         format : str
             Feature name formatting method. Possible values are ``'plaintext'``
             (default if ``None``) or ``'latex'``.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
 
         Returns
         -------
         np.ndarray
             Output feature names.
         """
-        feature_names_in = self.get_feature_names_in(format)
-        feature_names_out = self._transform_feature_names(
-            feature_names_in,
-            format,
-        )
+        # Handle episode feature
+        if episode_feature is None:
+            episode_feature = self.episode_feature_
+        # Generate features
+        if symbols_only:
+            feature_names_out = self._generate_feature_names(
+                lifted=True,
+                format=format,
+                episode_feature=episode_feature,
+            )
+        else:
+            feature_names_in = self.get_feature_names_in(format)
+            feature_names_tf = self._transform_feature_names(
+                feature_names_in,
+                format,
+            )
+            # Handle episode feature after the fact
+            if episode_feature and not self.episode_feature_:
+                ep = self._generate_feature_names(
+                    format=format,
+                    episode_feature=True,
+                )[[0]]
+                feature_names_out = np.concatenate((ep, feature_names_tf))
+            elif self.episode_feature_ and not episode_feature:
+                feature_names_out = np.delete(feature_names_tf, 0)
+            else:
+                feature_names_out = feature_names_tf
         return feature_names_out
 
-    def get_feature_names_in(self, format: str = None) -> np.ndarray:
+    def get_feature_names_in(
+        self,
+        format: str = None,
+        episode_feature: bool = None,
+    ) -> np.ndarray:
         """Automatically generate input feature names.
 
         Parameters
@@ -421,6 +549,9 @@ class KoopmanLiftingFn(
         format : str
             Feature name formatting method. Possible values are ``'plaintext'``
             (default if ``None``) or ``'latex'``.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
 
         Returns
         -------
@@ -429,12 +560,15 @@ class KoopmanLiftingFn(
         """
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self)
+        # Handle episode feature
+        if episode_feature is None:
+            episode_feature = self.episode_feature_
+        # Generate features
         if self.feature_names_in_ is None:
-            feature_names_in = _generate_feature_names(
-                self.n_states_in_,
-                self.n_inputs_in_,
-                self.episode_feature_,
-                format,
+            feature_names_in = self._generate_feature_names(
+                lifted=False,
+                format=format,
+                episode_feature=episode_feature,
             )
         else:
             feature_names_in = self.feature_names_in_
@@ -456,6 +590,68 @@ class KoopmanLiftingFn(
         """
         if not np.all(_extract_feature_names(X) == self.feature_names_in_):
             raise ValueError('Input features do not match fit features.')
+
+    def _generate_feature_names(
+        self,
+        lifted: bool = False,
+        format: str = None,
+        episode_feature: bool = None,
+    ) -> np.ndarray:
+        """Generate feature names.
+
+        Parameters
+        ----------
+        lifted : bool
+            If true, return lifted feature names. If false, return unlifted
+            feature names (default).
+        format : str
+            Feature name formatting method. Possible values are ``'plaintext'``
+            (default if ``None``) or ``'latex'``.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
+
+        Returns
+        -------
+        np.ndarray
+            Generated states.
+        """
+        # Handle episode feature
+        if episode_feature is None:
+            episode_feature = self.episode_feature_
+        names = []
+        if lifted:
+            if format == 'latex':
+                if episode_feature:
+                    names.append(r'\mathrm{episode}')
+                for k in range(self.n_states_out_):
+                    names.append(rf'\vartheta_{{{k}}}')
+                for k in range(self.n_inputs_out_):
+                    names.append(rf'\upsilon_{{{k}}}')
+            else:
+                if episode_feature:
+                    names.append('ep')
+                for k in range(self.n_states_out_):
+                    names.append(f'theta{k}')
+                for k in range(self.n_inputs_out_):
+                    names.append(f'upsilon{k}')
+        else:
+            if format == 'latex':
+                if episode_feature:
+                    names.append(r'\mathrm{episode}')
+                for k in range(self.n_states_in_):
+                    names.append(f'x_{{{k}}}')
+                for k in range(self.n_inputs_in_):
+                    names.append(f'u_{{{k}}}')
+            else:
+                if episode_feature:
+                    names.append('ep')
+                for k in range(self.n_states_in_):
+                    names.append(f'x{k}')
+                for k in range(self.n_inputs_in_):
+                    names.append(f'u{k}')
+        feature_names_in = np.array(names, dtype=object)
+        return feature_names_in
 
 
 class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
@@ -1090,6 +1286,253 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         """
         raise NotImplementedError()
 
+    def plot_bode(
+        self,
+        t_step: float,
+        f_min: float = 0,
+        f_max: float = None,
+        n_points: int = 1000,
+        decibels: bool = True,
+        subplots_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot frequency response of Koopman system.
+
+        Parameters
+        ----------
+        t_step : float
+            Sampling timestep.
+        f_min : float
+            Minimum frequency to plot.
+        f_max : float
+            Maximum frequency to plot.
+        n_points : int
+            Number of frequecy points to plot.
+        decibels : bool
+            Plot gain in dB (default is true).
+        subplots_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplots()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+
+        Raises
+        ------
+        ValueError
+            If ``f_min`` is less than zero or ``f_max`` is greater than the
+            Nyquist frequency.
+        """
+        sklearn.utils.validation.check_is_fitted(self)
+        # Get Koopman ``A`` and ``B`` matrices
+        koop_mat = self.coef_.T
+        A = koop_mat[:, :koop_mat.shape[0]]
+        B = koop_mat[:, koop_mat.shape[0]:]
+
+        def _sigma_bar_G(f):
+            """Compute Bode plot at given frequency."""
+            z = np.exp(1j * 2 * np.pi * f * t_step)
+            G = linalg.solve((np.diag([z] * A.shape[0]) - A), B)
+            return linalg.svdvals(G)[0]
+
+        # Generate frequency response data
+        f_samp = 1 / t_step
+        if f_min < 0:
+            raise ValueError('`f_min` must be at least 0.')
+        if f_max is None:
+            f_max = f_samp / 2
+        if f_max > f_samp / 2:
+            raise ValueError(
+                '`f_max` must be less than the Nyquist frequency.')
+        f_plot = np.linspace(f_min, f_max, n_points)
+        bode = []
+        for k in range(f_plot.size):
+            bode.append(_sigma_bar_G(f_plot[k]))
+        mag = np.array(bode)
+        mag_db = 20 * np.log10(mag)
+        # Create figure
+        subplots_args = {} if subplots_kw is None else subplots_kw
+        subplots_args.update({
+            'constrained_layout': True,
+        })
+        fig, ax = plt.subplots(**subplots_args)
+        # Set up plot arguments
+        plot_args = {} if plot_kw is None else plot_kw
+        # Plot data
+        ylabel = r'$\bar{\sigma}\left({\bf G}(e^{j \theta})\right)$'
+        if decibels:
+            ax.semilogx(f_plot, mag_db, **plot_args)
+            ax.set_ylabel(f'{ylabel} (dB)')
+        else:
+            ax.semilogx(f_plot, mag, **plot_args)
+            ax.set_ylabel(f'{ylabel} (unitless gain)')
+        ax.set_xlabel(r'$f$ (Hz)')
+        return fig, ax
+
+    def plot_eigenvalues(
+        self,
+        unit_circle: bool = True,
+        figure_kw: Dict[str, Any] = None,
+        subplot_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot eigenvalues of Koopman ``A`` matrix.
+
+        Parameters
+        ----------
+        figure_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.figure()`.
+        subplot_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplot()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+        """
+        sklearn.utils.validation.check_is_fitted(self)
+        # Get Koopman ``A`` matrix
+        koop_mat = self.coef_.T
+        A = koop_mat[:, :koop_mat.shape[0]]
+        # Calculate eigenvalues
+        eigv = linalg.eig(A)[0]
+        # Create figure
+        figure_args = {} if figure_kw is None else figure_kw
+        fig = plt.figure(**figure_args)
+        subplot_args = {} if subplot_kw is None else subplot_kw
+        subplot_args.pop('projection', None)
+        ax = plt.subplot(projection='polar', **subplot_args)
+        plot_args = {} if plot_kw is None else plot_kw
+        # Plot eigenvalues
+        ax.scatter(np.angle(eigv), np.absolute(eigv), **plot_args)
+        # Plot unit circle
+        if unit_circle:
+            plot_args.pop('linestyle', None)
+            plot_args.pop('color', None)
+            th = np.linspace(0, 2 * np.pi)
+            ax.plot(
+                th,
+                np.ones(th.shape),
+                linestyle='--',
+                color='k',
+                **plot_args,
+            )
+        # Set labels
+        ax.set_xlabel(r'$\mathrm{Re}(\lambda)$')
+        ax.set_ylabel(r'$\mathrm{Im}(\lambda)$', labelpad=30)
+        return fig, ax
+
+    def plot_koopman_matrix(
+        self,
+        subplots_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot heatmap of Koopman matrices.
+
+        Parameters
+        ----------
+        subplots_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplots()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+        """
+        sklearn.utils.validation.check_is_fitted(self)
+        U = self.coef_.T
+        p_theta, p = U.shape
+        # Create figure
+        subplots_args = {} if subplots_kw is None else subplots_kw
+        subplots_args.update({
+            'constrained_layout': True,
+        })
+        fig, ax = plt.subplots(**subplots_args)
+        # Get max magnitude for colorbar
+        mag = np.max(np.abs(U))
+        plot_args = {} if plot_kw is None else plot_kw
+        plot_args.update({
+            'vmin': -mag,
+            'vmax': mag,
+            'cmap': 'seismic',
+        })
+        im = ax.matshow(U, **plot_args)
+        # Plot line to separate ``A`` and ``B``
+        ax.vlines(
+            p_theta - 0.5,
+            -0.5,
+            p_theta - 0.5,
+            linestyle='--',
+            color='k',
+            linewidth=2,
+        )
+        ax.text(0, p_theta, r'${\bf A}$')
+        ax.text(p_theta, p_theta, r'${\bf B}$')
+        fig.colorbar(im, ax=ax)
+        return fig, ax
+
+    def plot_svd(
+        self,
+        subplots_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot singular values of Koopman matrices.
+
+        Parameters
+        ----------
+        subplots_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplots()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+        """
+        sklearn.utils.validation.check_is_fitted(self)
+        koop_mat = self.coef_.T
+        A = koop_mat[:, :koop_mat.shape[0]]
+        B = koop_mat[:, koop_mat.shape[0]:]
+        # Create figure
+        subplots_args = {} if subplots_kw is None else subplots_kw
+        subplots_args.update({
+            'squeeze': True,
+            'constrained_layout': True,
+            'sharey': 'row',
+        })
+        fig, ax = plt.subplots(1, 3, **subplots_args)
+        # Compute singular values
+        sv_U = linalg.svdvals(koop_mat)
+        sv_A = linalg.svdvals(A)
+        sv_B = linalg.svdvals(B)
+        # Plot singular values
+        plot_args = {} if plot_kw is None else plot_kw
+        plot_args.update({
+            'marker': '.',
+        })
+        ax[0].semilogy(sv_U, **plot_args)
+        ax[1].semilogy(sv_A, **plot_args)
+        ax[2].semilogy(sv_B, **plot_args)
+        ax[0].set_xlabel(r'$i$')
+        ax[1].set_xlabel(r'$i$')
+        ax[2].set_xlabel(r'$i$')
+        ax[0].set_ylabel(r'$\sigma_i({\bf U})$')
+        ax[1].set_ylabel(r'$\sigma_i({\bf A})$')
+        ax[2].set_ylabel(r'$\sigma_i({\bf B})$')
+        return fig, ax
+
     def _validate_feature_names(self, X: np.ndarray) -> None:
         """Validate that input feature names are correct.
 
@@ -1630,12 +2073,16 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         self.regressor_fit_ = True
         return self
 
-    def fit_transformers(self,
-                         X: np.ndarray,
-                         y: np.ndarray = None,
-                         n_inputs: int = 0,
-                         episode_feature: bool = False) -> 'KoopmanPipeline':
+    def fit_transformers(
+        self,
+        X: np.ndarray,
+        y: np.ndarray = None,
+        n_inputs: int = 0,
+        episode_feature: bool = False,
+    ) -> 'KoopmanPipeline':
         """Fit only the lifting functions in the pipeline.
+
+        .. todo:: Rename to ``partial_fit``.
 
         Parameters
         ----------
@@ -1922,8 +2369,8 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
     def predict_trajectory(
         self,
-        X_initial: np.ndarray,
-        U: np.ndarray,
+        X0_or_X: np.ndarray,
+        U: np.ndarray = None,
         relift_state: bool = True,
         return_lifted: bool = False,
         return_input: bool = False,
@@ -1933,10 +2380,13 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
         Parameters
         ----------
-        X_initial : np.ndarray
-            Initial state.
+        X0_or_X : np.ndarray
+            Initial state if ``U`` is specified. If ``U`` is ``None``, then
+            treated as the initial state and full input in one matrix, where
+            the remaining states are ignored.
         U : np.ndarray
-            Input. Length of prediction is governed by length of input.
+            Input. Length of prediction is governed by length of input. If
+            ``None``, input is taken from last features of ``X0_or_X``.
         relift_state : bool
             If true, retract and re-lift state between prediction steps
             (default). Otherwise, only retract the state after all predictions
@@ -1963,6 +2413,35 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         ------
         ValueError
             If an episode is shorter than ``min_samples_``.
+
+        Examples
+        --------
+        Predict trajectory with one argument
+
+        >>> kp = pykoop.KoopmanPipeline(
+        ...     lifting_functions=[
+        ...         ('pl', pykoop.PolynomialLiftingFn(order=2)),
+        ...     ],
+        ...     regressor=pykoop.Edmd(),
+        ... )
+        >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+        KoopmanPipeline(lifting_functions=[('pl',
+        PolynomialLiftingFn(order=2))], regressor=Edmd())
+        >>> X_pred = kp.predict_trajectory(X_msd)
+
+        Predict trajectory with two arguments
+        >>> x0 = pykoop.extract_initial_conditions(
+        ...     X_msd,
+        ...     min_samples=kp.min_samples_,
+        ...     n_inputs=1,
+        ...     episode_feature=True,
+        ... )
+        >>> u = pykoop.extract_input(
+        ...     X_msd,
+        ...     n_inputs=1,
+        ...     episode_feature=True,
+        ... )
+        >>> X_pred = kp.predict_trajectory(x0, u)
         """
         # Check fit
         sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
@@ -1974,21 +2453,14 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         A = koop_mat[:, :koop_mat.shape[0]]
         B = koop_mat[:, koop_mat.shape[0]:]
         # Split episodes
-        ep_X0 = split_episodes(X_initial, episode_feature=episode_feature)
-        ep_U = split_episodes(U, episode_feature=episode_feature)
-        episodes = [(ex[0], ex[1], eu[1]) for (ex, eu) in zip(ep_X0, ep_U)]
+        episodes = self._split_state_input_episodes(
+            X0_or_X,
+            U,
+            episode_feature=episode_feature,
+        )
         # Predict for each episode
         predictions: List[Tuple[float, np.ndarray]] = []
         for (i, X0_i, U_i) in episodes:
-            # Check length of episode.
-            if X0_i.shape[0] != self.min_samples_:
-                raise ValueError(f'Initial condition in episode {i} has '
-                                 f'{X0_i.shape[0]} samples but `min_samples_`='
-                                 f'{self.min_samples_} samples are required.')
-            if U_i.shape[0] < self.min_samples_:
-                raise ValueError(f'Input in episode {i} has {U_i.shape[0]} '
-                                 'samples but at least `min_samples_`='
-                                 f'{self.min_samples_} samples are required.')
             crash_index = None
             # Iterate over episode and make predictions
             if relift_state:
@@ -2093,6 +2565,171 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             episode_feature=episode_feature,
         )
         return combined_episodes
+
+    def plot_predicted_trajectory(
+        self,
+        X0_or_X: np.ndarray,
+        U: np.ndarray = None,
+        relift_state: bool = True,
+        plot_lifted: bool = False,
+        plot_input: bool = False,
+        episode_feature: bool = None,
+        plot_ground_truth: bool = True,
+        episode_style: str = None,
+        subplots_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot predicted trajectory.
+
+        Parameters
+        ----------
+        X0_or_X : np.ndarray
+            Initial state if ``U`` is specified. If ``U`` is ``None``, then
+            treated as the ground truth trajectory from which the initial state
+            and full input are extracted.
+        U : np.ndarray
+            Input. Length of prediction is governed by length of input. If
+            ``None``, input is taken from last features of ``X0_or_X``.
+        relift_state : bool
+            If true, retract and re-lift state between prediction steps
+            (default). Otherwise, only retract the state after all predictions
+            are made. Correspond to the local and global error definitions of
+            [MAM22]_.
+        plot_lifted : bool
+            If true, plot the lifted state. If false, plot the original
+            state (default).
+        plot_input : bool
+            If true, plot the input as well as the state. If false, plot
+            only the original state (default).
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+            If ``None``, ``self.episode_feature_`` is used.
+        plot_ground_truth : bool
+            Plot contents of ``X0_or_X`` as ground truth if ``U`` is ``None``.
+            Ignored if ``U`` is not ``None``.
+        episode_style : str
+            If ``'columns'``, each episode is a column (default). If
+            ``'overlay'``, states from each episode are plotted overtop of each
+            other in different colors.
+        subplots_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplots()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+        """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
+        # Set episode feature if unspecified
+        if episode_feature is None:
+            episode_feature = self.episode_feature_
+        # Predict trajectory
+        Xp = self.predict_trajectory(
+            X0_or_X,
+            U,
+            relift_state=relift_state,
+            return_lifted=plot_lifted,
+            return_input=plot_input,
+            episode_feature=episode_feature,
+        )
+        # Split episodes. `eps`` only contains inputs if they are to be
+        # plotted. ``eps_gt`` truth always contains inputs, even if they are
+        # not plotted.
+        eps = split_episodes(Xp, episode_feature=episode_feature)
+        if plot_ground_truth and (U is None):
+            if plot_lifted:
+                X_gt = self.lift(X0_or_X, episode_feature=episode_feature)
+            else:
+                X_gt = X0_or_X
+            eps_gt = split_episodes(X_gt, episode_feature=episode_feature)
+        else:
+            eps_gt = None
+        # Figure out dimensions.
+        if plot_lifted:
+            if plot_input:
+                n_row = self.n_states_out_ + self.n_inputs_out_
+            else:
+                n_row = self.n_states_out_
+        else:
+            if plot_input:
+                n_row = self.n_states_in_ + self.n_inputs_in_
+            else:
+                n_row = self.n_states_in_
+        n_eps = len(eps)
+        n_col = 1 if episode_style == 'overlay' else n_eps
+        n_states = self.n_states_out_ if plot_lifted else self.n_states_in_
+        # Create figure
+        subplots_args = {} if subplots_kw is None else subplots_kw
+        subplots_args.update({
+            'squeeze': False,
+            'constrained_layout': True,
+            'sharex': 'col',
+            'sharey': 'row',
+        })
+        fig, ax = plt.subplots(n_row, n_col, **subplots_args)
+        # Set up plot arguments
+        plot_args = {} if plot_kw is None else plot_kw
+        plot_args.pop('label', None)
+        plot_args.pop('color', None)
+        plot_args.pop('linestyle', None)
+        # Plot results
+        for row in range(n_row):
+            for ep in range(n_eps):
+                if episode_style == 'overlay':
+                    line_pred = ax[row, 0].plot(
+                        eps[ep][1][:, row],
+                        label=f'Ep. {int(eps[ep][0])} prediction',
+                        **plot_args,
+                    )
+                    if eps_gt is not None and row < n_states:
+                        ax[row, 0].plot(
+                            eps_gt[ep][1][:, row],
+                            label=f'Ep. {int(eps[ep][0])} ground truth',
+                            linestyle='--',
+                            color=line_pred[0].get_color(),
+                            **plot_args,
+                        )
+                else:
+                    line_pred = ax[row, ep].plot(
+                        eps[ep][1][:, row],
+                        label=f'Prediction',
+                        **plot_args,
+                    )
+                    if eps_gt is not None and row < n_states:
+                        ax[row, ep].plot(
+                            eps_gt[ep][1][:, row],
+                            label=f'Ground truth',
+                            linestyle='--',
+                            **plot_args,
+                        )
+        # Set y labels
+        if plot_lifted:
+            names = self.get_feature_names_out(
+                symbols_only=True,
+                format='latex',
+                episode_feature=False,
+            )
+        else:
+            names = self.get_feature_names_in(
+                format='latex',
+                episode_feature=False,
+            )
+        for row in range(n_row):
+            ax[row, 0].set_ylabel(f'${names[row]}$')
+        for col in range(n_col):
+            if episode_style != 'overlay':
+                ax[0, col].set_title(f'Ep. {int(eps[col][0])}')
+            ax[-1, col].set_xlabel('$k$')
+        # Set legend
+        fig.legend(
+            *ax[0, 0].get_legend_handles_labels(),
+            loc='upper right',
+            bbox_to_anchor=(1, 1) if episode_style == 'overlay' else (1, 0.95),
+        )
 
     @staticmethod
     def make_scorer(
@@ -2269,6 +2906,201 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         for _, lf in self.lifting_functions_:
             names_out = lf._transform_feature_names(names_out, format)
         return names_out
+
+    def _split_state_input_episodes(
+        self,
+        X0_or_X: np.ndarray,
+        U: np.ndarray = None,
+        episode_feature: bool = False,
+    ) -> List[Tuple[float, np.ndarray, np.ndarray]]:
+        """Break initial conditions and inputs into episodes.
+
+        Parameters
+        ----------
+        X0_or_X : np.ndarray
+            Initial state if ``U`` is specified. If ``U`` is ``None``, then
+            treated as the initial state and full input in one matrix, where
+            the remaining states are ignored.
+        U : np.ndarray
+            Input. Length of prediction is governed by length of input. If
+            ``None``, input is taken from last features of ``X0_or_X``.
+        episode_feature : bool
+            True if first feature indicates which episode a timestep is from.
+
+        Returns
+        -------
+        List[Tuple[float, np.ndarray, np.ndarray]]
+            List of episode indices, initial conditions, and inputs.
+
+        Raises
+        ------
+        ValueError
+            If input dimensions are incorrect.
+        """
+        if U is None:
+            if X0_or_X.shape[1] != self.n_features_in_:
+                raise ValueError('Invalid dimensions for ``X0_or_X``. If '
+                                 '``U=None``, ``X0_or_X`` must contain '
+                                 'states and inputs.')
+            ep_X = split_episodes(X0_or_X, episode_feature=episode_feature)
+            episodes = [(
+                ex[0],
+                ex[1][:self.min_samples_, :self.n_states_in_],
+                ex[1][:, self.n_states_in_:],
+            ) for ex in ep_X]
+        else:
+            ep = 1 if episode_feature else 0
+            if X0_or_X.shape[1] != self.n_states_in_ + ep:
+                raise ValueError('Invalid dimensions for ``X0_or_X``. If '
+                                 '``U`` is specified, ``X0_or_X`` must '
+                                 'contain only states.')
+            if U.shape[1] != self.n_inputs_in_ + ep:
+                raise ValueError('Invalid dimensions for ``U``. If ``U`` is '
+                                 'specified, it must contain only inputs.')
+            ep_X0 = split_episodes(X0_or_X, episode_feature=episode_feature)
+            ep_U = split_episodes(U, episode_feature=episode_feature)
+            episodes = [(ex[0], ex[1], eu[1]) for (ex, eu) in zip(ep_X0, ep_U)]
+        # Check length of episode.
+        for (i, X0_i, U_i) in episodes:
+            if X0_i.shape[0] != self.min_samples_:
+                raise ValueError(f'Initial condition in episode {i} has '
+                                 f'{X0_i.shape[0]} samples but `min_samples_`='
+                                 f'{self.min_samples_} samples are required.')
+            if U_i.shape[0] < self.min_samples_:
+                raise ValueError(f'Input in episode {i} has {U_i.shape[0]} '
+                                 'samples but at least `min_samples_`='
+                                 f'{self.min_samples_} samples are required.')
+        return episodes
+
+    @sklearn.utils.metaestimators.if_delegate_has_method('regressor_')
+    def plot_bode(
+        self,
+        t_step: float,
+        f_min: float = 0,
+        f_max: float = None,
+        n_points: int = 1000,
+        decibels: bool = True,
+        subplots_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot frequency response of Koopman system.
+
+        Parameters
+        ----------
+        t_step : float
+            Sampling timestep.
+        f_min : float
+            Minimum frequency to plot.
+        f_max : float
+            Maximum frequency to plot.
+        n_points : int
+            Number of frequecy points to plot.
+        decibels : bool
+            Plot gain in dB (default is true).
+        subplots_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplots()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+
+        Raises
+        ------
+        ValueError
+            If ``f_min`` is less than zero or ``f_max`` is greater than the
+            Nyquist frequency.
+        """
+        return self.regressor_.plot_bode(
+            t_step,
+            f_min,
+            f_max,
+            n_points,
+            decibels,
+            subplots_kw,
+            plot_kw,
+        )
+
+    @sklearn.utils.metaestimators.if_delegate_has_method('regressor_')
+    def plot_eigenvalues(
+        self,
+        unit_circle: bool = True,
+        figure_kw: Dict[str, Any] = None,
+        subplot_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot eigenvalues of Koopman ``A`` matrix.
+
+        Parameters
+        ----------
+        figure_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.figure()`.
+        subplot_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplot()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+        """
+        return self.regressor_.plot_eigenvalues(
+            unit_circle,
+            figure_kw,
+            subplot_kw,
+            plot_kw,
+        )
+
+    @sklearn.utils.metaestimators.if_delegate_has_method('regressor_')
+    def plot_koopman_matrix(
+        self,
+        subplots_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot heatmap of Koopman matrices.
+
+        Parameters
+        ----------
+        subplots_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplots()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+        """
+        return self.regressor_.plot_koopman_matrix(subplots_kw, plot_kw)
+
+    @sklearn.utils.metaestimators.if_delegate_has_method('regressor_')
+    def plot_svd(
+        self,
+        subplots_kw: Dict[str, Any] = None,
+        plot_kw: Dict[str, Any] = None,
+    ) -> Tuple[plt.Figure, np.ndarray]:
+        """Plot singular values of Koopman matrices.
+
+        Parameters
+        ----------
+        subplots_kw : Dict[str, Any] = None,
+            Keyword arguments for :func:`plt.subplots()`.
+        plot_kw : Dict[str, Any] = None,
+            Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
+
+        Returns
+        -------
+        Tuple[plt.Figure, np.ndarray]
+            Matplotlib :class:`plt.Figure` object and two-dimensional array of
+            :class:`plt.Axes` objects.
+        """
+        return self.regressor_.plot_svd(subplots_kw, plot_kw)
 
 
 def score_trajectory(
@@ -2661,50 +3493,6 @@ def _weights_from_data_matrix(
         weights_list.append(weights_i)
     weights = np.concatenate(weights_list)
     return weights
-
-
-def _generate_feature_names(
-    n_states_in: int,
-    n_inputs_in: int,
-    episode_feature: bool,
-    format: str = None,
-) -> np.ndarray:
-    """Generate feature names.
-
-    Parameters
-    ----------
-    n_states_in : int
-        Number of states.
-    n_inputs_in : int
-        Number of inputs.
-    episode_feature : bool
-        Presence of episode feature.
-    format : str
-        Feature name formatting method. Possible values are ``'plaintext'``
-        (default if ``None``) or ``'latex'``.
-
-    Returns
-    -------
-    np.ndarray
-        Generated states.
-    """
-    names = []
-    if format == 'latex':
-        if episode_feature:
-            names.append(r'\mathrm{episode}')
-        for k in range(n_states_in):
-            names.append(f'x_{{{k}}}')
-        for k in range(n_inputs_in):
-            names.append(f'u_{{{k}}}')
-    else:
-        if episode_feature:
-            names.append('ep')
-        for k in range(n_states_in):
-            names.append(f'x{k}')
-        for k in range(n_inputs_in):
-            names.append(f'u{k}')
-    feature_names_in = np.array(names, dtype=object)
-    return feature_names_in
 
 
 def _extract_feature_names(

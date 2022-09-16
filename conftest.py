@@ -4,7 +4,7 @@ from typing import Any, Dict
 import numpy as np
 import pytest
 import sklearn
-from scipy import linalg, integrate
+from scipy import integrate, linalg
 
 import pykoop
 
@@ -129,19 +129,19 @@ def mass_spring_damper_no_input() -> Dict[str, Any]:
 
 @pytest.fixture(autouse=True)
 def add_np(doctest_namespace):
-    """Add numpy to namespace."""
+    """Add ``numpy`` to namespace."""
     doctest_namespace['np'] = np
 
 
 @pytest.fixture(autouse=True)
 def add_pykoop(doctest_namespace):
-    """Add pykoop to namespace."""
+    """Add ``pykoop`` to namespace."""
     doctest_namespace['pykoop'] = pykoop
 
 
 @pytest.fixture(autouse=True)
 def add_sklearn(doctest_namespace):
-    """Add sklearn to namespace."""
+    """Add ``sklearn`` to namespace."""
     doctest_namespace['sklearn'] = sklearn
 
 

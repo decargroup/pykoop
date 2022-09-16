@@ -71,6 +71,9 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
     # Score using the pipeline
     score = kp.score(eg['X_valid'])
 
+    # Plot results
+    kp.plot_predicted_trajectory(eg['X_valid'], plot_input=True)
+
 More examples are available in ``examples/``, in ``notebooks/``, or on
 `binder <https://mybinder.org/v2/gh/decarsg/pykoop/main?labpath=notebooks>`_.
 

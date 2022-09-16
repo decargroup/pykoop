@@ -46,6 +46,8 @@ autodoc_default_options = {
     'exclude-members': '__weakref__'
 }
 
+autodoc_typehints = 'description'
+
 autosummary_generate = True
 
 # Path to ``objects.inv``
