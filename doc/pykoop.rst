@@ -135,6 +135,7 @@ namespace for convenience.
    :toctree: _autosummary/
 
    pykoop.BilinearInputLiftingFn
+   pykoop.ConstantLiftingFn
    pykoop.DelayLiftingFn
    pykoop.PolynomialLiftingFn
    pykoop.SkLearnLiftingFn
