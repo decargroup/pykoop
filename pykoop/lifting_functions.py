@@ -420,6 +420,108 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         return feature_names_out
 
 
+class ConstantLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
+    """Lifting function that appends a constant term to the input features.
+
+    This is an alternative to allowing bias/offset terms in other lifting
+    functions (e.g. :class:`PolynomialLiftingFn`). The aim of explicitly
+    including the constant term as a lifting function is to prevent
+    accidentally adding it in multiple places when cascading multiple types of
+    lifting functions.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
+
+    Examples
+    --------
+    Add a constant lifted state
+
+    >>> const = pykoop.ConstantLiftingFn()
+    >>> const.fit(X_msd, n_inputs=1, episode_feature=True)
+    ConstantLiftingFn()
+    >>> const.get_feature_names_in().tolist()
+    ['ep', 'x0', 'x1', 'u0']
+    >>> const.get_feature_names_out().tolist()
+    ['ep', 'x0', 'x1', '1', 'u0']
+    >>> Xt_msd = const.transform(X_msd[:2, :])
+    """
+
+    def __init__(self) -> None:
+        """Instantiate :class:`ConstantLiftingFn`."""
+        pass
+
+    def _fit_one_ep(self, X: np.ndarray) -> Tuple[int, int]:
+        n_states_out = self.n_states_in_ + 1
+        n_inputs_out = self.n_inputs_in_
+        return (n_states_out, n_inputs_out)
+
+    def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        states = X[:, :self.n_states_in_]
+        inputs = X[:, self.n_states_in_:]
+        ones = np.ones((X.shape[0], 1))
+        Xt = np.hstack((states, ones, inputs))
+        return Xt
+
+    def _inverse_transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        input_start = self.n_states_in_ + 1
+        input_stop = input_start + self.n_inputs_in_
+        Xt = np.hstack((
+            X[:, :self.n_states_in_],
+            X[:, input_start:input_stop],
+        ))
+        return Xt
+
+    def _validate_parameters(self) -> None:
+        # No parameters to validate
+        pass
+
+    def _transform_feature_names(
+        self,
+        feature_names: np.ndarray,
+        format: str = None,
+    ) -> np.ndarray:
+        # Deal with episode feature
+        if self.episode_feature_:
+            names_in = feature_names[1:]
+            ep = feature_names[[0]]
+        else:
+            names_in = feature_names
+            ep = None
+        # Extract states and inputs
+        states = names_in[:self.n_states_in_]
+        inputs = names_in[self.n_states_in_:]
+        one = np.array(['1'], dtype=object)
+        if ep is not None:
+            feature_names_out = np.concatenate(
+                (ep, states, one, inputs),
+                dtype=object,
+            )
+        else:
+            feature_names_out = np.concatenate(
+                (states, one, inputs),
+                dtype=object,
+            )
+        return feature_names_out
+
+
 class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
     """Lifting function to generate delay coordinates for state and input.
 

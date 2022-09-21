@@ -17,6 +17,7 @@ from .koopman_pipeline import (
 )
 from .lifting_functions import (
     BilinearInputLiftingFn,
+    ConstantLiftingFn,
     DelayLiftingFn,
     PolynomialLiftingFn,
     SkLearnLiftingFn,
