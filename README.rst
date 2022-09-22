@@ -20,6 +20,9 @@ pykoop
 allows the user to specify Koopman lifting functions and regressors in order to
 learn a linear model of a given system in the lifted space.
 
+.. image:: https://raw.githubusercontent.com/decarsg/pykoop/feature/87-add-koopman-pipeline-diagram/doc/_static/pykoop_diagram.png
+   :alt: Koopman pipeline diagram
+
 ``pykoop`` places heavy emphasis on modular lifting function construction and
 ``scikit-learn`` compatibility. The library aims to make it easy to
 automatically find good lifting functions and regressor hyperparameters by
