@@ -20,7 +20,7 @@ pykoop
 allows the user to specify Koopman lifting functions and regressors in order to
 learn a linear model of a given system in the lifted space.
 
-.. image:: https://raw.githubusercontent.com/decarsg/pykoop/feature/87-add-koopman-pipeline-diagram/doc/_static/pykoop_diagram.png
+.. image:: https://raw.githubusercontent.com/decarsg/pykoop/main/doc/_static/pykoop_diagram.png
    :alt: Koopman pipeline diagram
 
 To learn more about Koopman operator theory, check out
