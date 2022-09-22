@@ -4,7 +4,6 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 import pykoop
-import pykoop.dynamic_models
 
 plt.rc('lines', linewidth=2)
 plt.rc('axes', grid=True)
