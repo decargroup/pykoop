@@ -1,7 +1,7 @@
-Fixes #
+Resolves #
 
 # Proposed Changes
 
-  -
-  -
-  -
+-
+-
+-
