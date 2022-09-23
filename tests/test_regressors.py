@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+import sklearn.linear_model
 import sklearn.utils.estimator_checks
 
 import pykoop
@@ -12,6 +13,18 @@ import pykoop
     [
         (
             pykoop.Edmd(),
+            'mass_spring_damper_no_input',
+            1e-5,
+            1e-5,
+        ),
+        (
+            pykoop.EdmdMeta(),
+            'mass_spring_damper_no_input',
+            1e-5,
+            1e-5,
+        ),
+        (
+            pykoop.EdmdMeta(regressor=sklearn.linear_model.Ridge(alpha=0)),
             'mass_spring_damper_no_input',
             1e-5,
             1e-5,
@@ -30,6 +43,18 @@ import pykoop
         ),
         (
             pykoop.Edmd(),
+            'mass_spring_damper_sine_input',
+            1e-1,
+            1e-3,
+        ),
+        (
+            pykoop.EdmdMeta(),
+            'mass_spring_damper_sine_input',
+            1e-1,
+            1e-3,
+        ),
+        (
+            pykoop.EdmdMeta(regressor=sklearn.linear_model.Ridge(alpha=0)),
             'mass_spring_damper_sine_input',
             1e-1,
             1e-3,
@@ -112,6 +137,27 @@ class TestRegressorsExact:
         (
             pykoop.Dmd(tsvd=pykoop.Tsvd('known_noise', 1)),
             'mass_spring_damper_no_input',
+        ),
+        (
+            pykoop.EdmdMeta(regressor=sklearn.linear_model.Ridge(
+                alpha=1, random_state=1234)),
+            'mass_spring_damper_sine_input',
+        ),
+        (
+            pykoop.EdmdMeta(regressor=sklearn.linear_model.Lasso(
+                alpha=1, random_state=1234)),
+            'mass_spring_damper_sine_input',
+        ),
+        (
+            pykoop.EdmdMeta(regressor=sklearn.linear_model.ElasticNet(
+                alpha=1, random_state=1234)),
+            'mass_spring_damper_sine_input',
+        ),
+        (
+            pykoop.EdmdMeta(
+                regressor=sklearn.linear_model.OrthogonalMatchingPursuit(
+                    n_nonzero_coefs=2)),
+            'mass_spring_damper_sine_input',
         ),
     ],
 )

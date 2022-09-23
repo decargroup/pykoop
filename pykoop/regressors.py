@@ -88,7 +88,6 @@ class EdmdMeta(koopman_pipeline.KoopmanRegressor):
 
     - :class:`sklearn.linear_model.LinearRegression`,
     - :class:`sklearn.linear_model.Ridge`,
-    - :class:`sklearn.linear_model.SGDRegressor`,
     - :class:`sklearn.linear_model.ElasticNet`,
     - :class:`sklearn.linear_model.Lasso`, or
     - :class:`sklearn.linear_model.OrthogonalMatchingPursuit`.
@@ -109,6 +108,15 @@ class EdmdMeta(koopman_pipeline.KoopmanRegressor):
         Fit ``scikit-learn`` regressor.
     coef_ : np.ndarray
         Fit coefficient matrix.
+
+    Examples
+    --------
+    EDMD with the lasso regularizer on mass-spring-damper data
+
+    >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.EdmdMeta(
+    ...     regressor=sklearn.linear_model.Lasso(alpha=1)))
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=EdmdMeta(regressor=Lasso(alpha=1)))
     """
 
     def __init__(self, regressor: sklearn.base.BaseEstimator = None) -> None:
