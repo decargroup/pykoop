@@ -1,5 +1,6 @@
 \documentclass[crop,tikz,convert]{standalone}
 \usetikzlibrary{positioning}
+\usetikzlibrary{backgrounds}
 
 \usepackage{amsmath}
 \DeclareMathAlphabet{\mbf}{OT1}{ptm}{b}{n}
@@ -43,7 +44,13 @@
 \end{lrbox}
 
 \begin{document}
-    \begin{tikzpicture}[inner sep=0.1in, outer sep=0.1in, font=\sffamily]
+    \begin{tikzpicture}[
+            inner sep=0.1in,
+            outer sep=0.1in,
+            font=\sffamily,
+            background rectangle/.style={fill=white!100},
+            show background rectangle,
+        ]
         \node[
             label={[anchor=north, scale=4]south:Measurements of $\mbf{x}_{k + 1} = \mbf{f}(\mbf{x}_k, \mbf{u}_k)$},
         ] (x) at (0in, 0in) {\usebox{\state}};
