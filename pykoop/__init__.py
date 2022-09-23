@@ -22,7 +22,7 @@ from .lifting_functions import (
     PolynomialLiftingFn,
     SkLearnLiftingFn,
 )
-from .regressors import Dmd, Dmdc, Edmd
+from .regressors import Dmd, Dmdc, Edmd, EdmdMeta
 from .tsvd import Tsvd
 from .util import (
     AnglePreprocessor,

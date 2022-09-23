@@ -4,14 +4,20 @@ All of the lifting functions included in this module adhere to the interface
 defined in :class:`KoopmanRegressor`.
 """
 
+import logging
 from typing import Any, Dict, Tuple, Union
 
 import numpy as np
 import sklearn.base
+import sklearn.linear_model
 import sklearn.utils.validation
 from scipy import linalg
 
 from . import koopman_pipeline, tsvd
+
+# Create logger
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 
 class Edmd(koopman_pipeline.KoopmanRegressor):
@@ -72,6 +78,72 @@ class Edmd(koopman_pipeline.KoopmanRegressor):
     def _validate_parameters(self) -> None:
         if self.alpha < 0:
             raise ValueError('Parameter `alpha` must be positive or zero.')
+
+
+class EdmdMeta(koopman_pipeline.KoopmanRegressor):
+    """Extended Dynamic Mode Decomposition with ``scikit-learn`` regressor.
+
+    This meta-estimator lets you use any ``scikit-learn`` linear regressor to
+    approximate the Koopman matrix. For example, you can use
+
+    - :class:`sklearn.linear_model.LinearRegression`,
+    - :class:`sklearn.linear_model.Ridge`,
+    - :class:`sklearn.linear_model.SGDRegressor`,
+    - :class:`sklearn.linear_model.ElasticNet`,
+    - :class:`sklearn.linear_model.Lasso`, or
+    - :class:`sklearn.linear_model.OrthogonalMatchingPursuit`.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
+    regressor_ : sklearn.base.BaseEstimator
+        Fit ``scikit-learn`` regressor.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+    """
+
+    def __init__(self, regressor: sklearn.base.BaseEstimator = None) -> None:
+        """Instantiate :class:`EdmdMeta`.
+
+        Parameters
+        ----------
+        regressor : sklearn.base.BaseEstimator
+            Wrapped ``scikit-learn`` regressor. Defaults to
+            :class:`sklearn.linear_model.LinearRegression`.
+        """
+        self.regressor = regressor
+
+    def _fit_regressor(self, X_unshifted: np.ndarray,
+                       X_shifted: np.ndarray) -> np.ndarray:
+        self.regressor_ = (sklearn.base.clone(self.regressor)
+                           if self.regressor is not None else
+                           sklearn.linear_model.LinearRegression())
+        if hasattr(self.regressor_, 'fit_intercept'):
+            if self.regressor_.fit_intercept:
+                log.warning('Regressor parameter `fit_intercept`  must be set '
+                            'to `False` if present. Setting it `False` now.')
+                self.regressor_.fit_intercept = False
+        Psi = X_unshifted.T
+        Theta_p = X_shifted.T
+        p, q = Psi.shape
+        G = (Theta_p @ Psi.T) / q
+        H = (Psi @ Psi.T) / q
+        self.regressor_.fit(H.T, G.T)
+        coef = self.regressor_.coef_.T
+        return coef
+
+    def _validate_parameters(self) -> None:
+        # No parameters need validation.
+        pass
 
 
 class Dmdc(koopman_pipeline.KoopmanRegressor):
