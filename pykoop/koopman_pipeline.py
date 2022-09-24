@@ -2730,6 +2730,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             loc='upper right',
             bbox_to_anchor=(1, 1) if episode_style == 'overlay' else (1, 0.95),
         )
+        return fig, ax
 
     @staticmethod
     def make_scorer(
