@@ -297,6 +297,17 @@ constraint from [HIS19]_.
 .. plot:: ../examples/4_example_eigenvalue_comparison.py
    :include-source:
 
+Sparse regression
+-----------------
+
+This example shows how to use :class:`pykoop.EdmdMeta` to implement sparse
+regression with :class:`sklearn.linear_model.Lasso`. The lasso promotes empty
+columns in the Koopman matrix, which means the corresponding lifting functions
+can be removed from the model.
+
+.. plot:: ../examples/5_example_sparse_regression.py
+   :include-source:
+
 
 References
 ==========
