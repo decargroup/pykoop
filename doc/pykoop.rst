@@ -157,6 +157,7 @@ convenience.
    pykoop.Dmd
    pykoop.Dmdc
    pykoop.Edmd
+   pykoop.EdmdMeta
 
 
 Truncated SVD
