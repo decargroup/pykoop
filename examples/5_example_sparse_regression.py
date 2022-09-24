@@ -1,4 +1,4 @@
-"""Example of sparse regression."""
+"""Example of sparse regression with :class:`EdmdMeta`."""
 
 from matplotlib import pyplot as plt
 from sklearn.linear_model import Lasso
@@ -11,7 +11,7 @@ plt.rc('grid', linestyle='--')
 
 
 def example_sparse_regression() -> None:
-    """Demonstrate sparse regression."""
+    """Demonstrate sparse regression with :class:`EdmdMeta`."""
     # Get example mass-spring-damper data
     eg = pykoop.example_data_msd()
 
