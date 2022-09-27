@@ -156,7 +156,7 @@ class TestRegressorsExact:
         (
             pykoop.EdmdMeta(
                 regressor=sklearn.linear_model.OrthogonalMatchingPursuit(
-                    n_nonzero_coefs=2)),
+                    n_nonzero_coefs=2, normalize=False)),
             'mass_spring_damper_sine_input',
         ),
     ],
@@ -206,6 +206,8 @@ class TestSkLearn:
 
     @sklearn.utils.estimator_checks.parametrize_with_checks([
         pykoop.Edmd(),
+        pykoop.EdmdMeta(),
+        pykoop.EdmdMeta(regressor=sklearn.linear_model.Ridge(alpha=1)),
         pykoop.Dmdc(),
         pykoop.Dmd(),
     ])
