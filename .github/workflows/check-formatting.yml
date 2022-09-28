@@ -1,8 +1,7 @@
 name: Check formatting
 on: [push]
 jobs:
-  formatting-check:
-    name: Formatting Check
+  lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2

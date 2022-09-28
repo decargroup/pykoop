@@ -18,7 +18,6 @@ import numpy as np
 import picos
 import scipy.signal
 import sklearn.base
-import sklearn.utils.metaestimators
 from scipy import linalg
 
 from . import koopman_pipeline, regressors, tsvd
@@ -2343,7 +2342,6 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         self.coef_ = self.hinf_regressor_.coef_
         return self
 
-    @sklearn.utils.metaestimators.if_delegate_has_method('hinf_regressor_')
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Perform a single-step prediction for each state in each episode.
 
@@ -2357,6 +2355,8 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         np.ndarray
             Predicted data matrix.
         """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self)
         return self.hinf_regressor_.predict(X)
 
     def _more_tags(self):

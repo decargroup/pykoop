@@ -8,7 +8,6 @@ import numpy as np
 import pandas
 import sklearn.base
 import sklearn.metrics
-import sklearn.utils.metaestimators
 from deprecated import deprecated
 from matplotlib import pyplot as plt
 from scipy import linalg
@@ -2973,7 +2972,6 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
                                  f'{self.min_samples_} samples are required.')
         return episodes
 
-    @sklearn.utils.metaestimators.if_delegate_has_method('regressor_')
     def plot_bode(
         self,
         t_step: float,
@@ -3015,6 +3013,8 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             If ``f_min`` is less than zero or ``f_max`` is greater than the
             Nyquist frequency.
         """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self, 'regressor_')
         return self.regressor_.plot_bode(
             t_step,
             f_min,
@@ -3025,7 +3025,6 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             plot_kw,
         )
 
-    @sklearn.utils.metaestimators.if_delegate_has_method('regressor_')
     def plot_eigenvalues(
         self,
         unit_circle: bool = True,
@@ -3050,6 +3049,8 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             Matplotlib :class:`plt.Figure` object and two-dimensional array of
             :class:`plt.Axes` objects.
         """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self, 'regressor_')
         return self.regressor_.plot_eigenvalues(
             unit_circle,
             figure_kw,
@@ -3057,7 +3058,6 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             plot_kw,
         )
 
-    @sklearn.utils.metaestimators.if_delegate_has_method('regressor_')
     def plot_koopman_matrix(
         self,
         subplots_kw: Dict[str, Any] = None,
@@ -3078,9 +3078,10 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             Matplotlib :class:`plt.Figure` object and two-dimensional array of
             :class:`plt.Axes` objects.
         """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self, 'regressor_')
         return self.regressor_.plot_koopman_matrix(subplots_kw, plot_kw)
 
-    @sklearn.utils.metaestimators.if_delegate_has_method('regressor_')
     def plot_svd(
         self,
         subplots_kw: Dict[str, Any] = None,
@@ -3101,6 +3102,8 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             Matplotlib :class:`plt.Figure` object and two-dimensional array of
             :class:`plt.Axes` objects.
         """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self, 'regressor_')
         return self.regressor_.plot_svd(subplots_kw, plot_kw)
 
 
