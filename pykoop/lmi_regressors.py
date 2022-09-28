@@ -2355,6 +2355,8 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         np.ndarray
             Predicted data matrix.
         """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self)
         return self.hinf_regressor_.predict(X)
 
     def _more_tags(self):

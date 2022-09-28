@@ -3013,6 +3013,8 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             If ``f_min`` is less than zero or ``f_max`` is greater than the
             Nyquist frequency.
         """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self, 'regressor_')
         return self.regressor_.plot_bode(
             t_step,
             f_min,
@@ -3047,6 +3049,8 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             Matplotlib :class:`plt.Figure` object and two-dimensional array of
             :class:`plt.Axes` objects.
         """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self, 'regressor_')
         return self.regressor_.plot_eigenvalues(
             unit_circle,
             figure_kw,
@@ -3074,6 +3078,8 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             Matplotlib :class:`plt.Figure` object and two-dimensional array of
             :class:`plt.Axes` objects.
         """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self, 'regressor_')
         return self.regressor_.plot_koopman_matrix(subplots_kw, plot_kw)
 
     def plot_svd(
@@ -3096,6 +3102,8 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             Matplotlib :class:`plt.Figure` object and two-dimensional array of
             :class:`plt.Axes` objects.
         """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self, 'regressor_')
         return self.regressor_.plot_svd(subplots_kw, plot_kw)
 
 
