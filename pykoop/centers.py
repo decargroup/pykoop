@@ -251,7 +251,7 @@ class GaussianRandomCenters(sklearn.base.BaseEstimator):
         self.n_centers_ = self.n_centers
         # Calculate mean and covariance
         self.mean_ = np.mean(X, axis=0)
-        self.cov_ = np.cov(X.T)
+        self.cov_ = np.cov(X, rowvar=False)
         # Generate centers
         self.centers_ = stats.multivariate_normal.rvs(
             mean=self.mean_,
