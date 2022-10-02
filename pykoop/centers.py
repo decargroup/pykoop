@@ -19,9 +19,6 @@ class GridCenters(sklearn.base.BaseEstimator):
         Number of centers generated.
     n_features_in_ : int
         Number of features input.
-    n_points_per_feature_ : int
-        Number of points per feature, either set in constructor or
-        automatically calculated.
     range_max_ : np.ndarray
         Maximum value of each feature used to generate grid.
     range_min_ : np.ndarray
@@ -30,7 +27,7 @@ class GridCenters(sklearn.base.BaseEstimator):
 
     def __init__(
         self,
-        n_points_per_feature: int = None,
+        n_points_per_feature: int = 2,
         symmetric_range: bool = False,
         range_scale: float = 1,
     ) -> None:
@@ -39,8 +36,7 @@ class GridCenters(sklearn.base.BaseEstimator):
         Parameters
         ----------
         n_points_per_feature : int
-            Number of points in grid for each feature. If ``None``, chosen
-            automatically to generate around 100 centers.
+            Number of points in grid for each feature.
         symmetric_range : bool
             If true, the grid range for a given feature is forced to be
             symmetric about zero (i.e., ``[-max(abs(x)), max(abs(x))]``).
@@ -82,24 +78,23 @@ class GridCenters(sklearn.base.BaseEstimator):
             raise ValueError('`n_points_per_feature` must be at least one.')
         if self.range_scale == 0:
             raise ValueError('`range_scale` cannot be zero.')
-        # Automatically select points per feature if it's ``None``.
-        if self.n_points_per_feature is None:
-            # ``n_centers_ = n_points_per_feature**n_features_in_``, which
-            # means ``n_points_per_feature`` is approximately
-            # ``floor(n_centers_**(1 / n_features_in_)).``
-            n_centers_auto = 100
-            self.n_points_per_feature_ = floor(
-                n_centers_auto**(1 / self.n_features_in_))
-        else:
-            self.n_points_per_feature_ = self.n_points_per_feature
         # Calculate ranges of each feature
-        if symmetric_range:
-            self.range_max_ = np.max(np.abs(None), axis=0) * self.range_scale
+        if self.symmetric_range:
+            self.range_max_ = np.max(np.abs(X), axis=0) * self.range_scale
             self.range_min_ = -feat_max
         else:
-            self.range_max_ = np.max(None, axis=0) * self.range_scale
-            self.range_min_ = np.min(None, axis=0) * self.range_scale
-        # TODO
+            self.range_max_ = np.max(X, axis=0) * self.range_scale
+            self.range_min_ = np.min(X, axis=0) * self.range_scale
+        # Generate linspaces for each feature
+        linspaces = [
+            np.linspace(self.range_min_[i], self.range_max_[i],
+                        self.n_points_per_feature)
+            for i in range(self.n_features_in_)
+        ]
+        # Generate centers
+        self.centers_ = np.array(np.meshgrid(*linspaces)).reshape(
+            self.n_features_in_, -1).T
+        self.n_centers_ = self.centers_.shape[0]
         return self
 
 

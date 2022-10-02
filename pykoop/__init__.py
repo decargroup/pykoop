@@ -31,3 +31,9 @@ from .util import (
     random_input,
     random_state,
 )
+from .centers import (
+    GridCenters,
+    RandomCenters,
+    LhsCenters,
+    ClusterCenters,
+)
