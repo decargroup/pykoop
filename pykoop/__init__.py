@@ -33,7 +33,8 @@ from .util import (
 )
 from .centers import (
     GridCenters,
-    RandomCenters,
+    UniformRandomCenters,
+    GaussianRandomCenters,
     LhsCenters,
     ClusterCenters,
 )
