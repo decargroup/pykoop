@@ -56,7 +56,7 @@ import pykoop
 class TestGridCenters:
     """Test :class:`GridCenters`."""
 
-    def test_centers(self, est, X, centers):
+    def test_grid_centers(self, est, X, centers):
         """Test center locations."""
         est.fit(X)
         np.testing.assert_allclose(est.centers_, centers)
@@ -113,7 +113,7 @@ class TestUniformRandomCenters:
 
     tol = 1e-12
 
-    def test_centers(self, ndarrays_regression, est, X):
+    def test_uniform_centers(self, ndarrays_regression, est, X):
         """Test center locations."""
         est.fit(X)
         ndarrays_regression.check(
@@ -141,12 +141,56 @@ class TestUniformRandomCenters:
         assert np.all(min_exp - est.range_min_ > 0)
 
 
+@pytest.mark.parametrize('est, X', [
+    (
+        pykoop.GaussianRandomCenters(random_state=1234),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+        ]).T,
+    ),
+    (
+        pykoop.GaussianRandomCenters(n_centers=200, random_state=1234),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+        ]).T,
+    ),
+])
+class TestGaussianRandomCenters:
+    """Test :class:`GaussianRandomCenters`.
+
+    Attributes
+    ----------
+    tol : float
+        Tolerance for regression test.
+    """
+
+    tol = 1e-12
+
+    def test_gaussian_centers(self, ndarrays_regression, est, X):
+        """Test center locations."""
+        est.fit(X)
+        ndarrays_regression.check(
+            {
+                'est.centers_': est.centers_,
+            },
+            default_tolerance=dict(atol=self.tol, rtol=0),
+        )
+
+    def test_n_centers(self, est, X):
+        """Test number of centers."""
+        est.fit(X)
+        assert est.n_centers_ == est.centers_.shape[0]
+
+
 class TestSkLearn:
     """Test scikit-learn compatibility."""
 
     @sklearn.utils.estimator_checks.parametrize_with_checks([
         pykoop.GridCenters(),
         pykoop.UniformRandomCenters(),
+        pykoop.GaussianRandomCenters(),
     ])
     def test_compatible_estimator(self, estimator, check):
         """Test scikit-learn compatibility of estimators."""

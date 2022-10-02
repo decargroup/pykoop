@@ -9,6 +9,8 @@ from scipy import stats
 
 log = logging.getLogger(__name__)
 
+# TODO Add citations to each method
+
 
 class GridCenters(sklearn.base.BaseEstimator):
     """Centers generated on a uniform grid.
@@ -116,7 +118,7 @@ class UniformRandomCenters(sklearn.base.BaseEstimator):
         symmetric_range: bool = False,
         random_state: Union[int, np.random.RandomState] = None,
     ) -> None:
-        """Instantiate :class:`GridCenters`.
+        """Instantiate :class:`UniformRandomCenters`.
 
         Parameters
         ----------
@@ -139,7 +141,7 @@ class UniformRandomCenters(sklearn.base.BaseEstimator):
         X: np.ndarray,
         y: np.ndarray = None,
     ) -> 'UniformRandomCenters':
-        """Generate centers from a uniform grid.
+        """Generate centers from a uniform distribution.
 
         Parameters
         ----------
@@ -194,9 +196,70 @@ class GaussianRandomCenters(sklearn.base.BaseEstimator):
         Number of centers generated.
     n_features_in_ : int
         Number of features input.
+    mean_ : np.ndarray
+        Mean feature.
+    cov_ : np.ndarray
+        Covariance matrix.
     """
 
-    pass
+    def __init__(
+        self,
+        n_centers: int = 100,
+        random_state: Union[int, np.random.RandomState] = None,
+    ) -> None:
+        """Instantiate :class:`GaussianRandomCenters`.
+
+        Parameters
+        ----------
+        n_centers : int
+            Number of centers to generate.
+        random_state : Union[int, np.random.RandomState]
+            Seed for sampling from normal distribution.
+        """
+        self.n_centers = n_centers
+        self.random_state = random_state
+
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray = None,
+    ) -> 'GaussianRandomCenters':
+        """Generate centers from a Gaussian distribution.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+        y : np.ndarray
+            Ignored.
+
+        Returns
+        -------
+        GaussianRandomCenters
+            Instance of itself.
+
+        Raises
+        ------
+        ValueError
+            If any of the constructor parameters are incorrect.
+        """
+        X = sklearn.utils.validation.check_array(X, ensure_min_samples=2)
+        self.n_features_in_ = X.shape[1]
+        # Validate parameters
+        if self.n_centers <= 0:
+            raise ValueError('`n_centers` must be greater than zero.')
+        self.n_centers_ = self.n_centers
+        # Calculate mean and covariance
+        self.mean_ = np.mean(X, axis=0)
+        self.cov_ = np.cov(X.T)
+        # Generate centers
+        self.centers_ = stats.multivariate_normal.rvs(
+            mean=self.mean_,
+            cov=self.cov_,
+            size=self.n_centers_,
+            random_state=self.random_state,
+        )
+        return self
 
 
 class LhsCenters(sklearn.base.BaseEstimator):
