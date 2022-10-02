@@ -102,8 +102,8 @@ class TestGridCenters:
         ]).T,
     ),
 ])
-class TestCentersRegression:
-    """Run regression tests for centers without easy-to-check solutions.
+class TestUniformRandomCenters:
+    """Test :class:`UniformRandomCenters`.
 
     Attributes
     ----------
@@ -114,9 +114,8 @@ class TestCentersRegression:
     tol = 1e-12
 
     def test_centers(self, ndarrays_regression, est, X):
-        """Run regression test on centers."""
+        """Test center locations."""
         est.fit(X)
-        print(est.centers_)
         ndarrays_regression.check(
             {
                 'est.centers_': est.centers_,
