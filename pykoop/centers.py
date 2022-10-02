@@ -29,7 +29,6 @@ class GridCenters(sklearn.base.BaseEstimator):
         self,
         n_points_per_feature: int = 2,
         symmetric_range: bool = False,
-        range_scale: float = 1,
     ) -> None:
         """Instantiate :class:`GridCenters`.
 
@@ -42,13 +41,9 @@ class GridCenters(sklearn.base.BaseEstimator):
             symmetric about zero (i.e., ``[-max(abs(x)), max(abs(x))]``).
             Otherwise, the grid range is taken directly on the data
             (i.e., ``[min(x), max(x)]``). Default is false.
-        range_scale : float
-            Scale factor to apply to grid range. Can be used to pad out the
-            size of the grid.
         """
         self.n_points_per_feature = n_points_per_feature
         self.symmetric_range = symmetric_range
-        self.range_scale = range_scale
 
     def fit(self, X: np.ndarray, y: np.ndarray = None) -> 'GridCenters':
         """Generate centers from a uniform grid.
@@ -76,15 +71,13 @@ class GridCenters(sklearn.base.BaseEstimator):
         if (self.n_points_per_feature is not None
                 and self.n_points_per_feature <= 0):
             raise ValueError('`n_points_per_feature` must be at least one.')
-        if self.range_scale == 0:
-            raise ValueError('`range_scale` cannot be zero.')
         # Calculate ranges of each feature
         if self.symmetric_range:
-            self.range_max_ = np.max(np.abs(X), axis=0) * self.range_scale
-            self.range_min_ = -feat_max
+            self.range_max_ = np.max(np.abs(X), axis=0)
+            self.range_min_ = -self.range_max_
         else:
-            self.range_max_ = np.max(X, axis=0) * self.range_scale
-            self.range_min_ = np.min(X, axis=0) * self.range_scale
+            self.range_max_ = np.max(X, axis=0)
+            self.range_min_ = np.min(X, axis=0)
         # Generate linspaces for each feature
         linspaces = [
             np.linspace(self.range_min_[i], self.range_max_[i],
