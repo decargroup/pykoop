@@ -160,6 +160,22 @@ convenience.
    pykoop.EdmdMeta
 
 
+Radial basis function centers
+=============================
+
+The following classes are used to generate centers for radial basis function
+(RBF) lifting functions.
+
+.. autosummary::
+   :toctree: _autosummary/
+
+   pykoop.ClusterCenters
+   pykoop.GaussianRandomCenters
+   pykoop.GridCenters
+   pykoop.QmcCenters
+   pykoop.UniformRandomCenters
+
+
 Truncated SVD
 =============
 
