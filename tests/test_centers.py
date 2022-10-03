@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 import sklearn.utils.estimator_checks
+from scipy import stats
 
 import pykoop
 
@@ -72,7 +73,7 @@ class TestGridCenters:
         max_exp = np.max(est.centers_, axis=0)
         np.testing.assert_allclose(est.range_max_, max_exp)
 
-    def test_range_mmin(self, est, X, centers):
+    def test_range_min(self, est, X, centers):
         """Test minimum of range."""
         est.fit(X)
         min_exp = np.min(est.centers_, axis=0)
@@ -134,7 +135,7 @@ class TestUniformRandomCenters:
         max_exp = np.max(est.centers_, axis=0)
         assert np.all(est.range_max_ - max_exp > 0)
 
-    def test_range_mmin(self, est, X):
+    def test_range_min(self, est, X):
         """Test minimum of range."""
         est.fit(X)
         min_exp = np.min(est.centers_, axis=0)
@@ -184,6 +185,93 @@ class TestGaussianRandomCenters:
         assert est.n_centers_ == est.centers_.shape[0]
 
 
+@pytest.mark.parametrize('est, X', [
+    (
+        pykoop.QmcCenters(random_state=1234),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+        ]).T,
+    ),
+    (
+        pykoop.QmcCenters(n_centers=200, random_state=1234),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+        ]).T,
+    ),
+    (
+        pykoop.QmcCenters(symmetric_range=True, random_state=1234),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+        ]).T,
+    ),
+    (
+        pykoop.QmcCenters(
+            n_centers=128,
+            qmc=stats.qmc.Sobol,
+            random_state=1234,
+        ),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+        ]).T,
+    ),
+    (
+        pykoop.QmcCenters(
+            n_centers=10,
+            qmc=stats.qmc.PoissonDisk,
+            qmc_kw=dict(radius=0.1),
+            random_state=1234,
+        ),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+        ]).T,
+    ),
+])
+class TestQmcCenters:
+    """Test :class:`QmcCenters`.
+
+    Attributes
+    ----------
+    tol : float
+        Tolerance for regression test.
+    """
+
+    tol = 1e-12
+
+    def test_qmc_centers(self, ndarrays_regression, est, X):
+        """Test center locations."""
+        est.fit(X)
+        print(est.centers_)
+        print('-' * 80)
+        ndarrays_regression.check(
+            {
+                'est.centers_': est.centers_,
+            },
+            default_tolerance=dict(atol=self.tol, rtol=0),
+        )
+
+    def test_n_centers(self, est, X):
+        """Test number of centers."""
+        est.fit(X)
+        assert est.n_centers_ == est.centers_.shape[0]
+
+    def test_range_max(self, est, X):
+        """Test maximum of range."""
+        est.fit(X)
+        max_exp = np.max(est.centers_, axis=0)
+        assert np.all(est.range_max_ - max_exp > 0)
+
+    def test_range_min(self, est, X):
+        """Test minimum of range."""
+        est.fit(X)
+        min_exp = np.min(est.centers_, axis=0)
+        assert np.all(min_exp - est.range_min_ > 0)
+
+
 class TestSkLearn:
     """Test scikit-learn compatibility."""
 
@@ -191,6 +279,7 @@ class TestSkLearn:
         pykoop.GridCenters(),
         pykoop.UniformRandomCenters(),
         pykoop.GaussianRandomCenters(),
+        pykoop.QmcCenters(),
     ])
     def test_compatible_estimator(self, estimator, check):
         """Test scikit-learn compatibility of estimators."""

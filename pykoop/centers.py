@@ -1,7 +1,7 @@
 """Center generation from data for radial basis functions."""
 
 import logging
-from typing import Tuple, Union
+from typing import Any, Callable, Dict, ParamSpecKwargs, Tuple, Union
 
 import numpy as np
 import sklearn.base
@@ -10,6 +10,7 @@ from scipy import stats
 log = logging.getLogger(__name__)
 
 # TODO Add citations to each method
+# TODO Consider Gaussian mixture model
 
 
 class GridCenters(sklearn.base.BaseEstimator):
@@ -126,7 +127,7 @@ class UniformRandomCenters(sklearn.base.BaseEstimator):
             Otherwise, the grid range is taken directly on the data
             (i.e., ``[min(x), max(x)]``). Default is false.
         random_state : Union[int, np.random.RandomState]
-            Seed for sampling from uniform distribution.
+            Random seed.
         """
         self.n_centers = n_centers
         self.symmetric_range = symmetric_range
@@ -206,7 +207,7 @@ class GaussianRandomCenters(sklearn.base.BaseEstimator):
         n_centers : int
             Number of centers to generate.
         random_state : Union[int, np.random.RandomState]
-            Seed for sampling from normal distribution.
+            Random seed.
         """
         self.n_centers = n_centers
         self.random_state = random_state
@@ -257,16 +258,6 @@ class GaussianRandomCenters(sklearn.base.BaseEstimator):
 class QmcCenters(sklearn.base.BaseEstimator):
     """Centers generated with Quasi-Monte Carlo sampling.
 
-    Any Quasi-Monte Carlo method subclassing :class:`scipy.stats.qmc.QMCEngine`
-    is supported, including
-
-    - :class:`scipy.stats.qmc.Sobol`,
-    - :class:`scipy.stats.qmc.Halton`,
-    - :class:`scipy.stats.qmc.LatinHypercube`,
-    - :class:`scipy.stats.qmc.PoissonDisk`,
-    - :class:`scipy.stats.qmc.MultinomialQMC`, and
-    - :class:`scipy.stats.qmc.MultivariateNormalQMC`.
-
     Attributes
     ----------
     centers_ : np.ndarray
@@ -275,11 +266,113 @@ class QmcCenters(sklearn.base.BaseEstimator):
         Number of centers generated.
     n_features_in_ : int
         Number of features input.
+    range_max_ : np.ndarray
+        Maximum value of each feature used to generate grid.
+    range_min_ : np.ndarray
+        Minimum value of each feature used to generate grid.
+    qmc_ : stats.qmc.QMCEngine
+        Quasi-Monte Carlo sampler instantiated from ``qmc``.
     """
 
-    def __init__(self) -> None:
-        """Instantiate :class:`QmcCenters`."""
-        pass
+    def __init__(
+        self,
+        n_centers: int = 100,
+        symmetric_range: bool = False,
+        qmc: Callable[[int, ParamSpecKwargs], stats.qmc.QMCEngine] = None,
+        qmc_kw: Dict[str, Any] = None,
+        random_state: Union[int, np.random.RandomState] = None,
+    ) -> None:
+        """Instantiate :class:`QmcCenters`.
+
+        Parameters
+        ----------
+        n_centers : int
+            Number of centers to generate.
+
+        symmetric_range : bool
+            If true, the grid range for a given feature is forced to be
+            symmetric about zero (i.e., ``[-max(abs(x)), max(abs(x))]``).
+            Otherwise, the grid range is taken directly on the data
+            (i.e., ``[min(x), max(x)]``). Default is false.
+
+        qmc : Callable[[int, ParamSpecKwargs], stats.qmc.QMCEngine]
+            Quasi-Monte Carlo method from :mod:`scipy.stats.qmc` to use.
+            Argument is the desired subclass of
+            :class:`scipy.stats.qmc.QMCEngine` to use. Accepts the class
+            itself, not an instance of the class. Possible values are
+
+            - :class:`scipy.stats.qmc.Sobol` -- Sobol sequence,
+            - :class:`scipy.stats.qmc.Halton` -- Halton sequence,
+            - :class:`scipy.stats.qmc.LatinHypercube` -- Latin hypercube
+              sampling (LHS),
+            - :class:`scipy.stats.qmc.PoissonDisk` -- Poisson disk sampling,
+            - :class:`scipy.stats.qmc.MultinomialQMC` -- Multinomial
+              distribution, and
+            - :class:`scipy.stats.qmc.MultivariateNormalQMC` -- Multivariate
+              normal distribution.
+
+            If ``None``, defaults to Latin hypercube sampling.
+
+        qmc_kw : Dict[str, Any]
+            Additional keyword arguments passed when instantiating ``qmc``. If
+            ``seed`` is specified here, it takes precedence over
+            ``random_state``.
+
+        random_state : Union[int, np.random.RandomState]
+            Random seed.
+        """
+        self.n_centers = n_centers
+        self.symmetric_range = symmetric_range
+        self.qmc = qmc
+        self.qmc_kw = qmc_kw
+        self.random_state = random_state
+
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray = None,
+    ) -> 'QmcCenters':
+        """Generate centers using Quasi-Monte Carlo sampling.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+        y : np.ndarray
+            Ignored.
+
+        Returns
+        -------
+        QmcCenters
+            Instance of itself.
+
+        Raises
+        ------
+        ValueError
+            If any of the constructor parameters are incorrect.
+        """
+        X = sklearn.utils.validation.check_array(X, ensure_min_samples=2)
+        self.n_features_in_ = X.shape[1]
+        # Validate parameters
+        if self.n_centers <= 0:
+            raise ValueError('`n_centers` must be greater than zero.')
+        self.n_centers_ = self.n_centers
+        # Calculate ranges of each feature
+        self.range_min_, self.range_max_ = _feature_range(
+            X, self.symmetric_range)
+        # Set default QMC method
+        qmc = stats.qmc.LatinHypercube if self.qmc is None else self.qmc
+        # Set QMC arguments
+        qmc_args = {} if self.qmc_kw is None else self.qmc_kw
+        if 'seed' not in qmc_args.keys():
+            qmc_args['seed'] = self.random_state
+        # Instantiate QMC
+        self.qmc_ = qmc(self.n_features_in_, **qmc_args)
+        # Generate and scale samples
+        unscaled_centers = self.qmc_.random(self.n_centers_)
+        self.centers_ = stats.qmc.scale(unscaled_centers, self.range_min_,
+                                        self.range_max_)
+        return self
 
 
 class ClusterCenters(sklearn.base.BaseEstimator):
