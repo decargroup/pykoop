@@ -245,8 +245,6 @@ class TestQmcCenters:
     def test_qmc_centers(self, ndarrays_regression, est, X):
         """Test center locations."""
         est.fit(X)
-        print(est.centers_)
-        print('-' * 80)
         ndarrays_regression.check(
             {
                 'est.centers_': est.centers_,
