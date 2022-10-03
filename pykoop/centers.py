@@ -1,7 +1,7 @@
 """Center generation from data for radial basis functions."""
 
 import logging
-from typing import Union
+from typing import Tuple, Union
 
 import numpy as np
 import sklearn.base
@@ -76,12 +76,8 @@ class GridCenters(sklearn.base.BaseEstimator):
                 and self.n_points_per_feature <= 0):
             raise ValueError('`n_points_per_feature` must be at least one.')
         # Calculate ranges of each feature
-        if self.symmetric_range:
-            self.range_max_ = np.max(np.abs(X), axis=0)
-            self.range_min_ = -self.range_max_
-        else:
-            self.range_max_ = np.max(X, axis=0)
-            self.range_min_ = np.min(X, axis=0)
+        self.range_min_, self.range_max_ = _feature_range(
+            X, self.symmetric_range)
         # Generate linspaces for each feature
         linspaces = [
             np.linspace(self.range_min_[i], self.range_max_[i],
@@ -167,12 +163,8 @@ class UniformRandomCenters(sklearn.base.BaseEstimator):
             raise ValueError('`n_centers` must be greater than zero.')
         self.n_centers_ = self.n_centers
         # Calculate ranges of each feature
-        if self.symmetric_range:
-            self.range_max_ = np.max(np.abs(X), axis=0)
-            self.range_min_ = -self.range_max_
-        else:
-            self.range_max_ = np.max(X, axis=0)
-            self.range_min_ = np.min(X, axis=0)
+        self.range_min_, self.range_max_ = _feature_range(
+            X, self.symmetric_range)
         # Generate centers in range ``[loc, loc + scale]``.
         self.centers_ = np.array([
             stats.uniform.rvs(
@@ -262,8 +254,18 @@ class GaussianRandomCenters(sklearn.base.BaseEstimator):
         return self
 
 
-class LhsCenters(sklearn.base.BaseEstimator):
-    """Centers generated with Latin hypercube sampling.
+class QmcCenters(sklearn.base.BaseEstimator):
+    """Centers generated with Quasi-Monte Carlo sampling.
+
+    Any Quasi-Monte Carlo method subclassing :class:`scipy.stats.qmc.QMCEngine`
+    is supported, including
+
+    - :class:`scipy.stats.qmc.Sobol`,
+    - :class:`scipy.stats.qmc.Halton`,
+    - :class:`scipy.stats.qmc.LatinHypercube`,
+    - :class:`scipy.stats.qmc.PoissonDisk`,
+    - :class:`scipy.stats.qmc.MultinomialQMC`, and
+    - :class:`scipy.stats.qmc.MultivariateNormalQMC`.
 
     Attributes
     ----------
@@ -275,7 +277,9 @@ class LhsCenters(sklearn.base.BaseEstimator):
         Number of features input.
     """
 
-    pass
+    def __init__(self) -> None:
+        """Instantiate :class:`QmcCenters`."""
+        pass
 
 
 class ClusterCenters(sklearn.base.BaseEstimator):
@@ -292,3 +296,32 @@ class ClusterCenters(sklearn.base.BaseEstimator):
     """
 
     pass
+
+
+def _feature_range(
+    X: np.ndarray,
+    symmetric_range: bool,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Get range of features from data matrix.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Data matrix.
+    symmetric_range : bool
+        If true, the grid range for a given feature is forced to be symmetric
+        about zero (i.e., ``[-max(abs(x)), max(abs(x))]``). Otherwise, the grid
+        range is taken directly on the data (i.e., ``[min(x), max(x)]``).
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray]
+        Minumum and maximum values of each feature.
+    """
+    if symmetric_range:
+        range_max = np.max(np.abs(X), axis=0)
+        range_min = -range_max
+    else:
+        range_max = np.max(X, axis=0)
+        range_min = np.min(X, axis=0)
+    return (range_min, range_max)
