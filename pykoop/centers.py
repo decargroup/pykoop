@@ -9,9 +9,6 @@ from scipy import stats
 
 log = logging.getLogger(__name__)
 
-# TODO Add citations to each method
-# TODO Consider Gaussian mixture model
-
 
 class GridCenters(sklearn.base.BaseEstimator):
     """Centers generated on a uniform grid.
@@ -94,6 +91,8 @@ class GridCenters(sklearn.base.BaseEstimator):
 
 class UniformRandomCenters(sklearn.base.BaseEstimator):
     """Centers sampled from a uniform distribution.
+
+    Inspired by center generation approach used in [DTK20]_.
 
     Attributes
     ----------
@@ -180,6 +179,8 @@ class UniformRandomCenters(sklearn.base.BaseEstimator):
 
 class GaussianRandomCenters(sklearn.base.BaseEstimator):
     """Centers sampled from a Gaussian distribution.
+
+    Inspired by center generation approach used in [CHH19]_.
 
     Attributes
     ----------
@@ -376,7 +377,9 @@ class QmcCenters(sklearn.base.BaseEstimator):
 
 
 class ClusterCenters(sklearn.base.BaseEstimator):
-    """Centers generated from a clustering algorithm.
+    """Centers generated from a clustering algorithm or Gaussian mixture model.
+
+    Inspired by center generation approach used in [DTK20]_.
 
     Attributes
     ----------

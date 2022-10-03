@@ -346,4 +346,14 @@ References
 .. [MAM22] Giorgos Mamakoukas, Ian Abraham, and Todd D. Murphey. "Learning
    Stable Models for Prediction and Control." arXiv:2005.04291v2 [cs.RO]
    (2022). https://arxiv.org/abs/2005.04291v2
-   https://arxiv.org/abs/2010.09961v3
+.. [DTK20] Felix Dietrich, Thomas N. Thiem, and Ioannis G. Kevrekidis. "On the
+   Koopman Operator of Algorithms." SIAM Journal on Applied Dynamical Systems,
+   vol. 19, no. 2, pp. 860-885, 2020. https://doi.org/10.1137%2F19m1277059
+.. [WHDKR16] Matthew O. Williams, Maziar S. Hemati, Scott T. M. Dawson, Ioannis
+   G. Kevrekidis, and Clarence W. Rowley. "Extending Data-Driven Koopman
+   Analysis to Actuated Systems." IFAC-PapersOnLine, vol. 49, no. 18, pp.
+   704-709, 2016. https://doi.org/10.1016%2Fj.ifacol.2016.10.248
+.. [CHH19] Vı́t Cibulka, Tomáš Haniš, and Martin Hromčı́k. "Data-driven
+   identification of vehicle dynamics using Koopman operator," in 22nd
+   International Conference on Process Control, 2019.
+   https://doi.org/10.1109%2Fpc.2019.8815104
