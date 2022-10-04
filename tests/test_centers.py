@@ -331,6 +331,55 @@ class TestClusterCenters:
         assert est.n_centers_ == est.centers_.shape[0]
 
 
+@pytest.mark.parametrize('est, X', [
+    (
+        pykoop.GaussianMixtureRandomCenters(
+            estimator=sklearn.mixture.GaussianMixture(
+                n_components=1,
+                random_state=1234,
+            )),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+        ]).T,
+    ),
+    (
+        pykoop.GaussianMixtureRandomCenters(
+            estimator=sklearn.mixture.BayesianGaussianMixture(
+                random_state=1234, )),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+        ]).T,
+    ),
+])
+class TestGaussianMixtureRandomCenters:
+    """Test :class:`GaussianMixtureRandomCenters`.
+
+    Attributes
+    ----------
+    tol : float
+        Tolerance for regression test.
+    """
+
+    tol = 1e-12
+
+    def test_mixture_centers(self, ndarrays_regression, est, X):
+        """Test center locations."""
+        est.fit(X)
+        ndarrays_regression.check(
+            {
+                'est.centers_': est.centers_,
+            },
+            default_tolerance=dict(atol=self.tol, rtol=0),
+        )
+
+    def test_n_centers(self, est, X):
+        """Test number of centers."""
+        est.fit(X)
+        assert est.n_centers_ == est.centers_.shape[0]
+
+
 class TestSkLearn:
     """Test scikit-learn compatibility."""
 
@@ -340,6 +389,7 @@ class TestSkLearn:
         pykoop.GaussianRandomCenters(),
         pykoop.QmcCenters(),
         pykoop.ClusterCenters(),
+        pykoop.GaussianMixtureRandomCenters(),
     ])
     def test_compatible_estimator(self, estimator, check):
         """Test scikit-learn compatibility of estimators."""

@@ -469,9 +469,69 @@ class GaussianMixtureRandomCenters(sklearn.base.BaseEstimator):
         Number of centers generated.
     n_features_in_ : int
         Number of features input.
+    estimator_ : sklearn.base.BaseEstimator
+        Fit Gaussian mixture model.
     """
 
-    pass
+    def __init__(
+        self,
+        n_centers: int = 100,
+        estimator: sklearn.base.BaseEstimator = None,
+    ) -> None:
+        """Instantiate :class:`GaussianMixtureRandomCenters`.
+
+        Parameters
+        ----------
+        n_centers : int
+            Number of centers to generate.
+
+        estimator : sklearn.base.BaseEstimator
+            Gaussian mixture model. Possible algorithms include
+
+            - :class:`sklearn.mixture.GaussianMixture`, or
+            - :class:`sklearn.mixture.BayesianGaussianMixture`.
+
+            If a random seed is desired, it must be set in the
+            chosen estimator. Defaults to
+            :class:`sklearn.mixture.GaussianMixture`.
+        """
+        self.n_centers = n_centers
+        self.estimator = estimator
+
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray = None,
+    ) -> 'GaussianMixtureRandomCenters':
+        """Generate centers from sampling a Gaussian mixture model.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+        y : np.ndarray
+            Ignored.
+
+        Returns
+        -------
+        GaussianMixtureRandomCenters
+            Instance of itself.
+
+        Raises
+        ------
+        ValueError
+            If any of the constructor parameters are incorrect.
+        """
+        X = sklearn.utils.validation.check_array(X)
+        self.n_features_in_ = X.shape[1]
+        # Clone and fit estimator
+        self.estimator_ = (sklearn.base.clone(self.estimator) if self.estimator
+                           is not None else sklearn.mixture.GaussianMixture())
+        self.estimator_.fit(X)
+        # Sample fit distribution
+        self.centers_ = self.estimator_.sample(self.n_centers)[0]
+        self.n_centers_ = self.centers_.shape[0]
+        return self
 
 
 def _feature_range(

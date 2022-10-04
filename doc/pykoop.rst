@@ -171,6 +171,7 @@ The following classes are used to generate centers for radial basis function
 
    pykoop.ClusterCenters
    pykoop.GaussianRandomCenters
+   pykoop.GaussianMixtureRandomCenters
    pykoop.GridCenters
    pykoop.QmcCenters
    pykoop.UniformRandomCenters

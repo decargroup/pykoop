@@ -35,6 +35,7 @@ from .centers import (
     GridCenters,
     UniformRandomCenters,
     GaussianRandomCenters,
+    GaussianMixtureRandomCenters,
     QmcCenters,
     ClusterCenters,
 )
