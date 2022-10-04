@@ -3,6 +3,7 @@ from typing import Any, Dict
 
 import numpy as np
 import pytest
+import scipy
 import sklearn
 from scipy import integrate, linalg
 
@@ -143,6 +144,12 @@ def add_pykoop(doctest_namespace):
 def add_sklearn(doctest_namespace):
     """Add ``sklearn`` to namespace."""
     doctest_namespace['sklearn'] = sklearn
+
+
+@pytest.fixture(autouse=True)
+def add_scipy(doctest_namespace):
+    """Add ``scipy`` to namespace."""
+    doctest_namespace['scipy'] = scipy
 
 
 @pytest.fixture(autouse=True)

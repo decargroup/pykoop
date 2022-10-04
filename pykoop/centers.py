@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, ParamSpecKwargs, Tuple, Union
 import numpy as np
 import sklearn.base
 import sklearn.cluster
+import sklearn.mixture
 from scipy import stats
 
 log = logging.getLogger(__name__)
@@ -26,6 +27,16 @@ class GridCenters(sklearn.base.BaseEstimator):
         Maximum value of each feature used to generate grid.
     range_min_ : np.ndarray
         Minimum value of each feature used to generate grid.
+
+    Examples
+    --------
+    Generate centers on a grid
+
+    >>> grid = pykoop.GridCenters(n_points_per_feature=4)
+    >>> grid.fit(X_msd[:, 1:])  # Remove episode feature
+    GridCenters(n_points_per_feature=4)
+    >>> grid.centers_
+    array([...])
     """
 
     def __init__(
@@ -107,6 +118,16 @@ class UniformRandomCenters(sklearn.base.BaseEstimator):
         Maximum value of each feature used to generate grid.
     range_min_ : np.ndarray
         Minimum value of each feature used to generate grid.
+
+    Examples
+    --------
+    Generate centers from a uniform distribution
+
+    >>> rand = pykoop.UniformRandomCenters(n_centers=10)
+    >>> rand.fit(X_msd[:, 1:])  # Remove episode feature
+    UniformRandomCenters(n_centers=10)
+    >>> rand.centers_
+    array([...])
     """
 
     def __init__(
@@ -195,6 +216,16 @@ class GaussianRandomCenters(sklearn.base.BaseEstimator):
         Mean feature.
     cov_ : np.ndarray
         Covariance matrix.
+
+    Examples
+    --------
+    Generate centers from a Gaussian distribution
+
+    >>> rand = pykoop.GaussianRandomCenters(n_centers=10)
+    >>> rand.fit(X_msd[:, 1:])  # Remove episode feature
+    GaussianRandomCenters(n_centers=10)
+    >>> rand.centers_
+    array([...])
     """
 
     def __init__(
@@ -274,6 +305,24 @@ class QmcCenters(sklearn.base.BaseEstimator):
         Minimum value of each feature used to generate grid.
     qmc_ : stats.qmc.QMCEngine
         Quasi-Monte Carlo sampler instantiated from ``qmc``.
+
+    Examples
+    --------
+    Generate centers using Latin hypercube sampling (default)
+
+    >>> qmc = pykoop.QmcCenters(n_centers=10)
+    >>> qmc.fit(X_msd[:, 1:])  # Remove episode feature
+    QmcCenters(n_centers=10)
+    >>> qmc.centers_
+    array([...])
+
+    Generate centers using a Sobol sequence
+
+    >>> qmc = pykoop.QmcCenters(n_centers=8, qmc=scipy.stats.qmc.Sobol)
+    >>> qmc.fit(X_msd[:, 1:])  # Remove episode feature
+    QmcCenters(n_centers=8, qmc=<class 'scipy.stats._qmc.Sobol'>)
+    >>> qmc.centers_
+    array([...])
     """
 
     def __init__(
@@ -394,6 +443,16 @@ class ClusterCenters(sklearn.base.BaseEstimator):
         Number of features input.
     estimator_ : sklearn.base.BaseEstimator
         Fit clustering estimator or Gaussian mixture model.
+
+    Examples
+    --------
+    Generate centers using K-means clustering
+
+    >>> kmeans = pykoop.ClusterCenters(sklearn.cluster.KMeans(n_clusters=3))
+    >>> kmeans.fit(X_msd[:, 1:])  # Remove episode feature
+    ClusterCenters(estimator=KMeans(n_clusters=3))
+    >>> kmeans.centers_
+    array([...])
     """
 
     def __init__(self, estimator: sklearn.base.BaseEstimator = None) -> None:
@@ -471,6 +530,17 @@ class GaussianMixtureRandomCenters(sklearn.base.BaseEstimator):
         Number of features input.
     estimator_ : sklearn.base.BaseEstimator
         Fit Gaussian mixture model.
+
+    Examples
+    --------
+    Generate centers by sampling a Gaussian mixture model
+
+    >>> gmm = pykoop.GaussianMixtureRandomCenters(n_centers=100,
+    ...     estimator=sklearn.mixture.GaussianMixture(n_components=3))
+    >>> gmm.fit(X_msd[:, 1:])  # Remove episode feature
+    GaussianMixtureRandomCenters(estimator=GaussianMixture(n_components=3))
+    >>> gmm.centers_
+    array([...])
     """
 
     def __init__(
