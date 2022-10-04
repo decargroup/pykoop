@@ -2,6 +2,8 @@
 
 import numpy as np
 import pytest
+import sklearn.cluster
+import sklearn.mixture
 import sklearn.utils.estimator_checks
 from scipy import stats
 
@@ -270,6 +272,65 @@ class TestQmcCenters:
         assert np.all(min_exp - est.range_min_ > 0)
 
 
+@pytest.mark.parametrize('est, X', [
+    (
+        pykoop.ClusterCenters(estimator=sklearn.cluster.KMeans(
+            n_clusters=1,
+            random_state=1234,
+        )),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+        ]).T,
+    ),
+    (
+        pykoop.ClusterCenters(estimator=sklearn.cluster.KMeans(
+            n_clusters=2,
+            random_state=1234,
+        )),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+        ]).T,
+    ),
+    (
+        pykoop.ClusterCenters(estimator=sklearn.mixture.GaussianMixture(
+            n_components=1,
+            random_state=1234,
+        )),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+        ]).T,
+    ),
+])
+class TestClusterCenters:
+    """Test :class:`ClusterCenters`.
+
+    Attributes
+    ----------
+    tol : float
+        Tolerance for regression test.
+    """
+
+    tol = 1e-12
+
+    def test_cluster_centers(self, ndarrays_regression, est, X):
+        """Test center locations."""
+        est.fit(X)
+        ndarrays_regression.check(
+            {
+                'est.centers_': est.centers_,
+            },
+            default_tolerance=dict(atol=self.tol, rtol=0),
+        )
+
+    def test_n_centers(self, est, X):
+        """Test number of centers."""
+        est.fit(X)
+        assert est.n_centers_ == est.centers_.shape[0]
+
+
 class TestSkLearn:
     """Test scikit-learn compatibility."""
 
@@ -278,6 +339,7 @@ class TestSkLearn:
         pykoop.UniformRandomCenters(),
         pykoop.GaussianRandomCenters(),
         pykoop.QmcCenters(),
+        pykoop.ClusterCenters(),
     ])
     def test_compatible_estimator(self, estimator, check):
         """Test scikit-learn compatibility of estimators."""

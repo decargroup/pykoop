@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, ParamSpecKwargs, Tuple, Union
 
 import numpy as np
 import sklearn.base
+import sklearn.cluster
 from scipy import stats
 
 log = logging.getLogger(__name__)
@@ -377,9 +378,88 @@ class QmcCenters(sklearn.base.BaseEstimator):
 
 
 class ClusterCenters(sklearn.base.BaseEstimator):
-    """Centers generated from a clustering algorithm or Gaussian mixture model.
+    """Centers generated from a clustering algorithm.
+
+    Also supports taking centers from the means of a Gaussian mixture model.
 
     Inspired by center generation approach used in [DTK20]_.
+
+    Attributes
+    ----------
+    centers_ : np.ndarray
+        Centers, shape (n_centers, n_features).
+    n_centers_ : int
+        Number of centers generated.
+    n_features_in_ : int
+        Number of features input.
+    estimator_ : sklearn.base.BaseEstimator
+        Fit clustering estimator or Gaussian mixture model.
+    """
+
+    def __init__(self, estimator: sklearn.base.BaseEstimator = None) -> None:
+        """Instantiate :class:`ClusterCenters`.
+
+        Parameters
+        ----------
+        estimator : sklearn.base.BaseEstimator
+            Clustering estimator or Gaussian mixture model. Must provide
+            ``cluster_centers_`` or ``means_`` once fit. Possible algorithms
+            include
+
+            - :class:`sklearn.cluster.KMeans`,
+            - :class:`sklearn.cluster.AffinityPropagation`,
+            - :class:`sklearn.cluster.MeanShift`,
+            - :class:`sklearn.cluster.BisectingKMeans`,
+            - :class:`sklearn.cluster.MiniBatchKMeans`,
+            - :class:`sklearn.mixture.GaussianMixture`, or
+            - :class:`sklearn.mixture.BayesianGaussianMixture`.
+
+            The number of centers generated is controlled by the chosen
+            estimator. If a random seed is desired, it must be set in the
+            chosen estimator. Defaults to :class:`sklearn.cluster.KMeans`.
+        """
+        self.estimator = estimator
+
+    def fit(self, X: np.ndarray, y: np.ndarray = None) -> 'ClusterCenters':
+        """Generate centers from a clustering algorithm.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+        y : np.ndarray
+            Ignored.
+
+        Returns
+        -------
+        ClusterCenters
+            Instance of itself.
+
+        Raises
+        ------
+        ValueError
+            If any of the constructor parameters are incorrect.
+        """
+        X = sklearn.utils.validation.check_array(X)
+        self.n_features_in_ = X.shape[1]
+        # Clone and fit estimator
+        self.estimator_ = (sklearn.base.clone(self.estimator) if self.estimator
+                           is not None else sklearn.cluster.KMeans())
+        self.estimator_.fit(X)
+        # Set centers
+        if hasattr(self.estimator_, 'cluster_centers_'):
+            self.centers_ = self.estimator_.cluster_centers_
+        elif hasattr(self.estimator_, 'means_'):
+            self.centers_ = self.estimator_.means_
+        else:
+            raise ValueError('`estimator` must provide either '
+                             '`cluster_centers_` or `means_` after fit.')
+        self.n_centers_ = self.centers_.shape[0]
+        return self
+
+
+class GaussianMixtureRandomCenters(sklearn.base.BaseEstimator):
+    """Centers generated from sampling a Gaussian mixture model.
 
     Attributes
     ----------
