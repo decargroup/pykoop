@@ -256,13 +256,14 @@ If you want to write your own lifting functions or regressor, this is the place
 to look!
 
 The following abstract class implementations are spread across
-``pykoop.koopman_pipeline``, ``pykoop.dynamic_models``, and
-``pykoop.lmi_regressors``. The most commonly used ones have been imported into
-the ``pykoop`` namespace.
+:mod:`pykoop.koopman_pipeline`, :mod:`pykoop.dynamic_models`,
+:mod:`pykoop.centers`, and :mod:`pykoop.lmi_regressors`. The most commonly used
+ones have been imported into the ``pykoop`` namespace.
 
 .. autosummary::
    :toctree: _autosummary/
 
+   pykoop.Centers
    pykoop.EpisodeDependentLiftingFn
    pykoop.EpisodeIndependentLiftingFn
    pykoop.KoopmanLiftingFn

@@ -1,5 +1,6 @@
 """Center generation from data for radial basis functions."""
 
+import abc
 import logging
 from typing import Any, Callable, Dict, ParamSpecKwargs, Tuple, Union
 
@@ -12,7 +13,47 @@ from scipy import stats
 log = logging.getLogger(__name__)
 
 
-class GridCenters(sklearn.base.BaseEstimator):
+class Centers(sklearn.base.BaseEstimator, metaclass=abc.ABCMeta):
+    """Base class for all center generation estimators.
+
+    All attributes with a trailing underscore must be set in the subclass'
+    :func:`fit`.
+
+    Attributes
+    ----------
+    centers_ : np.ndarray
+        Centers, shape (n_centers, n_features).
+    n_centers_ : int
+        Number of centers generated.
+    n_features_in_ : int
+        Number of features input.
+    """
+
+    @abc.abstractmethod
+    def fit(self, X: np.ndarray, y: np.ndarray = None) -> 'Centers':
+        """Generate centers from data.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Data matrix.
+        y : np.ndarray
+            Ignored.
+
+        Returns
+        -------
+        Centers
+            Instance of itself.
+
+        Raises
+        ------
+        ValueError
+            If any of the constructor parameters are incorrect.
+        """
+        raise NotImplementedError()
+
+
+class GridCenters(Centers):
     """Centers generated on a uniform grid.
 
     Attributes
@@ -60,25 +101,7 @@ class GridCenters(sklearn.base.BaseEstimator):
         self.symmetric_range = symmetric_range
 
     def fit(self, X: np.ndarray, y: np.ndarray = None) -> 'GridCenters':
-        """Generate centers from a uniform grid.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Data matrix.
-        y : np.ndarray
-            Ignored.
-
-        Returns
-        -------
-        GridCenters
-            Instance of itself.
-
-        Raises
-        ------
-        ValueError
-            If any of the constructor parameters are incorrect.
-        """
+        # noqa: D102
         X = sklearn.utils.validation.check_array(X)
         self.n_features_in_ = X.shape[1]
         # Validate parameters
@@ -101,7 +124,7 @@ class GridCenters(sklearn.base.BaseEstimator):
         return self
 
 
-class UniformRandomCenters(sklearn.base.BaseEstimator):
+class UniformRandomCenters(Centers):
     """Centers sampled from a uniform distribution.
 
     Inspired by center generation approach used in [DTK20]_.
@@ -159,25 +182,7 @@ class UniformRandomCenters(sklearn.base.BaseEstimator):
         X: np.ndarray,
         y: np.ndarray = None,
     ) -> 'UniformRandomCenters':
-        """Generate centers from a uniform distribution.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Data matrix.
-        y : np.ndarray
-            Ignored.
-
-        Returns
-        -------
-        UniformRandomCenters
-            Instance of itself.
-
-        Raises
-        ------
-        ValueError
-            If any of the constructor parameters are incorrect.
-        """
+        # noqa: D102
         X = sklearn.utils.validation.check_array(X)
         self.n_features_in_ = X.shape[1]
         # Validate parameters
@@ -199,7 +204,7 @@ class UniformRandomCenters(sklearn.base.BaseEstimator):
         return self
 
 
-class GaussianRandomCenters(sklearn.base.BaseEstimator):
+class GaussianRandomCenters(Centers):
     """Centers sampled from a Gaussian distribution.
 
     Inspired by center generation approach used in [CHH19]_.
@@ -250,25 +255,7 @@ class GaussianRandomCenters(sklearn.base.BaseEstimator):
         X: np.ndarray,
         y: np.ndarray = None,
     ) -> 'GaussianRandomCenters':
-        """Generate centers from a Gaussian distribution.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Data matrix.
-        y : np.ndarray
-            Ignored.
-
-        Returns
-        -------
-        GaussianRandomCenters
-            Instance of itself.
-
-        Raises
-        ------
-        ValueError
-            If any of the constructor parameters are incorrect.
-        """
+        # noqa: D102
         X = sklearn.utils.validation.check_array(X, ensure_min_samples=2)
         self.n_features_in_ = X.shape[1]
         # Validate parameters
@@ -288,7 +275,7 @@ class GaussianRandomCenters(sklearn.base.BaseEstimator):
         return self
 
 
-class QmcCenters(sklearn.base.BaseEstimator):
+class QmcCenters(Centers):
     """Centers generated with Quasi-Monte Carlo sampling.
 
     Attributes
@@ -383,25 +370,7 @@ class QmcCenters(sklearn.base.BaseEstimator):
         X: np.ndarray,
         y: np.ndarray = None,
     ) -> 'QmcCenters':
-        """Generate centers using Quasi-Monte Carlo sampling.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Data matrix.
-        y : np.ndarray
-            Ignored.
-
-        Returns
-        -------
-        QmcCenters
-            Instance of itself.
-
-        Raises
-        ------
-        ValueError
-            If any of the constructor parameters are incorrect.
-        """
+        # noqa: D102
         X = sklearn.utils.validation.check_array(X, ensure_min_samples=2)
         self.n_features_in_ = X.shape[1]
         # Validate parameters
@@ -426,7 +395,7 @@ class QmcCenters(sklearn.base.BaseEstimator):
         return self
 
 
-class ClusterCenters(sklearn.base.BaseEstimator):
+class ClusterCenters(Centers):
     """Centers generated from a clustering algorithm.
 
     Also supports taking centers from the means of a Gaussian mixture model.
@@ -480,25 +449,7 @@ class ClusterCenters(sklearn.base.BaseEstimator):
         self.estimator = estimator
 
     def fit(self, X: np.ndarray, y: np.ndarray = None) -> 'ClusterCenters':
-        """Generate centers from a clustering algorithm.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Data matrix.
-        y : np.ndarray
-            Ignored.
-
-        Returns
-        -------
-        ClusterCenters
-            Instance of itself.
-
-        Raises
-        ------
-        ValueError
-            If any of the constructor parameters are incorrect.
-        """
+        # noqa: D102
         X = sklearn.utils.validation.check_array(X)
         self.n_features_in_ = X.shape[1]
         # Clone and fit estimator
@@ -517,7 +468,7 @@ class ClusterCenters(sklearn.base.BaseEstimator):
         return self
 
 
-class GaussianMixtureRandomCenters(sklearn.base.BaseEstimator):
+class GaussianMixtureRandomCenters(Centers):
     """Centers generated from sampling a Gaussian mixture model.
 
     Attributes
@@ -573,25 +524,7 @@ class GaussianMixtureRandomCenters(sklearn.base.BaseEstimator):
         X: np.ndarray,
         y: np.ndarray = None,
     ) -> 'GaussianMixtureRandomCenters':
-        """Generate centers from sampling a Gaussian mixture model.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Data matrix.
-        y : np.ndarray
-            Ignored.
-
-        Returns
-        -------
-        GaussianMixtureRandomCenters
-            Instance of itself.
-
-        Raises
-        ------
-        ValueError
-            If any of the constructor parameters are incorrect.
-        """
+        # noqa: D102
         X = sklearn.utils.validation.check_array(X)
         self.n_features_in_ = X.shape[1]
         # Clone and fit estimator

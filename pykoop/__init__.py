@@ -32,6 +32,7 @@ from .util import (
     random_state,
 )
 from .centers import (
+    Centers,
     GridCenters,
     UniformRandomCenters,
     GaussianRandomCenters,
