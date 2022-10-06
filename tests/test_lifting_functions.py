@@ -611,6 +611,131 @@ import pykoop
             1,
             True,
         ),
+        # Radial basis functions
+        (
+            pykoop.RbfLiftingFn(
+                rbf=lambda r: r,
+                centers=pykoop.DataCenters(np.array([
+                    [0],
+                    [0],
+                ]).T),
+            ),
+            np.array(['x0', 'x1']),
+            np.array([
+                [0, 1, 2, -1],
+                [0, 2, 4, 1],
+            ]).T,
+            np.array(['x0', 'x1', 'R_0(x)']),
+            np.array([
+                [0, 1, 2, -1],
+                [0, 2, 4, 1],
+                [0, np.sqrt(5), np.sqrt(20),
+                 np.sqrt(2)],
+            ]).T,
+            0,
+            False,
+        ),
+        (
+            pykoop.RbfLiftingFn(
+                rbf=lambda r: -r**2,
+                centers=pykoop.DataCenters(np.array([
+                    [0, 1],
+                    [0, 1],
+                ]).T),
+            ),
+            np.array(['x0', 'u0']),
+            np.array([
+                [0, 1, 2, -1],
+                [0, 2, 4, 1],
+            ]).T,
+            np.array(['x0', 'u0', 'R_0(x, u)', 'R_1(x, u)']),
+            np.array([
+                [0, 1, 2, -1],
+                [0, 2, 4, 1],
+                [0, -5, -20, -2],
+                [-2, -1, -10, -4],
+            ]).T,
+            1,
+            False,
+        ),
+        (
+            pykoop.RbfLiftingFn(
+                rbf=lambda r: r,
+                centers=pykoop.DataCenters(np.array([
+                    [0],
+                    [0],
+                ]).T),
+                shape=2,
+                offset=0.1,
+            ),
+            np.array(['x0', 'u0']),
+            np.array([
+                [0, 1, 2, -1],
+                [0, 2, 4, 1],
+            ]).T,
+            np.array(['x0', 'u0', 'R_0(x, u)']),
+            np.array([
+                [0, 1, 2, -1],
+                [0, 2, 4, 1],
+                [
+                    0.1, 2 * np.sqrt(5) + 0.1, 2 * np.sqrt(20) + 0.1,
+                    2 * np.sqrt(2) + 0.1
+                ],
+            ]).T,
+            1,
+            False,
+        ),
+        (
+            pykoop.RbfLiftingFn(
+                rbf='gaussian',
+                centers=pykoop.DataCenters(np.array([
+                    [0],
+                    [0],
+                ]).T),
+                shape=0.1,
+            ),
+            np.array(['x0', 'x1']),
+            np.array([
+                [0, 1, 2, -1],
+                [0, 2, 4, 1],
+            ]).T,
+            np.array(['x0', 'x1', 'R_0(x)']),
+            np.array([
+                [0, 1, 2, -1],
+                [0, 2, 4, 1],
+                [1, np.exp(-0.05),
+                 np.exp(-0.2), np.exp(-0.02)],
+            ]).T,
+            0,
+            False,
+        ),
+        (
+            pykoop.RbfLiftingFn(
+                rbf='thin_plate',
+                centers=pykoop.DataCenters(np.array([
+                    [0],
+                    [0],
+                ]).T),
+                offset=1e-3,
+            ),
+            np.array(['x0', 'x1']),
+            np.array([
+                [1, 2, -1],
+                [2, 4, 1],
+            ]).T,
+            np.array(['x0', 'x1', 'R_0(x)']),
+            np.array([
+                [1, 2, -1],
+                [2, 4, 1],
+                [
+                    (np.sqrt(5) + 1e-3)**2 * np.log(np.sqrt(5) + 1e-3),
+                    (np.sqrt(20) + 1e-3)**2 * np.log(np.sqrt(20) + 1e-3),
+                    (np.sqrt(2) + 1e-3)**2 * np.log(np.sqrt(2) + 1e-3),
+                ],
+            ]).T,
+            0,
+            False,
+        ),
     ],
 )
 class TestLiftingFnTransform:

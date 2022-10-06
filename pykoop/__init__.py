@@ -40,4 +40,5 @@ from .centers import (
     GaussianMixtureRandomCenters,
     QmcCenters,
     ClusterCenters,
+    DataCenters,
 )

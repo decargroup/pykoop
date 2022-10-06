@@ -380,6 +380,51 @@ class TestGaussianMixtureRandomCenters:
         assert est.n_centers_ == est.centers_.shape[0]
 
 
+@pytest.mark.parametrize(
+    'est, X, centers',
+    [
+        # Latch on fit
+        (
+            pykoop.DataCenters(centers=None),
+            np.array([
+                [1, 2, 3],
+                [4, 5, 6],
+            ]).T,
+            np.array([
+                [1, 2, 3],
+                [4, 5, 6],
+            ]).T,
+        ),
+        # Latch on instantiation
+        (
+            pykoop.DataCenters(centers=np.array([
+                [1, 2, 3],
+                [4, 5, 6],
+            ]).T),
+            np.array([
+                [5, 5, 5],
+                [5, 5, 5],
+            ]).T,
+            np.array([
+                [1, 2, 3],
+                [4, 5, 6],
+            ]).T,
+        ),
+    ])
+class TestDataCenters:
+    """Test :class:`DataCenters`."""
+
+    def test_data_centers(self, est, X, centers):
+        """Test center locations."""
+        est.fit(X)
+        np.testing.assert_allclose(est.centers_, centers)
+
+    def test_n_centers(self, est, X, centers):
+        """Test number of centers."""
+        est.fit(X)
+        assert est.n_centers_ == centers.shape[0]
+
+
 class TestSkLearn:
     """Test scikit-learn compatibility."""
 
@@ -390,6 +435,7 @@ class TestSkLearn:
         pykoop.QmcCenters(),
         pykoop.ClusterCenters(),
         pykoop.GaussianMixtureRandomCenters(),
+        pykoop.DataCenters(),
     ])
     def test_compatible_estimator(self, estimator, check):
         """Test scikit-learn compatibility of estimators."""

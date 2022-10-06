@@ -537,6 +537,45 @@ class GaussianMixtureRandomCenters(Centers):
         return self
 
 
+class DataCenters(Centers):
+    """Centers taken from raw data upon instantiation or fit.
+
+    centers_ : np.ndarray
+        Centers, shape (n_centers, n_features).
+    n_centers_ : int
+        Number of centers generated.
+    n_features_in_ : int
+        Number of features input.
+    """
+
+    def __init__(self, centers: np.ndarray = None):
+        """Instantiate :class:`DataCenters`.
+
+        Parameters
+        ----------
+        centers : np.ndarray
+            Array of centers, shape (n_centers, n_features). If ``None``, then
+            centers are taken from fit.
+        """
+        self.centers = centers
+
+    def fit(self, X: np.ndarray, y: np.ndarray = None) -> 'DataCenters':
+        # noqa: D102
+        X = sklearn.utils.validation.check_array(X)
+        self.n_features_in_ = X.shape[1]
+        # Set centers
+        if self.centers is None:
+            self.centers_ = X
+        else:
+            if self.centers.shape[1] != self.n_features_in_:
+                raise ValueError('`centers` must have shape '
+                                 '(n_centers, n_features).')
+            self.centers_ = self.centers
+        # Set center shape
+        self.n_centers_ = self.centers_.shape[0]
+        return self
+
+
 def _feature_range(
     X: np.ndarray,
     symmetric_range: bool,

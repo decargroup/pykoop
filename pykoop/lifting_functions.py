@@ -504,7 +504,7 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     def __init__(
         self,
         rbf: Union[str, Callable[[np.ndarray], np.ndarray]] = 'gaussian',
-        centers: Union[centers.Centers, np.ndarray] = None,
+        centers: centers.Centers = None,
         shape: float = 1,
         offset: float = None,
     ) -> None:
@@ -530,12 +530,11 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
             can be used. It must be vectorized, i.e., it must be callable
             with an array of radii and operate on it elementwise.
 
-        centers : Union[centers.Centers, np.ndarray]
+        centers : centers.Centers
             Estimator to generate centers from data. Number of lifting
-            functions is controlled by the number of centers generated. If
-            the centers are known already, they can be specified as an array of
-            shape (n_centers, n_features). Defaults to
-            :class:`UniformRandomCenters` with its default arguments.
+            functions is controlled by the number of centers generated.
+            Defaults to :class:`UniformRandomCenters` with its default
+            arguments.
 
         shape : float
             Shape parameter. Must be greater than zero. Larger numbers produce
@@ -585,7 +584,7 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         # ``(n_samples, 1, n_features) - (n_centers, n_features)``.
         # The middle dimension gets broadcast (expanded) to ``n_centers``. The
         # result has shape ``(n_samples, n_centers, n_features)``.
-        diff = X[:, np.newaxis, :] - self.center_.centers_
+        diff = X[:, np.newaxis, :] - self.centers_.centers_
         # Calculate radii. The norm is taken over the last dimension to get
         # shape ``(n_samples, n_centers)``.
         radii = self.shape * linalg.norm(diff, axis=-1) + self.offset_
@@ -615,7 +614,7 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
                                  '`Callable[[np.ndarray], np.ndarray]`.')
         if self.shape <= 0:
             raise ValueError('`shape` must be greater than zero.')
-        if self.offset < 0:
+        if (self.offset is not None) and (self.offset < 0):
             raise ValueError('`offset` must be greater than or equal to zero.')
 
     def _transform_feature_names(
@@ -647,8 +646,10 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         # Add states and inputs
         for ft in range(self.n_states_in_ + self.n_inputs_in_):
             names_out.append(names_in[ft])
-        for i in range(self.center_.n_centers_):
+        for i in range(self.centers_.n_centers_):
             names_out.append(f'R_{pre}{i}{post}({arg})')
+        feature_names_out = np.array(names_out, dtype=object)
+        return feature_names_out
 
 
 class ConstantLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):

@@ -171,6 +171,7 @@ The following classes are used to generate centers for radial basis function
    :toctree: _autosummary/
 
    pykoop.ClusterCenters
+   pykoop.DataCenters
    pykoop.GaussianRandomCenters
    pykoop.GaussianMixtureRandomCenters
    pykoop.GridCenters
