@@ -20,6 +20,7 @@ from .lifting_functions import (
     ConstantLiftingFn,
     DelayLiftingFn,
     PolynomialLiftingFn,
+    RbfLiftingFn,
     SkLearnLiftingFn,
 )
 from .regressors import Dmd, Dmdc, Edmd, EdmdMeta

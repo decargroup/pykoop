@@ -138,6 +138,7 @@ namespace for convenience.
    pykoop.ConstantLiftingFn
    pykoop.DelayLiftingFn
    pykoop.PolynomialLiftingFn
+   pykoop.RbfLiftingFn
    pykoop.SkLearnLiftingFn
 
 
