@@ -454,9 +454,43 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
 
     Examples
     --------
-    Gaussian RBF lifting functions
+    Gaussian RBF lifting functions with normally distributed centers
 
-    >>> raise NotImplementedError()
+    >>> rbf = pykoop.RbfLiftingFn(
+    ...     rbf='gaussian',
+    ...     centers=pykoop.GaussianRandomCenters(
+    ...         n_centers=10,
+    ...     ),
+    ...     shape=0.1,
+    ... )
+    >>> rbf.fit(X_msd, n_inputs=1, episode_feature=True)
+    RbfLiftingFn(centers=GaussianRandomCenters(n_centers=10), shape=0.1)
+
+    Thin-plate RBF lifting functions with K-means clustered centers
+
+    >>> tp = pykoop.RbfLiftingFn(
+    ...     rbf='thin_plate',
+    ...     centers=pykoop.ClusterCenters(
+    ...         estimator=sklearn.cluster.KMeans(n_clusters=3)
+    ...     ),
+    ...     shape=10,
+    ... )
+    >>> tp.fit(X_msd, n_inputs=1, episode_feature=True)
+    RbfLiftingFn(centers=ClusterCenters(estimator=KMeans(n_clusters=3)),
+    rbf='thin_plate', shape=10)
+
+    Inverse quadratic RBF lifting functions with Latin hypercube centers
+
+    >>> iq = pykoop.RbfLiftingFn(
+    ...     rbf='inverse_quadratic',
+    ...     centers=pykoop.QmcCenters(
+    ...         n_centers=10,
+    ...         qmc=scipy.stats.qmc.LatinHypercube,
+    ...     ),
+    ... )
+    >>> iq.fit(X_msd, n_inputs=1, episode_feature=True)
+    RbfLiftingFn(centers=QmcCenters(n_centers=10,
+    qmc=<class 'scipy.stats._qmc.LatinHypercube'>), rbf='inverse_quadratic')
     """
 
     _rbf_lookup = {
@@ -472,7 +506,7 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
             'callable': lambda r: np.sqrt(1 + r**2),
             'offset': 0,
         },
-        'inverse_quadric': {
+        'inverse_quadratic': {
             'callable': lambda r: 1 / (1 + r**2),
             'offset': 0
         },
