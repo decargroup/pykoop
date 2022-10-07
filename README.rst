@@ -96,6 +96,7 @@ a regressor.
 Some example lifting functions are
 
 - :class:`pykoop.PolynomialLiftingFn`,
+- :class:`pykoop.RbfLiftingFn`,
 - :class:`pykoop.DelayLiftingFn`, and
 - :class:`pykoop.BilinearInputLiftingFn`.
 
