@@ -223,8 +223,8 @@ class TestGaussianRandomCenters:
     (
         pykoop.QmcCenters(
             n_centers=10,
-            qmc=stats.qmc.PoissonDisk,
-            qmc_kw=dict(radius=0.1),
+            qmc=stats.qmc.Sobol,
+            qmc_kw=dict(scramble=False),
             random_state=1234,
         ),
         np.array([
