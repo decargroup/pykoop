@@ -420,6 +420,8 @@ def example_data_vdp() -> Dict[str, Any]:
 def example_data_pendulum() -> Dict[str, Any]:
     """Get example pendulum data.
 
+    Always starts with zero initial velocity.
+
     Returns
     -------
     Dict[str, Any]

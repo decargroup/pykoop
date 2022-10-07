@@ -329,6 +329,16 @@ can be removed from the model.
 .. plot:: ../examples/5_example_sparse_regression.py
    :include-source:
 
+Radial basis functions on a pendulum
+------------------------------------
+
+This example shows how thin-plate radial basis functions can be used as lifting
+functions to identify pendulum dynamics (where all trajectories have zero
+initial velocity). Latin hypercube sampling is used to generate 100 centers.
+
+.. plot:: ../examples/6_example_rbf_pendulum.py
+   :include-source:
+
 
 References
 ==========
