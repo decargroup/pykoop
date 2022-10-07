@@ -204,6 +204,7 @@ convenience.
 
    pykoop.AnglePreprocessor
    pykoop.example_data_msd
+   pykoop.example_data_pendulum
    pykoop.example_data_vdp
    pykoop.random_input
    pykoop.random_state

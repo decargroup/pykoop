@@ -29,6 +29,7 @@ from .util import (
     AnglePreprocessor,
     example_data_msd,
     example_data_vdp,
+    example_data_pendulum,
     random_input,
     random_state,
 )

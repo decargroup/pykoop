@@ -413,3 +413,65 @@ def example_data_vdp() -> Dict[str, Any]:
         'episode_feature': episode_feature,
         't': t_sim,
     }
+
+
+def example_data_pendulum() -> Dict[str, Any]:
+    """Get example pendulum data.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Sample pendulum data.
+    """
+    # Create pendulum object
+    t_step = 0.01
+    pend = dynamic_models.Pendulum(mass=1, length=1, damping=1e-1)
+    # Initial conditions
+    t_range = (0, 20)
+    t_sim = np.arange(*t_range, t_step)
+    n_ep = 50
+    conditions = [(i, np.array([np.pi * i * 0.1, 0])) for i in range(n_ep)]
+    X_pend_lst = []
+    # Loop over initial conditions and inputs
+    for ep, x0 in conditions:
+        # Simulate ODE
+        t, x = pend.simulate(
+            t_range=t_range,
+            t_step=t_step,
+            x0=x0,
+            u=lambda t: 0,
+        )
+        # Format the data
+        X_pend_lst.append(np.hstack((
+            ep * np.ones((t.shape[0], 1)),
+            x,
+        )))
+    # Stack data and return
+    X_pend = np.vstack(X_pend_lst)
+    valid_ep = [5, 25, 45]
+    train_ep = list(set(range(n_ep)) - set(valid_ep))
+    valid_idx = np.where(np.in1d(X_pend[:, 0], valid_ep))[0]
+    train_idx = np.where(np.in1d(X_pend[:, 0], train_ep))[0]
+    X_train = X_pend[train_idx, :]
+    X_valid = X_pend[valid_idx, :]
+    n_inputs = 0
+    episode_feature = True
+    x0_valid = koopman_pipeline.extract_initial_conditions(
+        X_valid,
+        n_inputs=n_inputs,
+        episode_feature=episode_feature,
+    )
+    u_valid = koopman_pipeline.extract_input(
+        X_valid,
+        n_inputs=n_inputs,
+        episode_feature=episode_feature,
+    )
+    return {
+        'X_train': X_train,
+        'X_valid': X_valid,
+        'x0_valid': x0_valid,
+        'u_valid': u_valid,
+        'n_inputs': n_inputs,
+        'episode_feature': episode_feature,
+        't': t_sim,
+    }
