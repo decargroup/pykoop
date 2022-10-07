@@ -514,7 +514,7 @@ class GaussianMixtureRandomCenters(Centers):
 
             If a random seed is desired, it must be set in the
             chosen estimator. Defaults to
-            :class:`sklearn.mixture.GaussianMixture`.
+            :class:`sklearn.mixture.GaussianMixture(n_components=2)`.
         """
         self.n_centers = n_centers
         self.estimator = estimator
@@ -529,7 +529,8 @@ class GaussianMixtureRandomCenters(Centers):
         self.n_features_in_ = X.shape[1]
         # Clone and fit estimator
         self.estimator_ = (sklearn.base.clone(self.estimator) if self.estimator
-                           is not None else sklearn.mixture.GaussianMixture())
+                           is not None else sklearn.mixture.GaussianMixture(
+                               n_components=2))
         self.estimator_.fit(X)
         # Sample fit distribution
         self.centers_ = self.estimator_.sample(self.n_centers)[0]
