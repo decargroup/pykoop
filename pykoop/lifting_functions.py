@@ -4,14 +4,15 @@ All of the lifting functions included in this module adhere to the interface
 defined in :class:`KoopmanLiftingFn`.
 """
 
-from typing import Tuple
+from typing import Callable, Tuple, Union
 
 import numpy as np
 import sklearn.base
 import sklearn.preprocessing
 import sklearn.utils.validation
+from scipy import linalg
 
-from . import koopman_pipeline
+from . import centers, koopman_pipeline
 
 
 class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
@@ -416,6 +417,271 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
                           self.n_states_in_ + self.n_inputs_in_):
             for ft_x in range(self.n_states_in_):
                 names_out.append(f'{names_in[ft_x]}{times}{names_in[ft_u]}')
+        feature_names_out = np.array(names_out, dtype=object)
+        return feature_names_out
+
+
+class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
+    """Lifting function using radial basis function (RBF) features.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
+    rbf_ : Callable[[np.ndarray], np.ndarray]
+        Radial basis function as a callable.
+    centers_ : centers.Centers
+        Fit centers estimator.
+    offset_ : float
+        Offset used to calculate radius. Differs from ``offset`` only if
+        ``offset=None``.
+
+    Examples
+    --------
+    Gaussian RBF lifting functions with normally distributed centers
+
+    >>> rbf = pykoop.RbfLiftingFn(
+    ...     rbf='gaussian',
+    ...     centers=pykoop.GaussianRandomCenters(
+    ...         n_centers=10,
+    ...     ),
+    ...     shape=0.1,
+    ... )
+    >>> rbf.fit(X_msd, n_inputs=1, episode_feature=True)
+    RbfLiftingFn(centers=GaussianRandomCenters(n_centers=10), shape=0.1)
+
+    Thin-plate RBF lifting functions with K-means clustered centers
+
+    >>> tp = pykoop.RbfLiftingFn(
+    ...     rbf='thin_plate',
+    ...     centers=pykoop.ClusterCenters(
+    ...         estimator=sklearn.cluster.KMeans(n_clusters=3)
+    ...     ),
+    ...     shape=10,
+    ... )
+    >>> tp.fit(X_msd, n_inputs=1, episode_feature=True)
+    RbfLiftingFn(centers=ClusterCenters(estimator=KMeans(n_clusters=3)),
+    rbf='thin_plate', shape=10)
+
+    Inverse quadratic RBF lifting functions with Latin hypercube centers
+
+    >>> iq = pykoop.RbfLiftingFn(
+    ...     rbf='inverse_quadratic',
+    ...     centers=pykoop.QmcCenters(
+    ...         n_centers=10,
+    ...         qmc=scipy.stats.qmc.LatinHypercube,
+    ...     ),
+    ... )
+    >>> iq.fit(X_msd, n_inputs=1, episode_feature=True)
+    RbfLiftingFn(centers=QmcCenters(n_centers=10,
+    qmc=<class 'scipy.stats._qmc.LatinHypercube'>), rbf='inverse_quadratic')
+    """
+
+    _rbf_lookup = {
+        'exponential': {
+            'callable': lambda r: np.exp(-r),
+            'offset': 0,
+        },
+        'gaussian': {
+            'callable': lambda r: np.exp(-r**2),
+            'offset': 0,
+        },
+        'multiquadric': {
+            'callable': lambda r: np.sqrt(1 + r**2),
+            'offset': 0,
+        },
+        'inverse_quadratic': {
+            'callable': lambda r: 1 / (1 + r**2),
+            'offset': 0
+        },
+        'inverse_multiquadric': {
+            'callable': lambda r: 1 / np.sqrt(1 + r**2),
+            'offset': 0,
+        },
+        'thin_plate': {
+            'callable': lambda r: r**2 * np.log(r),
+            'offset': 1e-3,
+        },
+        'bump_function': {
+            'callable':
+            lambda r: np.piecewise(
+                r,
+                [r < 1],
+                [lambda s: np.exp(-1 / (1 - s**2)), 0],
+            ),
+            'offset':
+            0,
+        },
+    }
+    """Lookup table mapping RBF name to callable and default offset.
+
+    The default offset should only be nonzero if the function is not defined
+    for ``r = 0``.
+    """
+
+    def __init__(
+        self,
+        rbf: Union[str, Callable[[np.ndarray], np.ndarray]] = 'gaussian',
+        centers: centers.Centers = None,
+        shape: float = 1,
+        offset: float = None,
+    ) -> None:
+        """Instantiate :class:`RbfLiftingFn`.
+
+        Attributes
+        ----------
+        rbf : Union[str, Callable[[np.ndarray], np.ndarray]]
+            Radial basis function type. These are functions of the radius
+            ``r = shape * ||x - c|| + offset``, where ``c`` is a constant
+            center. Commonly used ones can be specified by their names,
+
+            - ``'exponential'`` -- ``exp(-r)`` (see [WHDKR16]_),
+            - ``'gaussian'`` -- ``exp(-r^2)`` (see [WHDKR16]_),
+            - ``'multiquadric'`` -- ``sqrt(1 + r^2)``,
+            - ``'inverse_quadratic'`` -- ``1 / (1 + r^2)``,
+            - ``'inverse_multiquadric'`` -- ``1 / sqrt(1 + r^2)``,
+            - ``'thin_plate'`` -- ``r^2 * ln(r)`` (see [DTK20]_ and [CHH19]_),
+              or
+            - ``'bump_function'`` -- ``exp(-1 / (1 - r^2)) if r < 1, else 0``.
+
+            Alternatively, a callable representing the basis function ``R(r)``
+            can be used. It must be vectorized, i.e., it must be callable
+            with an array of radii and operate on it elementwise.
+
+        centers : centers.Centers
+            Estimator to generate centers from data. Number of lifting
+            functions is controlled by the number of centers generated.
+            Defaults to :class:`UniformRandomCenters` with its default
+            arguments.
+
+        shape : float
+            Shape parameter. Must be greater than zero. Larger numbers produce
+            "sharper" basis functions. Default is ``1``.
+
+        offset : float
+            Offset to apply to the norm. Not needed unless RBF is not defined
+            for zero radius. Default is ``None``, where zero is used for all
+            ``rbf`` values except ``'thin_plate'``, where ``1e-3`` is used.
+        """
+        self.rbf = rbf
+        self.centers = centers
+        self.shape = shape
+        self.offset = offset
+
+    def _fit_one_ep(self, X: np.ndarray) -> Tuple[int, int]:
+        # Set basis function type
+        if isinstance(self.rbf, str):
+            self.rbf_ = self._rbf_lookup[self.rbf]['callable']
+        else:
+            self.rbf_ = self.rbf
+        # Set and fit centers
+        self.centers_ = sklearn.base.clone(self.centers)
+        self.centers_.fit(X)
+        # Set offset
+        if self.offset is None:
+            if isinstance(self.rbf, str):
+                self.offset_ = self._rbf_lookup[self.rbf]['offset']
+            else:
+                self.offset_ = 0
+        else:
+            self.offset_ = self.offset
+        # Calculate number of features
+        if self.n_inputs_in_ == 0:
+            n_states_out = self.n_states_in_ + self.centers_.n_centers_
+            n_inputs_out = self.n_inputs_in_
+        else:
+            n_states_out = self.n_states_in_
+            n_inputs_out = self.n_inputs_in_ + self.centers_.n_centers_
+        return (n_states_out, n_inputs_out)
+
+    def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        # Separate states and inputs.
+        X_x = X[:, :self.n_states_in_]
+        X_u = X[:, self.n_states_in_:]
+        # Calculate difference b/t states and centers. Leverages broadcasting:
+        # ``(n_samples, 1, n_features) - (n_centers, n_features)``.
+        # The middle dimension gets broadcast (expanded) to ``n_centers``. The
+        # result has shape ``(n_samples, n_centers, n_features)``.
+        diff = X[:, np.newaxis, :] - self.centers_.centers_
+        # Calculate radii. The norm is taken over the last dimension to get
+        # shape ``(n_samples, n_centers)``.
+        radii = self.shape * linalg.norm(diff, axis=-1) + self.offset_
+        # Evaluate basis function elementwise
+        X_r = self.rbf_(radii)
+        # Stack results. ``X_r`` always goes at the bottom because it always
+        # involves the lifted inputs if present.
+        Xt = np.hstack((X_x, X_u, X_r))
+        return Xt
+
+    def _inverse_transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        # Separate states and inputs.
+        X_x = X[:, :self.n_states_out_]
+        X_u = X[:, self.n_states_out_:]
+        # Extract original states and inputs from first features
+        Xt_x = X_x[:, :self.n_states_in_]
+        Xt_u = X_u[:, :self.n_inputs_in_]
+        # Combine extracted states
+        Xt = np.hstack((Xt_x, Xt_u))
+        return Xt
+
+    def _validate_parameters(self) -> None:
+        if isinstance(self.rbf, str):
+            if self.rbf not in self._rbf_lookup.keys():
+                raise ValueError('`rbf` must be one of '
+                                 f'{self._rbf_lookup.keys()} or a '
+                                 '`Callable[[np.ndarray], np.ndarray]`.')
+        if self.shape <= 0:
+            raise ValueError('`shape` must be greater than zero.')
+        if (self.offset is not None) and (self.offset < 0):
+            raise ValueError('`offset` must be greater than or equal to zero.')
+
+    def _transform_feature_names(
+        self,
+        feature_names: np.ndarray,
+        format: str = None,
+    ) -> np.ndarray:
+        if format == 'latex':
+            pre = '{'
+            post = '}'
+            if self.n_inputs_in_ == 0:
+                arg = r'{\bf x}'
+            else:
+                arg = r'{\bf x}, {\bf u}'
+        else:
+            pre = ''
+            post = ''
+            if self.n_inputs_in_ == 0:
+                arg = 'x'
+            else:
+                arg = 'x, u'
+        names_out = []
+        # Deal with episode feature
+        if self.episode_feature_:
+            names_in = feature_names[1:]
+            names_out.append(feature_names[0])
+        else:
+            names_in = feature_names
+        # Add states and inputs
+        for ft in range(self.n_states_in_ + self.n_inputs_in_):
+            names_out.append(names_in[ft])
+        for i in range(self.centers_.n_centers_):
+            names_out.append(f'R_{pre}{i}{post}({arg})')
         feature_names_out = np.array(names_out, dtype=object)
         return feature_names_out
 

@@ -47,18 +47,18 @@ def example_sparse_regression() -> None:
         eg['X_valid'],
         plot_input=True,
     )
-    fig.suptitle('Dense regression')
+    ax[0, 0].set_title('Dense regression')
     fig, ax = kp_dense.plot_koopman_matrix()
-    fig.suptitle('Dense regression')
+    ax.set_title('Dense regression')
 
     # Plot sparse prediction and Koopman matrix
     fig, ax = kp_sparse.plot_predicted_trajectory(
         eg['X_valid'],
         plot_input=True,
     )
-    fig.suptitle('Sparse regression')
+    ax[0, 0].set_title('Sparse regression')
     fig, ax = kp_sparse.plot_koopman_matrix()
-    fig.suptitle('Sparse regression')
+    ax.set_title('Sparse regression')
 
 
 if __name__ == '__main__':

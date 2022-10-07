@@ -20,6 +20,7 @@ from .lifting_functions import (
     ConstantLiftingFn,
     DelayLiftingFn,
     PolynomialLiftingFn,
+    RbfLiftingFn,
     SkLearnLiftingFn,
 )
 from .regressors import Dmd, Dmdc, Edmd, EdmdMeta
@@ -28,6 +29,17 @@ from .util import (
     AnglePreprocessor,
     example_data_msd,
     example_data_vdp,
+    example_data_pendulum,
     random_input,
     random_state,
+)
+from .centers import (
+    Centers,
+    GridCenters,
+    UniformRandomCenters,
+    GaussianRandomCenters,
+    GaussianMixtureRandomCenters,
+    QmcCenters,
+    ClusterCenters,
+    DataCenters,
 )

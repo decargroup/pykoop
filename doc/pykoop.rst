@@ -138,6 +138,7 @@ namespace for convenience.
    pykoop.ConstantLiftingFn
    pykoop.DelayLiftingFn
    pykoop.PolynomialLiftingFn
+   pykoop.RbfLiftingFn
    pykoop.SkLearnLiftingFn
 
 
@@ -158,6 +159,24 @@ convenience.
    pykoop.Dmdc
    pykoop.Edmd
    pykoop.EdmdMeta
+
+
+Radial basis function centers
+=============================
+
+The following classes are used to generate centers for radial basis function
+(RBF) lifting functions.
+
+.. autosummary::
+   :toctree: _autosummary/
+
+   pykoop.ClusterCenters
+   pykoop.DataCenters
+   pykoop.GaussianRandomCenters
+   pykoop.GaussianMixtureRandomCenters
+   pykoop.GridCenters
+   pykoop.QmcCenters
+   pykoop.UniformRandomCenters
 
 
 Truncated SVD
@@ -185,6 +204,7 @@ convenience.
 
    pykoop.AnglePreprocessor
    pykoop.example_data_msd
+   pykoop.example_data_pendulum
    pykoop.example_data_vdp
    pykoop.random_input
    pykoop.random_state
@@ -239,13 +259,14 @@ If you want to write your own lifting functions or regressor, this is the place
 to look!
 
 The following abstract class implementations are spread across
-``pykoop.koopman_pipeline``, ``pykoop.dynamic_models``, and
-``pykoop.lmi_regressors``. The most commonly used ones have been imported into
-the ``pykoop`` namespace.
+:mod:`pykoop.koopman_pipeline`, :mod:`pykoop.dynamic_models`,
+:mod:`pykoop.centers`, and :mod:`pykoop.lmi_regressors`. The most commonly used
+ones have been imported into the ``pykoop`` namespace.
 
 .. autosummary::
    :toctree: _autosummary/
 
+   pykoop.Centers
    pykoop.EpisodeDependentLiftingFn
    pykoop.EpisodeIndependentLiftingFn
    pykoop.KoopmanLiftingFn
@@ -308,6 +329,16 @@ can be removed from the model.
 .. plot:: ../examples/5_example_sparse_regression.py
    :include-source:
 
+Radial basis functions on a pendulum
+------------------------------------
+
+This example shows how thin-plate radial basis functions can be used as lifting
+functions to identify pendulum dynamics (where all trajectories have zero
+initial velocity). Latin hypercube sampling is used to generate 100 centers.
+
+.. plot:: ../examples/6_example_rbf_pendulum.py
+   :include-source:
+
 
 References
 ==========
@@ -330,4 +361,14 @@ References
 .. [MAM22] Giorgos Mamakoukas, Ian Abraham, and Todd D. Murphey. "Learning
    Stable Models for Prediction and Control." arXiv:2005.04291v2 [cs.RO]
    (2022). https://arxiv.org/abs/2005.04291v2
-   https://arxiv.org/abs/2010.09961v3
+.. [DTK20] Felix Dietrich, Thomas N. Thiem, and Ioannis G. Kevrekidis. "On the
+   Koopman Operator of Algorithms." SIAM Journal on Applied Dynamical Systems,
+   vol. 19, no. 2, pp. 860-885, 2020. https://doi.org/10.1137%2F19m1277059
+.. [WHDKR16] Matthew O. Williams, Maziar S. Hemati, Scott T. M. Dawson, Ioannis
+   G. Kevrekidis, and Clarence W. Rowley. "Extending Data-Driven Koopman
+   Analysis to Actuated Systems." IFAC-PapersOnLine, vol. 49, no. 18, pp.
+   704-709, 2016. https://doi.org/10.1016%2Fj.ifacol.2016.10.248
+.. [CHH19] Vı́t Cibulka, Tomáš Haniš, and Martin Hromčı́k. "Data-driven
+   identification of vehicle dynamics using Koopman operator," in 22nd
+   International Conference on Process Control, 2019.
+   https://doi.org/10.1109%2Fpc.2019.8815104

@@ -1477,7 +1477,7 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         )
         ax.text(0, p_theta, r'${\bf A}$')
         ax.text(p_theta, p_theta, r'${\bf B}$')
-        fig.colorbar(im, ax=ax)
+        fig.colorbar(im, ax=ax, orientation='horizontal')
         return fig, ax
 
     def plot_svd(
