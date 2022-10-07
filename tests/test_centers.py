@@ -114,7 +114,7 @@ class TestUniformRandomCenters:
         Tolerance for regression test.
     """
 
-    tol = 1e-12
+    tol = 1e-6
 
     def test_uniform_centers(self, ndarrays_regression, est, X):
         """Test center locations."""
@@ -242,7 +242,7 @@ class TestQmcCenters:
         Tolerance for regression test.
     """
 
-    tol = 1e-12
+    tol = 1e-6
 
     def test_qmc_centers(self, ndarrays_regression, est, X):
         """Test center locations."""
@@ -313,7 +313,7 @@ class TestClusterCenters:
         Tolerance for regression test.
     """
 
-    tol = 1e-12
+    tol = 1e-6
 
     def test_cluster_centers(self, ndarrays_regression, est, X):
         """Test center locations."""
@@ -362,7 +362,7 @@ class TestGaussianMixtureRandomCenters:
         Tolerance for regression test.
     """
 
-    tol = 1e-12
+    tol = 1e-6
 
     def test_mixture_centers(self, ndarrays_regression, est, X):
         """Test center locations."""
