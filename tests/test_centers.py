@@ -335,7 +335,7 @@ class TestClusterCenters:
     (
         pykoop.GaussianMixtureRandomCenters(
             estimator=sklearn.mixture.GaussianMixture(
-                n_components=1,
+                n_components=2,
                 random_state=1234,
             )),
         np.array([
