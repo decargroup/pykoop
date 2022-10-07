@@ -222,7 +222,7 @@ class TestGaussianRandomCenters:
     ),
     (
         pykoop.QmcCenters(
-            n_centers=10,
+            n_centers=8,
             qmc=stats.qmc.Sobol,
             qmc_kw=dict(scramble=False),
             random_state=1234,
@@ -295,7 +295,7 @@ class TestQmcCenters:
     ),
     (
         pykoop.ClusterCenters(estimator=sklearn.mixture.GaussianMixture(
-            n_components=1,
+            n_components=2,
             random_state=1234,
         )),
         np.array([
