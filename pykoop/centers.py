@@ -2,7 +2,7 @@
 
 import abc
 import logging
-from typing import Any, Callable, Dict, ParamSpecKwargs, Tuple, Union
+from typing import Any, Callable, Dict, Tuple, Union
 
 import numpy as np
 import sklearn.base
@@ -316,7 +316,7 @@ class QmcCenters(Centers):
         self,
         n_centers: int = 100,
         symmetric_range: bool = False,
-        qmc: Callable[[int, ParamSpecKwargs], stats.qmc.QMCEngine] = None,
+        qmc: Callable[..., stats.qmc.QMCEngine] = None,
         qmc_kw: Dict[str, Any] = None,
         random_state: Union[int, np.random.RandomState] = None,
     ) -> None:
@@ -333,7 +333,7 @@ class QmcCenters(Centers):
             Otherwise, the grid range is taken directly on the data
             (i.e., ``[min(x), max(x)]``). Default is false.
 
-        qmc : Callable[[int, ParamSpecKwargs], stats.qmc.QMCEngine]
+        qmc : Callable[..., stats.qmc.QMCEngine]
             Quasi-Monte Carlo method from :mod:`scipy.stats.qmc` to use.
             Argument is the desired subclass of
             :class:`scipy.stats.qmc.QMCEngine` to use. Accepts the class
