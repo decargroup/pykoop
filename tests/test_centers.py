@@ -169,7 +169,7 @@ class TestGaussianRandomCenters:
         Tolerance for regression test.
     """
 
-    tol = 1e-12
+    tol = 1e-6
 
     def test_gaussian_centers(self, ndarrays_regression, est, X):
         """Test center locations."""
