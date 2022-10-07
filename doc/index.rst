@@ -9,6 +9,7 @@
 
 .. toctree::
    :caption: Contents
+   :titlesonly:
 
    Introduction <self>
    pykoop
