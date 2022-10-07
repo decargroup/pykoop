@@ -9,10 +9,11 @@
 
 .. toctree::
    :caption: Contents
-   :titlesonly:
 
    Introduction <self>
    pykoop
+   examples
+   references
 
 
 Indices and tables
