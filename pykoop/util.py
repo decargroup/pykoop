@@ -347,6 +347,7 @@ def example_data_msd() -> Dict[str, Any]:
         'n_inputs': n_inputs,
         'episode_feature': episode_feature,
         't': t_sim,
+        'dynamic_model': msd,
     }
 
 
@@ -412,6 +413,7 @@ def example_data_vdp() -> Dict[str, Any]:
         'n_inputs': n_inputs,
         'episode_feature': episode_feature,
         't': t_sim,
+        'dynamic_model': vdp,
     }
 
 
@@ -474,4 +476,5 @@ def example_data_pendulum() -> Dict[str, Any]:
         'n_inputs': n_inputs,
         'episode_feature': episode_feature,
         't': t_sim,
+        'dynamic_model': pend,
     }

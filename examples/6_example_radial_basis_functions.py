@@ -1,4 +1,5 @@
 """Example of radial basis functions on a pendulum."""
+import numpy as np
 import scipy.stats
 from matplotlib import pyplot as plt
 
@@ -50,6 +51,22 @@ def example_radial_basis_functions() -> None:
     ax.plot(X_pred[X_pred[:, 0] == 5, 1], X_pred[X_pred[:, 0] == 5, 2])
     ax.plot(X_pred[X_pred[:, 0] == 25, 1], X_pred[X_pred[:, 0] == 25, 2])
     ax.plot(X_pred[X_pred[:, 0] == 45, 1], X_pred[X_pred[:, 0] == 45, 2])
+
+    pend = eg['dynamic_model']
+
+    x, y = np.meshgrid(
+        np.linspace(-2, 15, 20),
+        np.linspace(-5, 5, 20),
+    )
+
+    state = np.vstack((
+        x.ravel(),
+        y.ravel(),
+    ))
+
+    uv = np.array([pend.f(0, state[:, k], 0) for k in range(state.shape[1])]).T
+
+    plt.quiver(state[0, :], state[1, :], uv[0, :], uv[1, :])
 
 
 if __name__ == '__main__':
