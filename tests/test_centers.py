@@ -269,7 +269,7 @@ class TestQmcCenters:
         """Test minimum of range."""
         est.fit(X)
         min_exp = np.min(est.centers_, axis=0)
-        assert np.all(min_exp - est.range_min_ > 0)
+        assert np.all(min_exp - est.range_min_ >= 0)
 
 
 @pytest.mark.parametrize('est, X', [
