@@ -27,7 +27,7 @@ setuptools.setup(
     packages=setuptools.find_packages(exclude=('tests', 'examples', 'doc')),
     python_requires='>=3.7',
     install_requires=[
-        'numpy>=1.23.0',
+        'numpy>=1.21.0',
         'scipy>=1.9.0',
         'scikit-learn>=1.1.0',
         'picos>=2.4.0',
