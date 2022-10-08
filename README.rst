@@ -24,8 +24,10 @@ learn a linear model of a given system in the lifted space.
    :alt: Koopman pipeline diagram
 
 To learn more about Koopman operator theory, check out
-`this talk <https://www.youtube.com/watch?v=Lidd_M7gzvA>`_ by
-`Steven Dahdah <https://github.com/sdahdah>`_.
+`this talk <https://www.youtube.com/watch?v=Lidd_M7gzvA>`_
+or
+`this review article <https://arxiv.org/abs/2102.12086>`_.
+
 
 ``pykoop`` places heavy emphasis on modular lifting function construction and
 ``scikit-learn`` compatibility. The library aims to make it easy to
