@@ -12,6 +12,8 @@
 
    Introduction <self>
    pykoop
+   examples
+   references
 
 
 Indices and tables

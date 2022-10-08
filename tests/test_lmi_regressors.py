@@ -496,7 +496,7 @@ class TestLmiHinfZpkMeta:
 
 @pytest.mark.mosek
 class TestSkLearn:
-    """Test scikit-learn compatibility."""
+    """Test ``scikit-learn`` compatibility."""
 
     @sklearn.utils.estimator_checks.parametrize_with_checks([
         pykoop.lmi_regressors.LmiEdmd(alpha=1e-3, ),
@@ -514,7 +514,7 @@ class TestSkLearn:
             )),
     ])
     def test_compatible_estimator(self, estimator, check, mosek_solver_params):
-        """Test scikit-learn compatibility for LMI-based regressors."""
+        """Test ``scikit-learn`` compatibility for LMI-based regressors."""
         if hasattr(estimator, 'hinf_regressor'):
             estimator.hinf_regressor.solver_params = mosek_solver_params
         else:

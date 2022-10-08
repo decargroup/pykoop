@@ -426,7 +426,7 @@ class TestDataCenters:
 
 
 class TestSkLearn:
-    """Test scikit-learn compatibility."""
+    """Test ``scikit-learn`` compatibility."""
 
     @sklearn.utils.estimator_checks.parametrize_with_checks([
         pykoop.GridCenters(),
@@ -438,5 +438,5 @@ class TestSkLearn:
         pykoop.DataCenters(),
     ])
     def test_compatible_estimator(self, estimator, check):
-        """Test scikit-learn compatibility of estimators."""
+        """Test ``scikit-learn`` compatibility of estimators."""
         check(estimator)

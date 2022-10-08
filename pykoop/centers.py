@@ -541,6 +541,8 @@ class GaussianMixtureRandomCenters(Centers):
 class DataCenters(Centers):
     """Centers taken from raw data upon instantiation or fit.
 
+    Attributes
+    ----------
     centers_ : np.ndarray
         Centers, shape (n_centers, n_features).
     n_centers_ : int

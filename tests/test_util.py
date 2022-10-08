@@ -229,12 +229,45 @@ class TestLiftingFnLatexFeatureNames:
         assert names_out_actual.dtype == object
 
 
+@pytest.mark.parametrize('fn', [
+    pykoop.example_data_msd,
+    pykoop.example_data_vdp,
+    pykoop.example_data_pendulum,
+])
+class TestExampleData:
+    """Test example dynamic model data.
+
+    Attributes
+    ----------
+    tol : float
+        Tolerance for regression test.
+    """
+
+    tol = 1e-6
+
+    def test_example_data(self, ndarrays_regression, fn):
+        """Test example dynamic model data."""
+        data = fn()
+        ndarrays_regression.check(
+            {
+                'X_train': data['X_train'],
+                'X_valid': data['X_valid'],
+                'x0_valid': data['x0_valid'],
+                'u_valid': data['u_valid'],
+                'n_inputs': data['n_inputs'],
+                'episode_feature': data['episode_feature'],
+                't': data['t'],
+            },
+            default_tolerance=dict(atol=self.tol, rtol=0),
+        )
+
+
 class TestSkLearn:
-    """Test scikit-learn compatibility."""
+    """Test ``scikit-learn`` compatibility."""
 
     @sklearn.utils.estimator_checks.parametrize_with_checks([
         pykoop.AnglePreprocessor(),
     ])
     def test_compatible_estimator(self, estimator, check):
-        """Test scikit-learn compatibility of estimators."""
+        """Test ``scikit-learn`` compatibility of estimators."""
         check(estimator)
