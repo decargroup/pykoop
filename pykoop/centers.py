@@ -343,7 +343,8 @@ class QmcCenters(Centers):
             - :class:`scipy.stats.qmc.Halton` -- Halton sequence,
             - :class:`scipy.stats.qmc.LatinHypercube` -- Latin hypercube
               sampling (LHS),
-            - :class:`scipy.stats.qmc.PoissonDisk` -- Poisson disk sampling,
+            - :class:`scipy.stats.qmc.PoissonDisk` -- Poisson disk sampling
+              (requires ``scipy`` v1.9.0.),
             - :class:`scipy.stats.qmc.MultinomialQMC` -- Multinomial
               distribution, and
             - :class:`scipy.stats.qmc.MultivariateNormalQMC` -- Multivariate

@@ -148,7 +148,7 @@ The library can be tested using
 
 .. code-block:: sh
 
-    $ pip install -r requirements.txt
+    $ pip install -r requirements-dev.txt
     $ pytest
 
 Note that ``pytest`` must be run from the repository's root directory.
