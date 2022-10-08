@@ -3,8 +3,8 @@
 pykoop
 ======
 
-.. image:: https://github.com/decarsg/pykoop/actions/workflows/test-package.yml/badge.svg
-    :target: https://github.com/decarsg/pykoop/actions/workflows/test-package.yml
+.. image:: https://github.com/decargroup/pykoop/actions/workflows/test-package.yml/badge.svg
+    :target: https://github.com/decargroup/pykoop/actions/workflows/test-package.yml
     :alt: Test package
 .. image:: https://readthedocs.org/projects/pykoop/badge/?version=stable
     :target: https://pykoop.readthedocs.io/en/stable/?badge=stable
@@ -13,14 +13,14 @@ pykoop
     :target: https://doi.org/10.5281/zenodo.5576490
     :alt: DOI
 .. image:: https://mybinder.org/badge_logo.svg
-    :target: https://mybinder.org/v2/gh/decarsg/pykoop/main?labpath=notebooks
+    :target: https://mybinder.org/v2/gh/decargroup/pykoop/main?labpath=notebooks
     :alt: Examples on binder
 
 ``pykoop`` is a Koopman operator identification library written in Python. It
 allows the user to specify Koopman lifting functions and regressors in order to
 learn a linear model of a given system in the lifted space.
 
-.. image:: https://raw.githubusercontent.com/decarsg/pykoop/main/doc/_static/pykoop_diagram.png
+.. image:: https://raw.githubusercontent.com/decargroup/pykoop/main/doc/_static/pykoop_diagram.png
    :alt: Koopman pipeline diagram
 
 To learn more about Koopman operator theory, check out
@@ -82,7 +82,7 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
     kp.plot_predicted_trajectory(eg['X_valid'], plot_input=True)
 
 More examples are available in ``examples/``, in ``notebooks/``, or on
-`binder <https://mybinder.org/v2/gh/decarsg/pykoop/main?labpath=notebooks>`_.
+`binder <https://mybinder.org/v2/gh/decargroup/pykoop/main?labpath=notebooks>`_.
 
 
 Library layout
@@ -199,7 +199,7 @@ Library      Unique features
              - Related to, but not the same as, Koopman operator approximation
 ============ ==================================================================
 
-.. _pykoop: https://github.com/decarsg/pykoop
+.. _pykoop: https://github.com/decargroup/pykoop
 .. _pykoopman: https://github.com/dynamicslab/pykoopman
 .. _PyDMD: https://github.com/mathLab/PyDMD
 .. _PySINDy: https://github.com/dynamicslab/pysindy
@@ -214,9 +214,9 @@ If you use this software in your research, please cite it as below or see
 .. code-block:: bibtex
 
     @software{dahdah_pykoop_2022,
-        title={{decarsg/pykoop}},
+        title={{decargroup/pykoop}},
         doi={10.5281/zenodo.5576490},
-        url={https://github.com/decarsg/pykoop},
+        url={https://github.com/decargroup/pykoop},
         publisher={Zenodo},
         author={Steven Dahdah and James Richard Forbes},
         version = {{v1.0.5}},

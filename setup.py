@@ -10,7 +10,7 @@ setuptools.setup(
     long_description=readme,
     author='Steven Dahdah',
     author_email='steven.dahdah@mail.mcgill.ca',
-    url='https://github.com/decarsg/pykoop',
+    url='https://github.com/decargroup/pykoop',
     classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: MIT License',
@@ -19,8 +19,8 @@ setuptools.setup(
     ],
     project_urls={
         'Documentation': 'https://pykoop.readthedocs.io/en/latest',
-        'Source': 'https://github.com/decarsg/pykoop',
-        'Tracker': 'https://github.com/decarsg/pykoop/issues',
+        'Source': 'https://github.com/decargroup/pykoop',
+        'Tracker': 'https://github.com/decargroup/pykoop/issues',
         'PyPI': 'https://pypi.org/project/pykoop/',
         'DOI': 'https://doi.org/10.5281/zenodo.5576490',
     },

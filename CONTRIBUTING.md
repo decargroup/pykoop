@@ -15,4 +15,4 @@ Contributed code must
 5. pass existing unit tests and checks.
 
 If you notice a problem or would like to suggest an enhancement, please create
-an [issue](https://github.com/decarsg/pykoop/issues).
+an [issue](https://github.com/decargroup/pykoop/issues).
