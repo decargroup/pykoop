@@ -5,7 +5,7 @@ with open('README.rst', 'r') as f:
 
 setuptools.setup(
     name='pykoop',
-    version='1.0.5',
+    version='1.1.0',
     description='Koopman operator identification library in Python',
     long_description=readme,
     author='Steven Dahdah',
