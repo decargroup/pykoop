@@ -1,0 +1,9 @@
+# Requirements to install ``pykoop``, run all unit tests, and generate docs
+-r requirements.txt
+
+pytest
+pytest-regressions
+sphinx
+sphinx-rtd-theme
+
+mosek>=9.2.49
