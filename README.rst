@@ -13,7 +13,7 @@ pykoop
     :target: https://doi.org/10.5281/zenodo.5576490
     :alt: DOI
 .. image:: https://mybinder.org/badge_logo.svg
-    :target: https://mybinder.org/v2/gh/decargroup/pykoop/main?labpath=notebooks
+    :target: https://mybinder.org/v2/gh/decargroup/pykoop/main?labpath=notebooks%2F1_example_pipeline_simple.ipynb
     :alt: Examples on binder
 
 ``pykoop`` is a Koopman operator identification library written in Python. It
@@ -84,7 +84,7 @@ mass-spring-damper data. Using ``pykoop``, this can be implemented as:
     kp.plot_predicted_trajectory(eg['X_valid'], plot_input=True)
 
 More examples are available in ``examples/``, in ``notebooks/``, or on
-`binder <https://mybinder.org/v2/gh/decargroup/pykoop/main?labpath=notebooks>`_.
+`binder <https://mybinder.org/v2/gh/decargroup/pykoop/main?labpath=notebooks%2F1_example_pipeline_simple.ipynb>`_.
 
 
 Library layout
