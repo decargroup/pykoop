@@ -243,7 +243,7 @@ class TestExampleData:
         Tolerance for regression test.
     """
 
-    tol = 1e-12
+    tol = 1e-9
 
     def test_example_data(self, ndarrays_regression, fn):
         """Test example dynamic model data."""
