@@ -1,5 +1,20 @@
 """Koopman operator identification library in Python."""
 
+from .centers import (
+    Centers,
+    ClusterCenters,
+    DataCenters,
+    GaussianMixtureRandomCenters,
+    GaussianRandomCenters,
+    GridCenters,
+    QmcCenters,
+    UniformRandomCenters,
+)
+from .kernel_approximation import (
+    KernelApproximation,
+    RandomBinningKernelApprox,
+    RandomFourierKernelApprox,
+)
 from .koopman_pipeline import (
     EpisodeDependentLiftingFn,
     EpisodeIndependentLiftingFn,
@@ -28,18 +43,8 @@ from .tsvd import Tsvd
 from .util import (
     AnglePreprocessor,
     example_data_msd,
-    example_data_vdp,
     example_data_pendulum,
+    example_data_vdp,
     random_input,
     random_state,
-)
-from .centers import (
-    Centers,
-    GridCenters,
-    UniformRandomCenters,
-    GaussianRandomCenters,
-    GaussianMixtureRandomCenters,
-    QmcCenters,
-    ClusterCenters,
-    DataCenters,
 )

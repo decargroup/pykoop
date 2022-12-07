@@ -1,9 +1,12 @@
 """Kernel approximations for corresponding lifting functions."""
 
 import abc
+from typing import Union
 
+import numpy as np
 import scipy.stats
 import sklearn.base
+import sklearn.utils
 
 
 class KernelApproximation(
@@ -20,6 +23,10 @@ class KernelApproximation(
     ----------
     n_features_in_ : int
         Number of features input.
+    n_features_out_ : int
+        Number of features output (i.e., the number of components). This
+        attribute is not available in estimators from
+        :mod:`sklearn.kernel_approximation`.
     """
 
     @abc.abstractmethod
@@ -73,14 +80,30 @@ class RandomFourierKernelApprox(KernelApproximation):
     ----------
     n_features_in_ : int
         Number of features input.
+    n_features_out_ : int
+        Number of features output (i.e., the number of components). This
+        attribute is not available in estimators from
+        :mod:`sklearn.kernel_approximation`.
     ift_ : scipy.stats.rv_continuous
         Probability distribution corresponding to inverse Fourier transform of
         chosen kernel.
+    random_weights_ : np.ndarray, shape (n_feature_in_, n_components)
+        Random weights to inner-product with features.
+    random_offsets_ : np.ndarray, shape (n_features_in_, )
+        Random offsets if ``method`` is ``'weight_offset'``.
     """
+
+    # Laplacian and Cauchy being swapped is not a typo. They are Fourier
+    # transforms of each other.
+    _ift_lookup = {
+        'gaussian': scipy.stats.norm,
+        'laplacian': scipy.stats.cauchy,
+        'cauchy': scipy.stats.laplace,
+    }
 
     def __init__(
         self,
-        kernel_or_ift: Union[str, scipy.stats.rv_continuous] = None,
+        kernel_or_ift: Union[str, scipy.stats.rv_continuous] = 'gaussian',
         n_components: int = 100,
         shape: float = 1,
         method: str = 'weight_offset',
@@ -94,10 +117,10 @@ class RandomFourierKernelApprox(KernelApproximation):
             Kernel to approximate. Possible options are
 
                 - ``'gaussian'`` -- Gaussian kernel, with inverse Fourier
-                  transform ``scipy.stats.norm``,
+                  transform ``scipy.stats.norm`` (default),
                 - ``'laplacian'`` -- Laplacian kernel, with inverse Fourier
                   transform ``scipy.stats.cauchy``, or
-                - ``'Cauchy'`` -- Cauchy kernel, with inverse Fourier transform
+                - ``'cauchy'`` -- Cauchy kernel, with inverse Fourier transform
                   ``scipy.stats.laplace``.
 
             Alternatively, a positive, shift-invariant kernel can be implicitly
@@ -155,13 +178,48 @@ class RandomFourierKernelApprox(KernelApproximation):
         ValueError
             If any of the constructor parameters are incorrect.
         """
-        # TODO VALIDATE INPUT
+        X = sklearn.utils.validation.check_array(X)
+        # Set inverse Fourier transform
+        if isinstance(self.kernel_or_ift, str):
+            self.ift_ = self._ift_lookup[self.kernel_or_ift]
+        else:
+            self.ift_ = self.kernel_or_ift
+        # Validate input
+        if self.n_components <= 0:
+            raise ValueError('`n_components` must be positive.')
+        if self.shape <= 0:
+            raise ValueError('`shape` must be positive.')
+        valid_methods = ['weight_offset', 'weight_only']
+        if self.method not in valid_methods:
+            raise ValueError(f'`method` must be one of {valid_methods}.')
+        # Set number of input and output features
         self.n_features_in_ = X.shape[1]
+        if self.method == 'weight_only':
+            self.n_features_out_ = 2 * self.n_components
+        else:
+            self.n_features_out_ = self.n_components
+        # Generate random weights
         self.random_weights_ = self.ift_.rvs(
             scale=self.shape,
             size=(self.n_features_in_, self.n_components),
+            random_state=self.random_state,
         )
-        # TODO MAKE SURE RIGHT SIZE, DONT ALLOW MULTIVARIATE
+        # Generate random offsets if needed
+        if self.method == 'weight_only':
+            self.random_offsets_ = None
+        else:
+            # Range is [loc, loc + scale]
+            self.random_offsets_ = scipy.stats.uniform.rvs(
+                loc=0,
+                scale=(2 * np.pi),
+                size=self.n_components,
+                random_state=self.random_state,
+            )
+        # Easiest way to make sure distribution is univariate is to check the
+        # dimension of the output.
+        if self.random_weights_.ndim != 2:
+            raise ValueError('`kernel_or_ift` must specify a univariate '
+                             'probability distribution.')
         return self
 
     def transform(self, X: np.ndarray) -> np.ndarray:
@@ -177,7 +235,18 @@ class RandomFourierKernelApprox(KernelApproximation):
         np.ndarray
             Transformed data matrix.
         """
-        raise NotImplementedError()
+        sklearn.utils.validation.check_is_fitted(self)
+        X = sklearn.utils.validation.check_array(X)
+        products = X @ self.random_weights_  # (n_samples, n_components)
+        if self.method == 'weight_only':
+            Xt_unscaled = np.hstack((
+                np.cos(products),
+                np.sin(products),
+            ))
+        else:
+            Xt_unscaled = np.sqrt(2) * np.cos(products + self.random_offsets_)
+        Xt = np.sqrt(1 / self.n_components) * Xt_unscaled
+        return Xt
 
 
 class RandomBinningKernelApprox(KernelApproximation):
@@ -187,6 +256,10 @@ class RandomBinningKernelApprox(KernelApproximation):
     ----------
     n_features_in_ : int
         Number of features input.
+    n_features_out_ : int
+        Number of features output (i.e., the number of components). This
+        attribute is not available in estimators from
+        :mod:`sklearn.kernel_approximation`.
     """
 
     def fit(
