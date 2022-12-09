@@ -118,6 +118,7 @@ class TestKernelApproximation:
             random_state=1234,
         ),
         sklearn.kernel_approximation.RBFSampler(
+            gamma=1,
             n_components=int(1e4),
             random_state=1234,
         ),

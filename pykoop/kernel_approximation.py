@@ -24,9 +24,8 @@ class KernelApproximation(
     n_features_in_ : int
         Number of features input.
     n_features_out_ : int
-        Number of features output (i.e., the number of components). This
-        attribute is not available in estimators from
-        :mod:`sklearn.kernel_approximation`.
+        Number of features output. This attribute is not available in
+        estimators from :mod:`sklearn.kernel_approximation`.
     """
 
     @abc.abstractmethod
@@ -81,9 +80,8 @@ class RandomFourierKernelApprox(KernelApproximation):
     n_features_in_ : int
         Number of features input.
     n_features_out_ : int
-        Number of features output (i.e., the number of components). This
-        attribute is not available in estimators from
-        :mod:`sklearn.kernel_approximation`.
+        Number of features output. This attribute is not available in
+        estimators from :mod:`sklearn.kernel_approximation`.
     ift_ : scipy.stats.rv_continuous
         Probability distribution corresponding to inverse Fourier transform of
         chosen kernel.
@@ -124,7 +122,7 @@ class RandomFourierKernelApprox(KernelApproximation):
                   ``scipy.stats.laplace``.
 
             Alternatively, a positive, shift-invariant kernel can be implicitly
-            specified by providing a univariate probability distrivution
+            specified by providing a univariate probability distribution
             subclassing ``scipy.stats.rv_continuous``.
 
         n_components : int
@@ -200,7 +198,7 @@ class RandomFourierKernelApprox(KernelApproximation):
             self.n_features_out_ = self.n_components
         # Generate random weights
         self.random_weights_ = self.ift_.rvs(
-            scale=self.shape,
+            scale=np.sqrt(1 / self.shape),
             size=(self.n_features_in_, self.n_components),
             random_state=self.random_state,
         )
@@ -257,10 +255,29 @@ class RandomBinningKernelApprox(KernelApproximation):
     n_features_in_ : int
         Number of features input.
     n_features_out_ : int
-        Number of features output (i.e., the number of components). This
-        attribute is not available in estimators from
-        :mod:`sklearn.kernel_approximation`.
+        Number of features output. This attribute is not available in
+        estimators from :mod:`sklearn.kernel_approximation`.
     """
+
+    def __init__(
+        self,
+        n_components: int = 100,
+        random_state: Union[int, np.random.RandomState] = None,
+    ) -> None:
+        """Instantiate :class:`RandomBinningKernelApprox`.
+
+        Parameters
+        ----------
+        n_components : int
+            Number of random samples used to generate features. The higher the
+            number of components, the higher the number of features. Since
+            unoccupied bins are eliminated, it's impossible to know the exact
+            number of features before fitting.
+        random_state : Union[int, np.random.RandomState]
+            Random seed.
+        """
+        self.n_components = n_components
+        self.random_state = random_state
 
     def fit(
         self,
