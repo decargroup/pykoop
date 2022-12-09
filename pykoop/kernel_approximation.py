@@ -198,7 +198,7 @@ class RandomFourierKernelApprox(KernelApproximation):
             self.n_features_out_ = self.n_components
         # Generate random weights
         self.random_weights_ = self.ift_.rvs(
-            scale=np.sqrt(1 / self.shape),
+            scale=self.shape,  # TODO THIS MIGHT BE WRONG
             size=(self.n_features_in_, self.n_components),
             random_state=self.random_state,
         )
