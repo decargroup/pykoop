@@ -100,7 +100,10 @@ class TestKernelApproximation:
             method='weight_only',
             random_state=1234,
         ),
-        sklearn.kernel_approximation.RBFSampler(n_components=int(2e4)),
+        sklearn.kernel_approximation.RBFSampler(
+            n_components=int(2e4),
+            random_state=1234,
+        ),
         np.array([
             [0.01, 0.02, 0.03],
             [0.04, 0.05, 0.06],
@@ -114,7 +117,10 @@ class TestKernelApproximation:
             method='weight_offset',
             random_state=1234,
         ),
-        sklearn.kernel_approximation.RBFSampler(n_components=int(1e4)),
+        sklearn.kernel_approximation.RBFSampler(
+            n_components=int(1e4),
+            random_state=1234,
+        ),
         np.array([
             [0.01, 0.02, 0.03],
             [0.04, 0.05, 0.06],
@@ -146,11 +152,81 @@ class TestKernelApproximationSklearn:
         np.testing.assert_allclose(K_est, K_sk, atol=self.tol, rtol=0)
 
 
+@pytest.mark.parametrize('est, X', [
+    (
+        pykoop.RandomFourierKernelApprox(
+            kernel_or_ift='gaussian',
+            n_components=int(1e4),
+            shape=1,
+            method='weight_only',
+            random_state=1234,
+        ),
+        np.array([
+            [0.1, 0.2, 0.3],
+            [0.4, 0.5, 0.6],
+        ]).T,
+    ),
+    (
+        pykoop.RandomFourierKernelApprox(
+            kernel_or_ift='gaussian',
+            n_components=int(1e4),
+            shape=1,
+            method='weight_offset',
+            random_state=1234,
+        ),
+        np.array([
+            [0.1, 0.2, 0.3],
+            [0.4, 0.5, 0.6],
+        ]).T,
+    ),
+    (
+        pykoop.RandomFourierKernelApprox(
+            kernel_or_ift='laplacian',
+            n_components=int(1e5),
+            shape=1,
+            method='weight_only',
+            random_state=1234,
+        ),
+        np.array([
+            [0.1, 0.2, 0.3],
+            [0.4, 0.5, 0.6],
+        ]).T,
+    ),
+    (
+        pykoop.RandomFourierKernelApprox(
+            kernel_or_ift='laplacian',
+            n_components=int(1e5),
+            shape=1,
+            method='weight_offset',
+            random_state=1234,
+        ),
+        np.array([
+            [0.1, 0.2, 0.3],
+            [0.4, 0.5, 0.6],
+        ]).T,
+    ),
+])
 class TestKernelApproximationRegression:
-    """Regression test kernel approximations."""
+    """Regression test kernel approximations.
 
-    def test_kernel_approximation(self):
-        raise NotImplementedError()
+    Attributes
+    ----------
+    tol : float
+        Tolerance for regression test.
+    """
+
+    tol = 1e-6
+
+    def test_kernel_approximation(self, ndarrays_regression, est, X):
+        """Regression test kernel approximations."""
+        est.fit(X)
+        Xt = est.transform(X)
+        ndarrays_regression.check(
+            {
+                'Xt': Xt,
+            },
+            default_tolerance=dict(atol=self.tol, rtol=0),
+        )
 
 
 class TestSkLearn:
