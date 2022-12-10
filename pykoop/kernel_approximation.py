@@ -133,7 +133,10 @@ class RandomFourierKernelApprox(KernelApproximation):
 
         shape : float
             Shape parameter. Must be greater than zero. Larger numbers
-            correspond to "sharper" kernels. Default is ``1``.
+            correspond to "sharper" kernels. Scaled to be consistent with
+            ``gamma`` from :class:`sklearn.kernel_approximation.RBFSampler`.
+            This can lead to a mysterious factor of ``sqrt(2)`` in other
+            kernels. Default is ``1``.
 
         method : str
             Feature generation method to use. If ``'weight_offset'`` (default),
@@ -198,7 +201,7 @@ class RandomFourierKernelApprox(KernelApproximation):
             self.n_features_out_ = self.n_components
         # Generate random weights
         self.random_weights_ = self.ift_.rvs(
-            scale=self.shape,  # TODO THIS MIGHT BE WRONG
+            scale=1,
             size=(self.n_features_in_, self.n_components),
             random_state=self.random_state,
         )
@@ -235,7 +238,8 @@ class RandomFourierKernelApprox(KernelApproximation):
         """
         sklearn.utils.validation.check_is_fitted(self)
         X = sklearn.utils.validation.check_array(X)
-        products = X @ self.random_weights_  # (n_samples, n_components)
+        X_scaled = np.sqrt(2 * self.shape) * X
+        products = X_scaled @ self.random_weights_  # (n_samples, n_components)
         if self.method == 'weight_only':
             Xt_unscaled = np.hstack((
                 np.cos(products),
