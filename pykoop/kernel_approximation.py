@@ -1,7 +1,7 @@
 """Kernel approximations for corresponding lifting functions."""
 
 import abc
-from typing import Union
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 import scipy.stats
@@ -75,6 +75,8 @@ class KernelApproximation(
 class RandomFourierKernelApprox(KernelApproximation):
     """Kernel approximation with random Fourier features.
 
+    For details, see [RR07]_.
+
     Attributes
     ----------
     n_features_in_ : int
@@ -85,7 +87,7 @@ class RandomFourierKernelApprox(KernelApproximation):
     ift_ : scipy.stats.rv_continuous
         Probability distribution corresponding to inverse Fourier transform of
         chosen kernel.
-    random_weights_ : np.ndarray, shape (n_feature_in_, n_components)
+    random_weights_ : np.ndarray, shape (n_features_in_, n_components)
         Random weights to inner-product with features.
     random_offsets_ : np.ndarray, shape (n_features_in_, )
         Random offsets if ``method`` is ``'weight_offset'``.
@@ -115,15 +117,16 @@ class RandomFourierKernelApprox(KernelApproximation):
             Kernel to approximate. Possible options are
 
                 - ``'gaussian'`` -- Gaussian kernel, with inverse Fourier
-                  transform ``scipy.stats.norm`` (default),
+                  transform :class:`scipy.stats.norm` (default),
                 - ``'laplacian'`` -- Laplacian kernel, with inverse Fourier
-                  transform ``scipy.stats.cauchy``, or
+                  transform :class:`scipy.stats.cauchy`, or
                 - ``'cauchy'`` -- Cauchy kernel, with inverse Fourier transform
-                  ``scipy.stats.laplace``.
+                  :class:`scipy.stats.laplace`.
 
             Alternatively, a positive, shift-invariant kernel can be implicitly
-            specified by providing a univariate probability distribution
-            subclassing ``scipy.stats.rv_continuous``.
+            specified by providing its inverse Fourier transform as a
+            univariate probability distribution subclassing
+            :class:`scipy.stats.rv_continuous`.
 
         n_components : int
             Number of random samples used to generate features. If
@@ -252,7 +255,9 @@ class RandomFourierKernelApprox(KernelApproximation):
 
 
 class RandomBinningKernelApprox(KernelApproximation):
-    """Kernel approximation with random binning.
+    r"""Kernel approximation with random binning.
+
+    For details, see [RR07]_.
 
     Attributes
     ----------
@@ -261,26 +266,62 @@ class RandomBinningKernelApprox(KernelApproximation):
     n_features_out_ : int
         Number of features output. This attribute is not available in
         estimators from :mod:`sklearn.kernel_approximation`.
+    ddot_ : scipy.stats.rv_continuous
+        Probability distribution corresponding to ``\delta \ddot{k}(\delta)``.
+    pitches_ : np.ndarray, shape (n_features_in_, n_components)
+        Grid pitches for each component.
+    shifts_ : np.ndarray, shape (n_features_in_, n_components)
+        Grid shifts for each component.
+    hashmaps_ : List[Dict[Tuple[int, int], float]]
+        Hashmaps for each component mapping data coordinates to indicator.
     """
+
+    _ddot_lookup = {
+        'laplacian': scipy.stats.gamma(a=2),
+    }
 
     def __init__(
         self,
+        kernel_or_ddot: Union[str, scipy.stats.rv_continuous] = 'laplacian',
         n_components: int = 100,
+        shape: float = 1,
         random_state: Union[int, np.random.RandomState] = None,
     ) -> None:
-        """Instantiate :class:`RandomBinningKernelApprox`.
+        r"""Instantiate :class:`RandomBinningKernelApprox`.
 
         Parameters
         ----------
+        kernel_or_ddot : Union[str, scipy.stats.rv_continuous]
+            Kernel to approximate. Possible options are
+
+                - ``'laplacian'`` -- Laplacian kernel, with
+                ``\delta \ddot{k}(\delta)`` being :class:`scipy.stats.gamma`
+                with shape parameter ``a=2`` (default).
+
+            Alternatively, a separable, positive, shift-invariant kernel can be
+            implicitly specified by providing ``\delta \ddot{k}(\delta)`` as a
+            univariate probability distribution subclassing
+            :class:`scipy.stats.rv_continuous`.
+
         n_components : int
             Number of random samples used to generate features. The higher the
             number of components, the higher the number of features. Since
             unoccupied bins are eliminated, it's impossible to know the exact
             number of features before fitting.
+
+        shape : float
+            Shape parameter. Must be greater than zero. Larger numbers
+            correspond to "sharper" kernels. Scaled to be consistent with
+            ``gamma`` from :class:`sklearn.kernel_approximation.RBFSampler`.
+            This can lead to a mysterious factor of ``sqrt(2)`` in other
+            kernels. Default is ``1``.
+
         random_state : Union[int, np.random.RandomState]
             Random seed.
         """
+        self.kernel_or_ddot = kernel_or_ddot
         self.n_components = n_components
+        self.shape = shape
         self.random_state = random_state
 
     def fit(
@@ -307,7 +348,29 @@ class RandomBinningKernelApprox(KernelApproximation):
         ValueError
             If any of the constructor parameters are incorrect.
         """
-        raise NotImplementedError()
+        X = sklearn.utils.validation.check_array(X)
+        # Set ``ddot_``
+        if isintance(self.kernel_or_ddot, str):
+            self.ddot_ = self._ddot_lookup[self.kernel_or_ddot]
+        else:
+            self.ddot_ = self.kernel_or_ddot
+        # Validate input
+        if self.n_components <= 0:
+            raise ValueError('`n_components` must be positive.')
+        if self.shape <= 0:
+            raise ValueError('`shape` must be positive.')
+        # Set number of input and output features
+        self.n_features_in_ = X.shape[1]
+        # Generate grids
+        self.pitches_ = self.ddot_.rvs(
+            size=(self.n_features_in_, self.n_components),
+            random_state=self.random_state,
+        )
+        self.shifts_ = scipy.stats.uniform.rvs(
+            loc=0,
+            scale=self.pitches_,
+            random_state=self.random_state,
+        )
 
     def transform(self, X: np.ndarray) -> np.ndarray:
         """Transform data.

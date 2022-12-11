@@ -30,3 +30,6 @@ References
    identification of vehicle dynamics using Koopman operator," in 22nd
    International Conference on Process Control, 2019.
    https://doi.org/10.1109%2Fpc.2019.8815104
+.. [RR07] Ali Rahimi and Benjamin Recht. "Random Features for Large-Scale
+   Kernel Machines." in Proc. 20th Int. Conf. Neural. Inf. Process. Syst.,
+   2007. https://proceedings.neurips.cc/paper/2007/hash/013a006f03dbc5392effeb8f18fda755-Abstract.html
