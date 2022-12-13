@@ -1286,6 +1286,158 @@ class TestDelayLiftingFnTransform:
         assert names_out_actual.dtype == object
 
 
+@pytest.mark.parametrize('lf, X, n_inputs, episode_feature', [
+    (
+        pykoop.RbfLiftingFn(
+            rbf='exponential',
+            centers=pykoop.DataCenters(np.array([
+                [1],
+                [-1],
+                [1],
+            ]).T),
+            shape=0.1,
+        ),
+        np.array([
+            [0, 1, 2, 3, 4, 5],
+            [0, -1, -2, -3, -4, -5],
+            [0, 2, 4, 5, 6, 10],
+        ]).T,
+        0,
+        False,
+    ),
+    (
+        pykoop.RbfLiftingFn(
+            rbf='gaussian',
+            centers=pykoop.DataCenters(np.array([
+                [1],
+                [-1],
+                [1],
+            ]).T),
+            shape=0.1,
+        ),
+        np.array([
+            [0, 1, 2, 3, 4, 5],
+            [0, -1, -2, -3, -4, -5],
+            [0, 2, 4, 5, 6, 10],
+        ]).T,
+        0,
+        False,
+    ),
+    (
+        pykoop.RbfLiftingFn(
+            rbf='multiquadric',
+            centers=pykoop.DataCenters(np.array([
+                [1],
+                [-1],
+                [1],
+            ]).T),
+            shape=0.1,
+        ),
+        np.array([
+            [0, 1, 2, 3, 4, 5],
+            [0, -1, -2, -3, -4, -5],
+            [0, 2, 4, 5, 6, 10],
+        ]).T,
+        0,
+        False,
+    ),
+    (
+        pykoop.RbfLiftingFn(
+            rbf='inverse_quadratic',
+            centers=pykoop.DataCenters(np.array([
+                [1],
+                [-1],
+                [1],
+            ]).T),
+            shape=0.1,
+        ),
+        np.array([
+            [0, 1, 2, 3, 4, 5],
+            [0, -1, -2, -3, -4, -5],
+            [0, 2, 4, 5, 6, 10],
+        ]).T,
+        0,
+        False,
+    ),
+    (
+        pykoop.RbfLiftingFn(
+            rbf='inverse_multiquadric',
+            centers=pykoop.DataCenters(np.array([
+                [1],
+                [-1],
+                [1],
+            ]).T),
+            shape=0.1,
+        ),
+        np.array([
+            [0, 1, 2, 3, 4, 5],
+            [0, -1, -2, -3, -4, -5],
+            [0, 2, 4, 5, 6, 10],
+        ]).T,
+        0,
+        False,
+    ),
+    (
+        pykoop.RbfLiftingFn(
+            rbf='thin_plate',
+            centers=pykoop.DataCenters(np.array([
+                [1],
+                [-1],
+                [1],
+            ]).T),
+            shape=0.1,
+        ),
+        np.array([
+            [0, 1, 2, 3, 4, 5],
+            [0, -1, -2, -3, -4, -5],
+            [0, 2, 4, 5, 6, 10],
+        ]).T,
+        0,
+        False,
+    ),
+    (
+        pykoop.RbfLiftingFn(
+            rbf='bump_function',
+            centers=pykoop.DataCenters(np.array([
+                [1],
+                [-1],
+                [1],
+            ]).T),
+            shape=0.1,
+        ),
+        np.array([
+            [0, 1, 2, 3, 4, 5],
+            [0, -1, -2, -3, -4, -5],
+            [0, 2, 4, 5, 6, 10],
+        ]).T,
+        0,
+        False,
+    ),
+])
+class TestLiftingFnTransformRegression:
+    """Regression test lifting function transform.
+
+    Attributes
+    ----------
+    tol : float
+        Tolerance for regression test.
+    """
+
+    tol = 1e-6
+
+    def test_transform(self, ndarrays_regression, lf, X, n_inputs,
+                       episode_feature):
+        """Regression test lifting function transform."""
+        lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        Xt = lf.transform(X)
+        ndarrays_regression.check(
+            {
+                'Xt': Xt,
+            },
+            default_tolerance=dict(atol=self.tol, rtol=0),
+        )
+
+
 @pytest.mark.parametrize(
     'lf, names_in, X, names_out, n_inputs, episode_feature',
     [
