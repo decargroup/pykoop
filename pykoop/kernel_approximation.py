@@ -97,6 +97,21 @@ class RandomFourierKernelApprox(KernelApproximation):
         Random weights to inner-product with features.
     random_offsets_ : np.ndarray, shape (n_features_in_, )
         Random offsets if ``method`` is ``'weight_offset'``.
+
+    Examples
+    --------
+    Generate random Fourier features from a Gaussian kernel
+
+    >>> ka = pykoop.RandomFourierKernelApprox(
+    ...     kernel_or_ift='gaussian',
+    ...     n_components=10,
+    ...     shape=1,
+    ...     random_state=1234,
+    ... )
+    >>> ka.fit(X_msd[:, 1:])  # Remove episode feature
+    RandomFourierKernelApprox(n_components=10, random_state=1234)
+    >>> ka.transform(X_msd[:, 1:])
+    array([...])
     """
 
     # Laplacian and Cauchy being swapped is not a typo. They are Fourier
@@ -280,6 +295,21 @@ class RandomBinningKernelApprox(KernelApproximation):
         Grid shifts for each component.
     encoder_ : sklearn.preprocessing.OneHotEncoder
         One-hot encoder used for hashing sample coordinates for each component.
+
+    Examples
+    --------
+    Generate randomly binned features from a Laplacian kernel
+
+    >>> ka = pykoop.RandomBinningKernelApprox(
+    ...     kernel_or_ddot='laplacian',
+    ...     n_components=10,
+    ...     shape=1,
+    ...     random_state=1234,
+    ... )
+    >>> ka.fit(X_msd[:, 1:])  # Remove episode feature
+    RandomBinningKernelApprox(n_components=10, random_state=1234)
+    >>> ka.transform(X_msd[:, 1:])
+    array([...])
     """
 
     _ddot_lookup = {
