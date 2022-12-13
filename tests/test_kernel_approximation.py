@@ -135,6 +135,32 @@ import pykoop
             [4, 5, 6],
         ]).T,
     ),
+    (
+        pykoop.RandomBinningKernelApprox(
+            kernel_or_ddot='laplacian',
+            n_components=int(1e4),
+            shape=1,
+            random_state=1234,
+        ),
+        lambda x, y: np.prod(np.exp(-np.sqrt(2) * np.abs(x - y))),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+        ]).T,
+    ),
+    (
+        pykoop.RandomBinningKernelApprox(
+            kernel_or_ddot='laplacian',
+            n_components=int(1e4),
+            shape=3,
+            random_state=1234,
+        ),
+        lambda x, y: np.prod(np.exp(-np.sqrt(2 * 3) * np.abs(x - y))),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+        ]).T,
+    ),
 ])
 class TestKernelApproximation:
     """Test kernel approximations against their corresponding kernels.
@@ -242,6 +268,19 @@ class TestKernelApproximationSklearn:
         pykoop.RandomFourierKernelApprox(
             kernel_or_ift='gaussian',
             n_components=int(1e4),
+            shape=3,
+            method='weight_only',
+            random_state=1234,
+        ),
+        np.array([
+            [0.1, 0.2, 0.3],
+            [0.4, 0.5, 0.6],
+        ]).T,
+    ),
+    (
+        pykoop.RandomFourierKernelApprox(
+            kernel_or_ift='gaussian',
+            n_components=int(1e4),
             shape=1,
             method='weight_offset',
             random_state=1234,
@@ -268,6 +307,19 @@ class TestKernelApproximationSklearn:
         pykoop.RandomFourierKernelApprox(
             kernel_or_ift='laplacian',
             n_components=int(1e5),
+            shape=3,
+            method='weight_only',
+            random_state=1234,
+        ),
+        np.array([
+            [0.1, 0.2, 0.3],
+            [0.4, 0.5, 0.6],
+        ]).T,
+    ),
+    (
+        pykoop.RandomFourierKernelApprox(
+            kernel_or_ift='laplacian',
+            n_components=int(1e5),
             shape=1,
             method='weight_offset',
             random_state=1234,
@@ -275,6 +327,69 @@ class TestKernelApproximationSklearn:
         np.array([
             [0.1, 0.2, 0.3],
             [0.4, 0.5, 0.6],
+        ]).T,
+    ),
+    (
+        pykoop.RandomFourierKernelApprox(
+            kernel_or_ift='cauchy',
+            n_components=int(1e5),
+            shape=1,
+            method='weight_only',
+            random_state=1234,
+        ),
+        np.array([
+            [0.1, 0.2, 0.3],
+            [0.4, 0.5, 0.6],
+        ]).T,
+    ),
+    (
+        pykoop.RandomFourierKernelApprox(
+            kernel_or_ift='cauchy',
+            n_components=int(1e5),
+            shape=3,
+            method='weight_only',
+            random_state=1234,
+        ),
+        np.array([
+            [0.1, 0.2, 0.3],
+            [0.4, 0.5, 0.6],
+        ]).T,
+    ),
+    (
+        pykoop.RandomFourierKernelApprox(
+            kernel_or_ift='cauchy',
+            n_components=int(1e6),
+            shape=1,
+            method='weight_offset',
+            random_state=1234,
+        ),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+        ]).T,
+    ),
+    (
+        pykoop.RandomBinningKernelApprox(
+            kernel_or_ddot='laplacian',
+            n_components=int(1e4),
+            shape=1,
+            random_state=1234,
+        ),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+        ]).T,
+    ),
+    (
+        pykoop.RandomBinningKernelApprox(
+            kernel_or_ddot='laplacian',
+            n_components=int(1e4),
+            shape=3,
+            random_state=1234,
+        ),
+        np.array([
+            [1, 2, 3],
+            [4, 5, 6],
         ]).T,
     ),
 ])
@@ -291,15 +406,14 @@ class TestKernelApproximationRegression:
 
     def test_kernel_approximation(self, ndarrays_regression, est, X):
         """Regression test kernel approximations."""
-        pytest.xfail()
-        # est.fit(X)
-        # Xt = est.transform(X)
-        # ndarrays_regression.check(
-        #     {
-        #         'Xt': Xt,
-        #     },
-        #     default_tolerance=dict(atol=self.tol, rtol=0),
-        # )
+        est.fit(X)
+        Xt = est.transform(X)
+        ndarrays_regression.check(
+            {
+                'Xt': Xt,
+            },
+            default_tolerance=dict(atol=self.tol, rtol=0),
+        )
 
 
 class TestSkLearn:
@@ -314,6 +428,7 @@ class TestSkLearn:
             method='weight_only',
             random_state=1234,
         ),
+        pykoop.RandomBinningKernelApprox(random_state=1234),
     ])
     def test_compatible_estimator(self, estimator, check):
         """Test ``scikit-learn`` compatibility of estimators."""

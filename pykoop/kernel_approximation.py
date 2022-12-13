@@ -360,6 +360,7 @@ class RandomBinningKernelApprox(KernelApproximation):
             If any of the constructor parameters are incorrect.
         """
         X = sklearn.utils.validation.check_array(X)
+        X_scaled = np.sqrt(2 * self.shape) * X
         # Set ``ddot_``
         if isinstance(self.kernel_or_ddot, str):
             self.ddot_ = self._ddot_lookup[self.kernel_or_ddot]
@@ -371,7 +372,7 @@ class RandomBinningKernelApprox(KernelApproximation):
         if self.shape <= 0:
             raise ValueError('`shape` must be positive.')
         # Set number of input and output features
-        self.n_features_in_ = X.shape[1]
+        self.n_features_in_ = X_scaled.shape[1]
         # Generate grids
         self.pitches_ = self.ddot_.rvs(
             size=(self.n_features_in_, self.n_components),
@@ -383,7 +384,7 @@ class RandomBinningKernelApprox(KernelApproximation):
             random_state=self.random_state,
         )
         # Hash samples and fit one-hot encoder
-        X_hashed = self._hash_samples(X)
+        X_hashed = self._hash_samples(X_scaled)
         if self.sparse:
             log.warning('Sparse matrices not yet supported in `pykoop`.')
         self.encoder_ = sklearn.preprocessing.OneHotEncoder(
@@ -411,7 +412,8 @@ class RandomBinningKernelApprox(KernelApproximation):
         """
         sklearn.utils.validation.check_is_fitted(self)
         X = sklearn.utils.validation.check_array(X)
-        X_hashed = self._hash_samples(X)
+        X_scaled = np.sqrt(2 * self.shape) * X
+        X_hashed = self._hash_samples(X_scaled)
         Xt = self.encoder_.transform(X_hashed) / np.sqrt(self.n_components)
         return Xt
 
