@@ -36,6 +36,7 @@ from .lifting_functions import (
     DelayLiftingFn,
     PolynomialLiftingFn,
     RbfLiftingFn,
+    KernelApproxLiftingFn,
     SkLearnLiftingFn,
 )
 from .regressors import Dmd, Dmdc, Edmd, EdmdMeta

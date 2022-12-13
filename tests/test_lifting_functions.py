@@ -1545,6 +1545,10 @@ class TestSkLearn:
         pykoop.DelayLiftingFn(),
         pykoop.SkLearnLiftingFn(preprocessing.MaxAbsScaler()),
         pykoop.BilinearInputLiftingFn(),
+        pykoop.RbfLiftingFn(centers=pykoop.QmcCenters(random_state=1234)),
+        pykoop.ConstantLiftingFn(),
+        # pykoop.KernelApproxLiftingFn(
+        #     kernel_approx=pykoop.RandomFourierKernelApprox(random_state=1234)),
     ])
     def test_compatible_estimator(self, estimator, check):
         """Test ``scikit-learn`` compatibility of estimators."""
