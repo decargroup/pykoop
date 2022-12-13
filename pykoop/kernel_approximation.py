@@ -2,7 +2,7 @@
 
 import abc
 import logging
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Union, Any
 
 import numpy as np
 import scipy.stats
@@ -81,6 +81,9 @@ class KernelApproximation(
 class RandomFourierKernelApprox(KernelApproximation):
     """Kernel approximation with random Fourier features.
 
+    Similar to :class:`sklearn.kernel_approximation.RBFSampler`, but supports
+    kernels other than just the Gaussian.
+
     For details, see [RR07]_.
 
     Attributes
@@ -114,13 +117,16 @@ class RandomFourierKernelApprox(KernelApproximation):
     array([...])
     """
 
-    # Laplacian and Cauchy being swapped is not a typo. They are Fourier
-    # transforms of each other.
     _ift_lookup = {
         'gaussian': scipy.stats.norm,
         'laplacian': scipy.stats.cauchy,
         'cauchy': scipy.stats.laplace,
     }
+    """Lookup table for inverse Fourier transform of kernel.
+
+    Laplacian and Cauchy being swapped is not a typo. They are Fourier
+    transforms of each other.
+    """
 
     def __init__(
         self,
@@ -278,7 +284,7 @@ class RandomFourierKernelApprox(KernelApproximation):
 class RandomBinningKernelApprox(KernelApproximation):
     r"""Kernel approximation with random binning.
 
-    For details, see [RR07]_.
+    Highly experimental! For more details, see [RR07]_.
 
     Attributes
     ----------
@@ -315,6 +321,7 @@ class RandomBinningKernelApprox(KernelApproximation):
     _ddot_lookup = {
         'laplacian': scipy.stats.gamma(a=2),
     }
+    r"""Lookup table for ``\delta \ddot{k}(\delta)``."""
 
     def __init__(
         self,
@@ -322,6 +329,7 @@ class RandomBinningKernelApprox(KernelApproximation):
         n_components: int = 100,
         shape: float = 1,
         sparse: bool = False,
+        encoder_kwargs: Dict[str, Any] = None,
         random_state: Union[int, np.random.RandomState] = None,
     ) -> None:
         r"""Instantiate :class:`RandomBinningKernelApprox`.
@@ -356,6 +364,12 @@ class RandomBinningKernelApprox(KernelApproximation):
         sparse : bool
             Whether to output a sparse array (default false).
 
+        encoder_kwargs : Dict[str, Any]
+            Extra keyword arguments for internal
+            :class:`sklearn.preprocessing.OneHotEncoder`. For experimental use
+            only. The wrong arguments can break everything. Overrides defaults,
+            but does not override ``sparse``.
+
         random_state : Union[int, np.random.RandomState]
             Random seed.
         """
@@ -363,6 +377,7 @@ class RandomBinningKernelApprox(KernelApproximation):
         self.n_components = n_components
         self.shape = shape
         self.sparse = sparse
+        self.encoder_kwargs = encoder_kwargs
         self.random_state = random_state
 
     def fit(
@@ -417,11 +432,14 @@ class RandomBinningKernelApprox(KernelApproximation):
         X_hashed = self._hash_samples(X_scaled)
         if self.sparse:
             log.warning('Sparse matrices not yet supported in `pykoop`.')
-        self.encoder_ = sklearn.preprocessing.OneHotEncoder(
-            categories='auto',
-            sparse=self.sparse,
-            handle_unknown='ignore',
-        )
+        encoder_args = {
+            'categories': 'auto',
+            'handle_unknown': 'ignore',
+        }
+        if self.encoder_kwargs is not None:
+            encoder_args.update(self.encoder_kwargs)
+        encoder_args['sparse'] = self.sparse
+        self.encoder_ = sklearn.preprocessing.OneHotEncoder(**encoder_args)
         self.encoder_.fit(X_hashed)
         # Get number of output features from the encoder
         self.n_features_out_ = np.concatenate(self.encoder_.categories_).size

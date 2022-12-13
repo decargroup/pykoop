@@ -736,7 +736,9 @@ KernelApproxEstimator: TypeAlias = Union[
 class KernelApproxLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     """Lifting function using random kernel approximation.
 
-    Random Fourier features and randomly binned features are supported [RR07]_.
+    If you are looking for random Fourier features, this is the lifting
+    function to use. Randomly binned features are also supported, but are
+    experimental. See [RR07]_ for more details.
 
     Attributes
     ----------
@@ -760,6 +762,47 @@ class KernelApproxLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         Array of input feature name strings.
     kernel_approx_ : KernelApproxEstimator
         Fit kernel approximation estimator.
+    n_features_kernel_ : int
+        Number of features in the kernel approximation.
+
+    Examples
+    --------
+    Random Fourier features with :class:`pykoop.RandomFourierKernelApprox`
+
+    >>> rff = pykoop.KernelApproxLiftingFn(
+    ...     kernel_approx=pykoop.RandomFourierKernelApprox(
+    ...         n_components=10,
+    ...         random_state=1234,
+    ...     )
+    ... )
+    >>> rff.fit(X_msd, n_inputs=1, episode_feature=True)
+    KernelApproxLiftingFn(kernel_approx=RandomFourierKernelApprox(n_components=10,
+    random_state=1234))
+
+    Random Fourier features with
+    :class:`sklearn.kernel_approximation.RBFSampler`
+
+    >>> rff = pykoop.KernelApproxLiftingFn(
+    ...     kernel_approx=sklearn.kernel_approximation.RBFSampler(
+    ...         n_components=10,
+    ...         random_state=1234,
+    ...     )
+    ... )
+    >>> rff.fit(X_msd, n_inputs=1, episode_feature=True)
+    KernelApproxLiftingFn(kernel_approx=RBFSampler(n_components=10,
+    random_state=1234))
+
+    Randomly binned features with :class:`pykoop.RandomBinningKernelApprox`
+
+    >>> rb = pykoop.KernelApproxLiftingFn(
+    ...     kernel_approx=pykoop.RandomBinningKernelApprox(
+    ...         n_components=10,
+    ...         random_state=1234,
+    ...     )
+    ... )
+    >>> rb.fit(X_msd, n_inputs=1, episode_feature=True)
+    KernelApproxLiftingFn(kernel_approx=RandomBinningKernelApprox(n_components=10,
+    random_state=1234))
     """
 
     def __init__(self, kernel_approx: KernelApproxEstimator = None) -> None:
@@ -787,17 +830,18 @@ class KernelApproxLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         # Calculate number of random features
         if hasattr(self.kernel_approx_, 'n_features_out_'):
             # :class:`pykoop.KernelApprox` supports ``n_features_out_``
-            n_features_kern = self.kernel_approx_.n_features_out_
+            self.n_features_kernel_ = self.kernel_approx_.n_features_out_
         else:
             # Fallback for estimators in :mod:`sklearn.kernel_approximation`
-            n_features_kern = self.kernel_approx_.get_feature_names_out().size
+            self.n_features_kernel_ = \
+                self.kernel_approx_.get_feature_names_out().size
         # Calculate number of state and input features
         if self.n_inputs_in_ == 0:
-            n_states_out = self.n_states_in_ + n_features_kern
+            n_states_out = self.n_states_in_ + self.n_features_kernel_
             n_inputs_out = self.n_inputs_in_
         else:
             n_states_out = self.n_states_in_
-            n_inputs_out = self.n_inputs_in_ + n_features_kern
+            n_inputs_out = self.n_inputs_in_ + self.n_features_kernel_
         return (n_states_out, n_inputs_out)
 
     def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
@@ -809,6 +853,7 @@ class KernelApproxLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         # Stack results. ``X_kern`` always goes at the bottom because it always
         # involves the lifted inputs if present.
         Xt = np.hstack((X_x, X_u, X_kern))
+        return Xt
 
     def _inverse_transform_one_ep(self, X: np.ndarray) -> np.ndarray:
         # Separate states and inputs.
@@ -854,7 +899,7 @@ class KernelApproxLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         # Add states and inputs
         for ft in range(self.n_states_in_ + self.n_inputs_in_):
             names_out.append(names_in[ft])
-        for i in range(self.centers_.n_centers_):
+        for i in range(self.n_features_kernel_):
             names_out.append(f'z_{pre}{i}{post}({arg})')
         feature_names_out = np.array(names_out, dtype=object)
         return feature_names_out

@@ -137,6 +137,7 @@ namespace for convenience.
    pykoop.BilinearInputLiftingFn
    pykoop.ConstantLiftingFn
    pykoop.DelayLiftingFn
+   pykoop.KernelApproxLiftingFn
    pykoop.PolynomialLiftingFn
    pykoop.RbfLiftingFn
    pykoop.SkLearnLiftingFn
@@ -160,6 +161,19 @@ convenience.
    pykoop.Edmd
    pykoop.EdmdMeta
 
+
+Kernel approximation methods
+============================
+
+The following classes are used to generate random feature maps from kernels
+for kernel approximation lifting functions (i.e., random Fourier feature
+lifting functions).
+
+.. autosummary::
+   :toctree: _autosummary/
+
+   pykoop.RandomBinningKernelApprox
+   pykoop.RandomFourierKernelApprox
 
 Radial basis function centers
 =============================
@@ -269,6 +283,7 @@ ones have been imported into the ``pykoop`` namespace.
    pykoop.Centers
    pykoop.EpisodeDependentLiftingFn
    pykoop.EpisodeIndependentLiftingFn
+   pykoop.KernelApprox
    pykoop.KoopmanLiftingFn
    pykoop.KoopmanRegressor
    pykoop.dynamic_models.ContinuousDynamicModel
