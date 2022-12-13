@@ -1,12 +1,18 @@
 """Kernel approximations for corresponding lifting functions."""
 
 import abc
+import logging
 from typing import Dict, List, Tuple, Union
 
 import numpy as np
 import scipy.stats
 import sklearn.base
+import sklearn.preprocessing
 import sklearn.utils
+
+# Create logger
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 
 class KernelApproximation(
@@ -272,8 +278,8 @@ class RandomBinningKernelApprox(KernelApproximation):
         Grid pitches for each component.
     shifts_ : np.ndarray, shape (n_features_in_, n_components)
         Grid shifts for each component.
-    hashmaps_ : List[Dict[Tuple[int, int], float]]
-        Hashmaps for each component mapping data coordinates to indicator.
+    encoder_ : sklearn.preprocessing.OneHotEncoder
+        One-hot encoder used for hashing sample coordinates for each component.
     """
 
     _ddot_lookup = {
@@ -285,6 +291,7 @@ class RandomBinningKernelApprox(KernelApproximation):
         kernel_or_ddot: Union[str, scipy.stats.rv_continuous] = 'laplacian',
         n_components: int = 100,
         shape: float = 1,
+        sparse: bool = False,
         random_state: Union[int, np.random.RandomState] = None,
     ) -> None:
         r"""Instantiate :class:`RandomBinningKernelApprox`.
@@ -316,12 +323,16 @@ class RandomBinningKernelApprox(KernelApproximation):
             This can lead to a mysterious factor of ``sqrt(2)`` in other
             kernels. Default is ``1``.
 
+        sparse : bool
+            Whether to output a sparse array (default false).
+
         random_state : Union[int, np.random.RandomState]
             Random seed.
         """
         self.kernel_or_ddot = kernel_or_ddot
         self.n_components = n_components
         self.shape = shape
+        self.sparse = sparse
         self.random_state = random_state
 
     def fit(
@@ -350,7 +361,7 @@ class RandomBinningKernelApprox(KernelApproximation):
         """
         X = sklearn.utils.validation.check_array(X)
         # Set ``ddot_``
-        if isintance(self.kernel_or_ddot, str):
+        if isinstance(self.kernel_or_ddot, str):
             self.ddot_ = self._ddot_lookup[self.kernel_or_ddot]
         else:
             self.ddot_ = self.kernel_or_ddot
@@ -371,6 +382,19 @@ class RandomBinningKernelApprox(KernelApproximation):
             scale=self.pitches_,
             random_state=self.random_state,
         )
+        # Hash samples and fit one-hot encoder
+        X_hashed = self._hash_samples(X)
+        if self.sparse:
+            log.warning('Sparse matrices not yet supported in `pykoop`.')
+        self.encoder_ = sklearn.preprocessing.OneHotEncoder(
+            categories='auto',
+            sparse=self.sparse,
+            handle_unknown='ignore',
+        )
+        self.encoder_.fit(X_hashed)
+        # Get number of output features from the encoder
+        self.n_features_out_ = np.concatenate(self.encoder_.categories_).size
+        return self
 
     def transform(self, X: np.ndarray) -> np.ndarray:
         """Transform data.
@@ -385,4 +409,35 @@ class RandomBinningKernelApprox(KernelApproximation):
         np.ndarray
             Transformed data matrix.
         """
-        raise NotImplementedError()
+        sklearn.utils.validation.check_is_fitted(self)
+        X = sklearn.utils.validation.check_array(X)
+        X_hashed = self._hash_samples(X)
+        Xt = self.encoder_.transform(X_hashed) / np.sqrt(self.n_components)
+        return Xt
+
+    def _hash_samples(self, X: np.ndarray) -> np.ndarray:
+        """Calculate bin coordinates of each sample and hash them.
+
+        Parameters
+        ----------
+        X : np.ndarray, shape (n_samples, n_features)
+            Data matrix.
+
+        Returns
+        -------
+        np.ndarray, shape (n_samples, n_components)
+            Hashed bin coordinates for each component.
+        """
+        # Calculate bin coordinates of each sample
+        # Shape is (n_samples, n_features, n_components)
+        coords = np.floor((X[:, :, np.newaxis] - self.shifts_) / self.pitches_)
+        # Convert each coordinate to tuple (so it's immutable), then compute
+        # its hash.
+        coords_hashed = np.array(
+            [[
+                hash(tuple(coords[sample, :, component].astype(int)))
+                for component in range(coords.shape[2])
+            ] for sample in range(coords.shape[0])],
+            dtype=int,
+        )
+        return coords_hashed
