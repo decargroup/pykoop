@@ -4,7 +4,7 @@ All of the lifting functions included in this module adhere to the interface
 defined in :class:`KoopmanLiftingFn`.
 """
 
-from typing import Callable, Tuple, TypeAlias, Union
+from typing import Callable, Tuple, Union
 
 import numpy as np
 import sklearn.base
@@ -723,14 +723,14 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         return feature_names_out
 
 
-KernelApproxEstimator: TypeAlias = Union[
+KernelApproxEstimator = Union[
     kernel_approximation.KernelApproximation,
     sklearn.kernel_approximation.AdditiveChi2Sampler,
     sklearn.kernel_approximation.Nystroem,
     sklearn.kernel_approximation.PolynomialCountSketch,
     sklearn.kernel_approximation.RBFSampler,
     sklearn.kernel_approximation.SkewedChi2Sampler]
-"""Supported kernel approximation methods of :class:`KernelApproxLiftingFn`."""
+"""Type alias for supported kernel approximation methods."""
 
 
 class KernelApproxLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
