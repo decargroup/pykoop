@@ -2317,6 +2317,12 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         ------
         ValueError
             If an episode is shorter than ``min_samples_``.
+
+        Warning
+        -------
+        Deprecated in favour of
+        :func:`pykoop.KoopmanPipeline.predict_trajectory`.
+
         """
         sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)

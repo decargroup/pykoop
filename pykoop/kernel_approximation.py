@@ -96,9 +96,9 @@ class RandomFourierKernelApprox(KernelApproximation):
     ift_ : scipy.stats.rv_continuous
         Probability distribution corresponding to inverse Fourier transform of
         chosen kernel.
-    random_weights_ : np.ndarray, shape (n_features_in_, n_components)
+    random_weights_ : np.ndarray, shape (n_features, n_components)
         Random weights to inner-product with features.
-    random_offsets_ : np.ndarray, shape (n_features_in_, )
+    random_offsets_ : np.ndarray, shape (n_features, )
         Random offsets if ``method`` is ``'weight_offset'``.
 
     Examples
@@ -295,9 +295,9 @@ class RandomBinningKernelApprox(KernelApproximation):
         estimators from :mod:`sklearn.kernel_approximation`.
     ddot_ : scipy.stats.rv_continuous
         Probability distribution corresponding to ``\delta \ddot{k}(\delta)``.
-    pitches_ : np.ndarray, shape (n_features_in_, n_components)
+    pitches_ : np.ndarray, shape (n_features, n_components)
         Grid pitches for each component.
-    shifts_ : np.ndarray, shape (n_features_in_, n_components)
+    shifts_ : np.ndarray, shape (n_features, n_components)
         Grid shifts for each component.
     encoder_ : sklearn.preprocessing.OneHotEncoder
         One-hot encoder used for hashing sample coordinates for each component.
@@ -339,8 +339,8 @@ class RandomBinningKernelApprox(KernelApproximation):
             Kernel to approximate. Possible options are
 
                 - ``'laplacian'`` -- Laplacian kernel, with
-                ``\delta \ddot{k}(\delta)`` being :class:`scipy.stats.gamma`
-                with shape parameter ``a=2`` (default).
+                  ``\delta \ddot{k}(\delta)`` being :class:`scipy.stats.gamma`
+                  with shape parameter ``a=2`` (default).
 
             Alternatively, a separable, positive, shift-invariant kernel can be
             implicitly specified by providing ``\delta \ddot{k}(\delta)`` as a
