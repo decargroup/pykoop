@@ -328,7 +328,6 @@ class RandomBinningKernelApprox(KernelApproximation):
         kernel_or_ddot: Union[str, scipy.stats.rv_continuous] = 'laplacian',
         n_components: int = 100,
         shape: float = 1,
-        sparse: bool = False,
         encoder_kwargs: Dict[str, Any] = None,
         random_state: Union[int, np.random.RandomState] = None,
     ) -> None:
@@ -361,14 +360,10 @@ class RandomBinningKernelApprox(KernelApproximation):
             This can lead to a mysterious factor of ``sqrt(2)`` in other
             kernels. Default is ``1``.
 
-        sparse : bool
-            Whether to output a sparse array (default false).
-
         encoder_kwargs : Dict[str, Any]
             Extra keyword arguments for internal
             :class:`sklearn.preprocessing.OneHotEncoder`. For experimental use
-            only. The wrong arguments can break everything. Overrides defaults,
-            but does not override ``sparse``.
+            only. The wrong arguments can break everything. Overrides defaults.
 
         random_state : Union[int, np.random.RandomState]
             Random seed.
@@ -376,7 +371,6 @@ class RandomBinningKernelApprox(KernelApproximation):
         self.kernel_or_ddot = kernel_or_ddot
         self.n_components = n_components
         self.shape = shape
-        self.sparse = sparse
         self.encoder_kwargs = encoder_kwargs
         self.random_state = random_state
 
@@ -430,15 +424,12 @@ class RandomBinningKernelApprox(KernelApproximation):
         )
         # Hash samples and fit one-hot encoder
         X_hashed = self._hash_samples(X_scaled)
-        if self.sparse:
-            log.warning('Sparse matrices not yet supported in `pykoop`.')
         encoder_args = {
             'categories': 'auto',
             'handle_unknown': 'ignore',
         }
         if self.encoder_kwargs is not None:
             encoder_args.update(self.encoder_kwargs)
-        encoder_args['sparse'] = self.sparse
         self.encoder_ = sklearn.preprocessing.OneHotEncoder(**encoder_args)
         self.encoder_.fit(X_hashed)
         # Get number of output features from the encoder
