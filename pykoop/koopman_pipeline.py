@@ -2513,26 +2513,56 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
                 )
             else:
                 # Number of steps in episode
-                n_steps_i = U_i.shape[0] - self.min_samples_
+                n_steps_i = U_i.shape[0] - self.min_samples_ + 1
                 # Initial conditions
                 Theta_i = np.zeros((n_steps_i, self.n_states_out_))
                 Upsilon_i = np.zeros((n_steps_i, self.n_inputs_out_))
+                X_i = np.zeros((U_i.shape[0], self.n_states_in_))
                 Theta_i[[0], :] = self.lift_state(X0_i, episode_feature=False)
+                X_i[:self.min_samples_, :] = X0_i
                 for k in range(1, n_steps_i + 1):
                     try:
-                        X_ikm1 = self.retract_state(
-                            Theta_i[[k - 1], :],
-                            episode_feature=False,
-                        )
-                        window = np.s_[k:(k + self.min_samples_)]
+                        # Lift input. We need to use the retracted state here
+                        # because some lifting functions are state-dependent.
+                        # ``Theta_i`` should not have any lifting and
+                        # retracting happening, but for ``Upsilon_i``, it is
+                        # unavoidable.
+                        window_km1 = np.s_[(k - 1):(k + self.min_samples_ - 1)]
                         Upsilon_i[[k - 1], :] = self.lift_input(
-                            np.hstack((X_ikm1, U_i[window, :])),
+                            np.hstack((
+                                X_i[window_km1, :],
+                                U_i[window_km1, :],
+                            )),
                             episode_feature=False,
                         )
-                        # Predict
                         if k < n_steps_i:
+                            # Predict next lifted state
                             Theta_i[[k], :] = (Theta_i[[k - 1], :] @ A.T
                                                + Upsilon_i[[k - 1], :] @ B.T)
+                            # Retract and store state. ``k`` is index of
+                            # ``Theta_i``, which is shorter than ``X_i`` when
+                            # there are delays.
+                            #
+                            # If ``min_samples_=3``, ``Theta_i`` is two entries
+                            # shorter than ``X_i``. The first entry of
+                            # ``Theta_i`` occurs at the same "time" as the
+                            # third entry of ``X_i``. Thus ``Theta_i[k]``
+                            # corresponds to
+                            # ``X_i[k + self.min_samples_ - 1]``.
+                            #
+                            # Let ``self.min_samples_=3``. An illustration:
+                            #
+                            #            X_i[0:3]
+                            #            vvvvv
+                            #     X_i: [ | | | . . . . . . . ]
+                            # Theta_i:     [ | . . . . . . . ]
+                            #                ^
+                            #                Theta_i[0]
+                            X_ik = self.retract_state(
+                                Theta_i[[k], :],
+                                episode_feature=False,
+                            )
+                            X_i[[k + self.min_samples_ - 1], :] = X_ik[[-1], :]
                     except ValueError as ve:
                         if (np.all(np.isfinite(X_ikm1))
                                 and np.all(np.isfinite(Theta_i))
@@ -2544,7 +2574,6 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
                             Theta_i[crash_index:, :] = 0
                             Upsilon_i[crash_index:, :] = 0
                             break
-                X_i = self.retract_state(Theta_i, episode_feature=False)
             # If prediction crashed, set remaining entries to NaN
             if crash_index is not None:
                 log.warning(f'Prediction diverged at index {crash_index}. '

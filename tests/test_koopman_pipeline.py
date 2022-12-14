@@ -994,6 +994,44 @@ class TestPrediction:
             X_sim_exp[[k], :] = Xp[[-1], :]
         np.testing.assert_allclose(X_sim, X_sim_exp)
 
+    def test_predict_trajectory_no_relift_state(self, ndarrays_regression, kp,
+                                                mass_spring_damper_sine_input):
+        """Test :func:`predict_trajectory` without relifting state."""
+        msg = 'Test only works when there is no episode feature.'
+        assert (not mass_spring_damper_sine_input['episode_feature']), msg
+        # Fit estimator
+        kp.fit(
+            mass_spring_damper_sine_input['X_train'],
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=False,
+        )
+        # Extract initial conditions
+        x0 = pykoop.extract_initial_conditions(
+            mass_spring_damper_sine_input['X_train'],
+            kp.min_samples_,
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=False,
+        )
+        # Extract input
+        u = pykoop.extract_input(
+            mass_spring_damper_sine_input['X_train'],
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=False,
+        )
+        # Predict new states
+        X_sim = kp.predict_trajectory(
+            x0,
+            u,
+            episode_feature=False,
+            relift_state=False,
+        )
+        ndarrays_regression.check(
+            {
+                'X_sim': X_sim,
+            },
+            default_tolerance=dict(atol=1e-6, rtol=0),
+        )
+
     def test_predict_multistep(self, kp, mass_spring_damper_sine_input):
         """Test :func:`predict_multistep` (deprecated)."""
         msg = 'Test only works when there is no episode feature.'
