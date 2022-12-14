@@ -257,6 +257,43 @@ class Pendulum(ContinuousDynamicModel):
         return x_dot
 
 
+class DuffingOscillator(ContinuousDynamicModel):
+    r"""Duffing oscillator model.
+
+    Equation is ``\ddot{x} + \delta \dot{x} + \beta x + \alpha x^3 = u(t)``
+    where usually ``u(t) = a \cos(\omega t)``.
+    """
+
+    def __init__(
+        self,
+        alpha: float = 1,
+        beta: float = -1,
+        delta: float = 0.1,
+    ) -> None:
+        """Instantiate :class:`DuffingOscillator`.
+
+        Parameters
+        ----------
+        alpha : float
+            Coefficient of cubic term.
+        beta : float
+            Coefficient of linear term.
+        delta : float
+            Coefficient of first derivative.
+        """
+        self.alpha = alpha
+        self.beta = beta
+        self.delta = delta
+
+    def f(self, t: float, x: np.ndarray, u: np.ndarray):
+        # noqa: D102
+        x_dot = np.array([
+            x[1],
+            u - self.delta * x[1] - self.beta * x[0] - self.alpha * x[0]**3
+        ])
+        return x_dot
+
+
 class DiscreteVanDerPol(DiscreteDynamicModel):
     """Van der Pol oscillator.
 

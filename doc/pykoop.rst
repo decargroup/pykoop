@@ -217,6 +217,7 @@ convenience.
    :toctree: _autosummary/
 
    pykoop.AnglePreprocessor
+   pykoop.example_data_duffing
    pykoop.example_data_msd
    pykoop.example_data_pendulum
    pykoop.example_data_vdp
@@ -283,7 +284,7 @@ ones have been imported into the ``pykoop`` namespace.
    pykoop.Centers
    pykoop.EpisodeDependentLiftingFn
    pykoop.EpisodeIndependentLiftingFn
-   pykoop.KernelApprox
+   pykoop.KernelApproximation
    pykoop.KoopmanLiftingFn
    pykoop.KoopmanRegressor
    pykoop.dynamic_models.ContinuousDynamicModel

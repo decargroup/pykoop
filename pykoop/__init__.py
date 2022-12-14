@@ -43,6 +43,7 @@ from .regressors import Dmd, Dmdc, Edmd, EdmdMeta
 from .tsvd import Tsvd
 from .util import (
     AnglePreprocessor,
+    example_data_duffing,
     example_data_msd,
     example_data_pendulum,
     example_data_vdp,

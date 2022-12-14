@@ -426,6 +426,7 @@ class RandomBinningKernelApprox(KernelApproximation):
         X_hashed = self._hash_samples(X_scaled)
         encoder_args = {
             'categories': 'auto',
+            'sparse': False,
             'handle_unknown': 'ignore',
         }
         if self.encoder_kwargs is not None:
