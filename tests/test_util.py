@@ -233,6 +233,7 @@ class TestLiftingFnLatexFeatureNames:
     pykoop.example_data_msd,
     pykoop.example_data_vdp,
     pykoop.example_data_pendulum,
+    pykoop.example_data_duffing,
 ])
 class TestExampleData:
     """Test example dynamic model data.
