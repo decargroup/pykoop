@@ -30,3 +30,10 @@ References
    identification of vehicle dynamics using Koopman operator," in 22nd
    International Conference on Process Control, 2019.
    https://doi.org/10.1109%2Fpc.2019.8815104
+.. [RR07] Ali Rahimi and Benjamin Recht. "Random Features for Large-Scale
+   Kernel Machines." in Proc. 20th Int. Conf. Neural. Inf. Process. Syst.,
+   2007. https://proceedings.neurips.cc/paper/2007/hash/013a006f03dbc5392effeb8f18fda755-Abstract.html
+.. [WHDKR16] Matthew O. Williams, Maziar S. Hemati, Scott T. M. Dawson, Ioannis
+   G. Kevrekidis, and Clarence W. Rowley. "Extending data-driven Koopman
+   analysis to actuated systems." IFAC-PapersOnLine, vol. 49, no. 18, pp.
+   704-709, 2016. https://doi.org/10.1016/j.ifacol.2016.10.248

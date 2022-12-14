@@ -60,3 +60,13 @@ initial velocity). Latin hypercube sampling is used to generate 100 centers.
 
 .. plot:: ../examples/6_example_rbf_pendulum.py
    :include-source:
+
+Random Fourier features on a Duffing oscillator
+-----------------------------------------------
+
+This example shows how random Fourier features (and randomly binned features)
+can be used as lifting functions to identify Duffing oscillator dynamics.
+For more details on how these features are generated, see [RR07]_.
+
+.. plot:: ../examples/7_example_rff_duffing.py
+   :include-source:

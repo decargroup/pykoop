@@ -27,7 +27,7 @@ setuptools.setup(
         'DOI': 'https://doi.org/10.5281/zenodo.5576490',
     },
     packages=setuptools.find_packages(exclude=('tests', 'examples', 'doc')),
-    python_requires='>=3.7',
+    python_requires='>=3.8',
     install_requires=[
         'numpy>=1.21.0',
         'scipy>=1.7.0',

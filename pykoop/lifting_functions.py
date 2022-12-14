@@ -8,11 +8,12 @@ from typing import Callable, Tuple, Union
 
 import numpy as np
 import sklearn.base
+import sklearn.kernel_approximation
 import sklearn.preprocessing
 import sklearn.utils.validation
 from scipy import linalg
 
-from . import centers, koopman_pipeline
+from . import centers, kernel_approximation, koopman_pipeline
 
 
 class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
@@ -493,46 +494,80 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     qmc=<class 'scipy.stats._qmc.LatinHypercube'>), rbf='inverse_quadratic')
     """
 
+    def _rbf_exponential(r):
+        """Exponential RBF."""
+        return np.exp(-r)
+
+    def _rbf_gaussian(r):
+        """Gaussian RBF."""
+        return np.exp(-r**2)
+
+    def _rbf_multiquadric(r):
+        """Multiquadric RBF."""
+        return np.sqrt(1 + r**2)
+
+    def _rbf_inverse_quadratic(r):
+        """Inverse quadratic RBF."""
+        return 1 / (1 + r**2)
+
+    def _rbf_inverse_multiquadric(r):
+        """Inverse multiquadric RBF."""
+        return 1 / np.sqrt(1 + r**2)
+
+    def _rbf_thin_plate(r):
+        """Thin plate RBF."""
+        return r**2 * np.log(r)
+
+    def _rbf_bump_function(r):
+        """Bump function RBF."""
+
+        def bump(s):
+            return np.exp(-1 / (1 - s**2))
+
+        return np.piecewise(
+            r,
+            [r < 1],
+            [bump, 0],
+        )
+
     _rbf_lookup = {
         'exponential': {
-            'callable': lambda r: np.exp(-r),
+            'callable': _rbf_exponential,
             'offset': 0,
         },
         'gaussian': {
-            'callable': lambda r: np.exp(-r**2),
+            'callable': _rbf_gaussian,
             'offset': 0,
         },
         'multiquadric': {
-            'callable': lambda r: np.sqrt(1 + r**2),
+            'callable': _rbf_multiquadric,
             'offset': 0,
         },
         'inverse_quadratic': {
-            'callable': lambda r: 1 / (1 + r**2),
+            'callable': _rbf_inverse_quadratic,
             'offset': 0
         },
         'inverse_multiquadric': {
-            'callable': lambda r: 1 / np.sqrt(1 + r**2),
+            'callable': _rbf_inverse_multiquadric,
             'offset': 0,
         },
         'thin_plate': {
-            'callable': lambda r: r**2 * np.log(r),
+            'callable': _rbf_thin_plate,
             'offset': 1e-3,
         },
         'bump_function': {
-            'callable':
-            lambda r: np.piecewise(
-                r,
-                [r < 1],
-                [lambda s: np.exp(-1 / (1 - s**2)), 0],
-            ),
-            'offset':
-            0,
+            'callable': _rbf_bump_function,
+            'offset': 0,
         },
     }
     """Lookup table mapping RBF name to callable and default offset.
 
     The default offset should only be nonzero if the function is not defined
     for ``r = 0``.
+
+    The private functions here are not `@staticmethod`s because that would
+    prevent `scikit-learn` from pickling them, which would make the estimator
+    check fail.
     """
 
     def __init__(
@@ -567,8 +602,7 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         centers : centers.Centers
             Estimator to generate centers from data. Number of lifting
             functions is controlled by the number of centers generated.
-            Defaults to :class:`UniformRandomCenters` with its default
-            arguments.
+            Defaults to :class:`QmcCenters` with its default arguments.
 
         shape : float
             Shape parameter. Must be greater than zero. Larger numbers produce
@@ -591,7 +625,10 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         else:
             self.rbf_ = self.rbf
         # Set and fit centers
-        self.centers_ = sklearn.base.clone(self.centers)
+        if self.centers is None:
+            self.centers_ = centers.QmcCenters()
+        else:
+            self.centers_ = sklearn.base.clone(self.centers)
         self.centers_.fit(X)
         # Set offset
         if self.offset is None:
@@ -682,6 +719,188 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
             names_out.append(names_in[ft])
         for i in range(self.centers_.n_centers_):
             names_out.append(f'R_{pre}{i}{post}({arg})')
+        feature_names_out = np.array(names_out, dtype=object)
+        return feature_names_out
+
+
+KernelApproxEstimator = Union[
+    kernel_approximation.KernelApproximation,
+    sklearn.kernel_approximation.AdditiveChi2Sampler,
+    sklearn.kernel_approximation.Nystroem,
+    sklearn.kernel_approximation.PolynomialCountSketch,
+    sklearn.kernel_approximation.RBFSampler,
+    sklearn.kernel_approximation.SkewedChi2Sampler]
+"""Type alias for supported kernel approximation methods."""
+
+
+class KernelApproxLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
+    """Lifting function using random kernel approximation.
+
+    If you are looking for random Fourier features, this is the lifting
+    function to use. Randomly binned features are also supported, but are
+    experimental. See [RR07]_ for more details.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features before transformation, including episode feature.
+    n_states_in_ : int
+        Number of states before transformation.
+    n_inputs_in_ : int
+        Number of inputs before transformation.
+    n_features_out_ : int
+        Number of features after transformation, including episode feature.
+    n_states_out_ : int
+        Number of states after transformation.
+    n_inputs_out_ : int
+        Number of inputs after transformation.
+    min_samples_ : int
+        Minimum number of samples needed to use the transformer.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
+    kernel_approx_ : KernelApproxEstimator
+        Fit kernel approximation estimator.
+    n_features_kernel_ : int
+        Number of features in the kernel approximation.
+
+    Examples
+    --------
+    Random Fourier features with :class:`pykoop.RandomFourierKernelApprox`
+
+    >>> rff = pykoop.KernelApproxLiftingFn(
+    ...     kernel_approx=pykoop.RandomFourierKernelApprox(
+    ...         n_components=10,
+    ...         random_state=1234,
+    ...     )
+    ... )
+    >>> rff.fit(X_msd, n_inputs=1, episode_feature=True)
+    KernelApproxLiftingFn(kernel_approx=RandomFourierKernelApprox(n_components=10,
+    random_state=1234))
+
+    Random Fourier features with
+    :class:`sklearn.kernel_approximation.RBFSampler`
+
+    >>> rff = pykoop.KernelApproxLiftingFn(
+    ...     kernel_approx=sklearn.kernel_approximation.RBFSampler(
+    ...         n_components=10,
+    ...         random_state=1234,
+    ...     )
+    ... )
+    >>> rff.fit(X_msd, n_inputs=1, episode_feature=True)
+    KernelApproxLiftingFn(kernel_approx=RBFSampler(n_components=10,
+    random_state=1234))
+
+    Randomly binned features with :class:`pykoop.RandomBinningKernelApprox`
+
+    >>> rb = pykoop.KernelApproxLiftingFn(
+    ...     kernel_approx=pykoop.RandomBinningKernelApprox(
+    ...         n_components=10,
+    ...         random_state=1234,
+    ...     )
+    ... )
+    >>> rb.fit(X_msd, n_inputs=1, episode_feature=True)
+    KernelApproxLiftingFn(kernel_approx=RandomBinningKernelApprox(n_components=10,
+    random_state=1234))
+    """
+
+    def __init__(self, kernel_approx: KernelApproxEstimator = None) -> None:
+        """Instantiate :class:`KernelApproxLiftingFn`.
+
+        Attributes
+        ----------
+        kernel_approx : KernelApproxEstimator
+            Estimator that approximates feature maps from kernels. Can be an
+            instance of :class:`pykoop.KernelApprox` or one of the estimators
+            from :mod:`sklearn.kernel_approximation`. Defaults to
+            :class:`pykoop.RandomFourierKernelApprox` with its default
+            arguments.
+        """
+        self.kernel_approx = kernel_approx
+
+    def _fit_one_ep(self, X: np.ndarray) -> Tuple[int, int]:
+        # Clone and fit subestimator
+        if self.kernel_approx is None:
+            self.kernel_approx_ = \
+                kernel_approximation.RandomFourierKernelApprox()
+        else:
+            self.kernel_approx_ = sklearn.base.clone(self.kernel_approx)
+        self.kernel_approx_.fit(X)
+        # Calculate number of random features
+        if hasattr(self.kernel_approx_, 'n_features_out_'):
+            # :class:`pykoop.KernelApprox` supports ``n_features_out_``
+            self.n_features_kernel_ = self.kernel_approx_.n_features_out_
+        else:
+            # Fallback for estimators in :mod:`sklearn.kernel_approximation`
+            self.n_features_kernel_ = \
+                self.kernel_approx_.get_feature_names_out().size
+        # Calculate number of state and input features
+        if self.n_inputs_in_ == 0:
+            n_states_out = self.n_states_in_ + self.n_features_kernel_
+            n_inputs_out = self.n_inputs_in_
+        else:
+            n_states_out = self.n_states_in_
+            n_inputs_out = self.n_inputs_in_ + self.n_features_kernel_
+        return (n_states_out, n_inputs_out)
+
+    def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        # Separate states and inputs.
+        X_x = X[:, :self.n_states_in_]
+        X_u = X[:, self.n_states_in_:]
+        # Transform states
+        X_kern = self.kernel_approx_.transform(X)
+        # Stack results. ``X_kern`` always goes at the bottom because it always
+        # involves the lifted inputs if present.
+        Xt = np.hstack((X_x, X_u, X_kern))
+        return Xt
+
+    def _inverse_transform_one_ep(self, X: np.ndarray) -> np.ndarray:
+        # Separate states and inputs.
+        X_x = X[:, :self.n_states_out_]
+        X_u = X[:, self.n_states_out_:]
+        # Extract original states and inputs from first features
+        Xt_x = X_x[:, :self.n_states_in_]
+        Xt_u = X_u[:, :self.n_inputs_in_]
+        # Combine extracted states
+        Xt = np.hstack((Xt_x, Xt_u))
+        return Xt
+
+    def _validate_parameters(self) -> None:
+        # No parameters to validate
+        pass
+
+    def _transform_feature_names(
+        self,
+        feature_names: np.ndarray,
+        format: str = None,
+    ) -> np.ndarray:
+        if format == 'latex':
+            pre = '{'
+            post = '}'
+            if self.n_inputs_in_ == 0:
+                arg = r'{\bf x}'
+            else:
+                arg = r'{\bf x}, {\bf u}'
+        else:
+            pre = ''
+            post = ''
+            if self.n_inputs_in_ == 0:
+                arg = 'x'
+            else:
+                arg = 'x, u'
+        names_out = []
+        # Deal with episode feature
+        if self.episode_feature_:
+            names_in = feature_names[1:]
+            names_out.append(feature_names[0])
+        else:
+            names_in = feature_names
+        # Add states and inputs
+        for ft in range(self.n_states_in_ + self.n_inputs_in_):
+            names_out.append(names_in[ft])
+        for i in range(self.n_features_kernel_):
+            names_out.append(f'z_{pre}{i}{post}({arg})')
         feature_names_out = np.array(names_out, dtype=object)
         return feature_names_out
 

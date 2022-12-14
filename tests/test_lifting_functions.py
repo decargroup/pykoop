@@ -4,6 +4,7 @@ import numpy as np
 import pandas
 import pytest
 import sklearn.utils.estimator_checks
+import sklearn.kernel_approximation
 from sklearn import preprocessing
 
 import pykoop
@@ -1290,6 +1291,320 @@ class TestDelayLiftingFnTransform:
     'lf, names_in, X, names_out, n_inputs, episode_feature',
     [
         (
+            pykoop.RbfLiftingFn(
+                rbf='exponential',
+                centers=pykoop.DataCenters(np.array([
+                    [1],
+                    [-1],
+                    [1],
+                ]).T),
+                shape=0.1,
+            ),
+            np.array(['x0', 'x1', 'x2']),
+            np.array([
+                [0, 1, 2, 3, 4, 5],
+                [0, -1, -2, -3, -4, -5],
+                [0, 2, 4, 5, 6, 10],
+            ]).T,
+            np.array(['x0', 'x1', 'x2', 'R_0(x)']),
+            0,
+            False,
+        ),
+        (
+            pykoop.RbfLiftingFn(
+                rbf='gaussian',
+                centers=pykoop.DataCenters(np.array([
+                    [1],
+                    [-1],
+                    [1],
+                ]).T),
+                shape=0.1,
+            ),
+            np.array(['x0', 'x1', 'x2']),
+            np.array([
+                [0, 1, 2, 3, 4, 5],
+                [0, -1, -2, -3, -4, -5],
+                [0, 2, 4, 5, 6, 10],
+            ]).T,
+            np.array(['x0', 'x1', 'x2', 'R_0(x)']),
+            0,
+            False,
+        ),
+        (
+            pykoop.RbfLiftingFn(
+                rbf='multiquadric',
+                centers=pykoop.DataCenters(np.array([
+                    [1],
+                    [-1],
+                    [1],
+                ]).T),
+                shape=0.1,
+            ),
+            np.array(['x0', 'x1', 'x2']),
+            np.array([
+                [0, 1, 2, 3, 4, 5],
+                [0, -1, -2, -3, -4, -5],
+                [0, 2, 4, 5, 6, 10],
+            ]).T,
+            np.array(['x0', 'x1', 'x2', 'R_0(x)']),
+            0,
+            False,
+        ),
+        (
+            pykoop.RbfLiftingFn(
+                rbf='inverse_quadratic',
+                centers=pykoop.DataCenters(np.array([
+                    [1],
+                    [-1],
+                    [1],
+                ]).T),
+                shape=0.1,
+            ),
+            np.array(['x0', 'x1', 'x2']),
+            np.array([
+                [0, 1, 2, 3, 4, 5],
+                [0, -1, -2, -3, -4, -5],
+                [0, 2, 4, 5, 6, 10],
+            ]).T,
+            np.array(['x0', 'x1', 'x2', 'R_0(x)']),
+            0,
+            False,
+        ),
+        (
+            pykoop.RbfLiftingFn(
+                rbf='inverse_multiquadric',
+                centers=pykoop.DataCenters(np.array([
+                    [1],
+                    [-1],
+                    [1],
+                ]).T),
+                shape=0.1,
+            ),
+            np.array(['x0', 'x1', 'x2']),
+            np.array([
+                [0, 1, 2, 3, 4, 5],
+                [0, -1, -2, -3, -4, -5],
+                [0, 2, 4, 5, 6, 10],
+            ]).T,
+            np.array(['x0', 'x1', 'x2', 'R_0(x)']),
+            0,
+            False,
+        ),
+        (
+            pykoop.RbfLiftingFn(
+                rbf='thin_plate',
+                centers=pykoop.DataCenters(np.array([
+                    [1],
+                    [-1],
+                    [1],
+                ]).T),
+                shape=0.1,
+            ),
+            np.array(['x0', 'x1', 'x2']),
+            np.array([
+                [0, 1, 2, 3, 4, 5],
+                [0, -1, -2, -3, -4, -5],
+                [0, 2, 4, 5, 6, 10],
+            ]).T,
+            np.array(['x0', 'x1', 'x2', 'R_0(x)']),
+            0,
+            False,
+        ),
+        (
+            pykoop.RbfLiftingFn(
+                rbf='bump_function',
+                centers=pykoop.DataCenters(np.array([
+                    [1],
+                    [-1],
+                    [1],
+                ]).T),
+                shape=0.1,
+            ),
+            np.array(['x0', 'x1', 'x2']),
+            np.array([
+                [0, 1, 2, 3, 4, 5],
+                [0, -1, -2, -3, -4, -5],
+                [0, 2, 4, 5, 6, 10],
+            ]).T,
+            np.array(['x0', 'x1', 'x2', 'R_0(x)']),
+            0,
+            False,
+        ),
+        (
+            pykoop.KernelApproxLiftingFn(
+                kernel_approx=pykoop.RandomFourierKernelApprox(
+                    n_components=10,
+                    method='weight_offset',
+                    random_state=1234,
+                )),
+            np.array(['x0', 'x1', 'x2']),
+            np.array([
+                [0, 1, 2, 3, 4, 5],
+                [0, -1, -2, -3, -4, -5],
+                [0, 2, 4, 5, 6, 10],
+            ]).T,
+            np.array([
+                'x0',
+                'x1',
+                'x2',
+                'z_0(x)',
+                'z_1(x)',
+                'z_2(x)',
+                'z_3(x)',
+                'z_4(x)',
+                'z_5(x)',
+                'z_6(x)',
+                'z_7(x)',
+                'z_8(x)',
+                'z_9(x)',
+            ]),
+            0,
+            False,
+        ),
+        (
+            pykoop.KernelApproxLiftingFn(
+                kernel_approx=pykoop.RandomFourierKernelApprox(
+                    n_components=5,
+                    method='weight_only',
+                    random_state=1234,
+                )),
+            np.array(['x0', 'x1', 'x2']),
+            np.array([
+                [0, 1, 2, 3, 4, 5],
+                [0, -1, -2, -3, -4, -5],
+                [0, 2, 4, 5, 6, 10],
+            ]).T,
+            np.array([
+                'x0',
+                'x1',
+                'x2',
+                'z_0(x)',
+                'z_1(x)',
+                'z_2(x)',
+                'z_3(x)',
+                'z_4(x)',
+                'z_5(x)',
+                'z_6(x)',
+                'z_7(x)',
+                'z_8(x)',
+                'z_9(x)',
+            ]),
+            0,
+            False,
+        ),
+        (
+            pykoop.KernelApproxLiftingFn(
+                kernel_approx=sklearn.kernel_approximation.RBFSampler(
+                    n_components=10,
+                    random_state=1234,
+                )),
+            np.array(['x0', 'x1', 'x2']),
+            np.array([
+                [0, 1, 2, 3, 4, 5],
+                [0, -1, -2, -3, -4, -5],
+                [0, 2, 4, 5, 6, 10],
+            ]).T,
+            np.array([
+                'x0',
+                'x1',
+                'x2',
+                'z_0(x)',
+                'z_1(x)',
+                'z_2(x)',
+                'z_3(x)',
+                'z_4(x)',
+                'z_5(x)',
+                'z_6(x)',
+                'z_7(x)',
+                'z_8(x)',
+                'z_9(x)',
+            ]),
+            0,
+            False,
+        ),
+        (
+            pykoop.KernelApproxLiftingFn(
+                kernel_approx=pykoop.RandomBinningKernelApprox(
+                    n_components=1,
+                    random_state=1234,
+                )),
+            np.array(['x0', 'x1', 'x2']),
+            np.array([
+                [0, 1, 2, 3, 4, 5],
+                [0, -1, -2, -3, -4, -5],
+                [0, 2, 4, 5, 6, 10],
+            ]).T,
+            # The feature names out here are a regression test. I had to run
+            # the test once to see what the answer would be, then put it here.
+            # If the seed or data changes, then the number of features will
+            # change. There is no way to find the number of features a priori.
+            np.array([
+                'x0',
+                'x1',
+                'x2',
+                'z_0(x)',
+                'z_1(x)',
+                'z_2(x)',
+                'z_3(x)',
+                'z_4(x)',
+                'z_5(x)',
+            ]),
+            0,
+            False,
+        ),
+    ])
+class TestLiftingFnTransformRegression:
+    """Regression test lifting function transform.
+
+    Attributes
+    ----------
+    tol : float
+        Tolerance for regression test.
+    """
+
+    tol = 1e-6
+
+    def test_transform(self, ndarrays_regression, lf, names_in, X, names_out,
+                       n_inputs, episode_feature):
+        """Regression test lifting function transform."""
+        lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        Xt = lf.transform(X)
+        ndarrays_regression.check(
+            {
+                'Xt': Xt,
+            },
+            default_tolerance=dict(atol=self.tol, rtol=0),
+        )
+
+    def test_inverse_transform(self, lf, names_in, X, names_out, n_inputs,
+                               episode_feature):
+        """Test lifting function inverse transform."""
+        lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        Xt = lf.transform(X)
+        Xt_inv = lf.inverse_transform(Xt)
+        np.testing.assert_allclose(X, Xt_inv)
+
+    def test_feature_names_in(self, lf, names_in, X, names_out, n_inputs,
+                              episode_feature):
+        """Test input feature names."""
+        lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        names_in_actual = lf.get_feature_names_in()
+        assert np.all(names_in == names_in_actual)
+        assert names_in_actual.dtype == object
+
+    def test_feature_names_out(self, lf, names_in, X, names_out, n_inputs,
+                               episode_feature):
+        """Test input feature names."""
+        lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
+        names_out_actual = lf.get_feature_names_out()
+        assert np.all(names_out == names_out_actual)
+        assert names_out_actual.dtype == object
+
+
+@pytest.mark.parametrize(
+    'lf, names_in, X, names_out, n_inputs, episode_feature',
+    [
+        (
             pykoop.PolynomialLiftingFn(order=2),
             np.array(['x_{0}', 'x_{1}', 'u_{0}']),
             np.array([
@@ -1393,6 +1708,10 @@ class TestSkLearn:
         pykoop.DelayLiftingFn(),
         pykoop.SkLearnLiftingFn(preprocessing.MaxAbsScaler()),
         pykoop.BilinearInputLiftingFn(),
+        pykoop.RbfLiftingFn(centers=pykoop.QmcCenters(random_state=1234)),
+        pykoop.ConstantLiftingFn(),
+        pykoop.KernelApproxLiftingFn(
+            kernel_approx=pykoop.RandomFourierKernelApprox(random_state=1234)),
     ])
     def test_compatible_estimator(self, estimator, check):
         """Test ``scikit-learn`` compatibility of estimators."""

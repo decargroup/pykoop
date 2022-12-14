@@ -480,3 +480,81 @@ def example_data_pendulum() -> Dict[str, Any]:
         't': t_sim,
         'dynamic_model': pend,
     }
+
+
+def example_data_duffing() -> Dict[str, Any]:
+    """Get example Duffing oscillator data.
+
+    Parameters from [WHDKR16]_.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Sample Duffing oscillator data.
+    """
+    # Create Duffing oscillator object
+    t_step = 0.1
+    do = dynamic_models.DuffingOscillator(alpha=1, beta=-1, delta=0.2)
+    # Initial conditions
+    t_range = (0, 20)
+    t_sim = np.arange(*t_range, t_step)
+    n_ep = 50
+    X_do_lst = []
+    # Loop over initial conditions and inputs
+    rng = np.random.default_rng(1234)
+    for ep in range(n_ep):
+        # Simulate ODE
+        x0 = random_state(
+            np.array([-1, -1]),
+            np.array([1, 1]),
+            rng=rng,
+        )
+        a = rng.uniform(0, 0.3)
+
+        def u(t):
+            """Input."""
+            return a * np.cos(t)
+
+        t, x = do.simulate(
+            t_range=t_range,
+            t_step=t_step,
+            x0=x0,
+            u=u,
+        )
+        # Format the data
+        X_do_lst.append(
+            np.hstack((
+                ep * np.ones((t.shape[0], 1)),
+                x,
+                u(t).reshape(-1, 1),
+            )))
+    # Stack data and return
+    X_do = np.vstack(X_do_lst)
+    valid_ep = [n_ep - 3, n_ep - 2, n_ep - 1]
+    train_ep = list(set(range(n_ep)) - set(valid_ep))
+    valid_idx = np.where(np.in1d(X_do[:, 0], valid_ep))[0]
+    train_idx = np.where(np.in1d(X_do[:, 0], train_ep))[0]
+    X_train = X_do[train_idx, :]
+    X_valid = X_do[valid_idx, :]
+    n_inputs = 1
+    episode_feature = True
+    x0_valid = koopman_pipeline.extract_initial_conditions(
+        X_valid,
+        n_inputs=n_inputs,
+        episode_feature=episode_feature,
+    )
+    u_valid = koopman_pipeline.extract_input(
+        X_valid,
+        n_inputs=n_inputs,
+        episode_feature=episode_feature,
+    )
+    return {
+        'X_train': X_train,
+        'X_valid': X_valid,
+        'x0_valid': x0_valid,
+        'u_valid': u_valid,
+        'n_inputs': n_inputs,
+        'episode_feature': episode_feature,
+        't': t_sim,
+        'dynamic_model': do,
+    }
