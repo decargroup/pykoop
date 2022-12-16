@@ -2972,8 +2972,9 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         ValueError
             If input dimensions are incorrect.
         """
+        ep = 1 if episode_feature else 0
         if U is None:
-            if X0_or_X.shape[1] != self.n_features_in_:
+            if X0_or_X.shape[1] != self.n_states_in_ + self.n_inputs_in_ + ep:
                 raise ValueError('Invalid dimensions for ``X0_or_X``. If '
                                  '``U=None``, ``X0_or_X`` must contain '
                                  'states and inputs.')
@@ -2984,7 +2985,6 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
                 ex[1][:, self.n_states_in_:],
             ) for ex in ep_X]
         else:
-            ep = 1 if episode_feature else 0
             if X0_or_X.shape[1] != self.n_states_in_ + ep:
                 raise ValueError('Invalid dimensions for ``X0_or_X``. If '
                                  '``U`` is specified, ``X0_or_X`` must '
