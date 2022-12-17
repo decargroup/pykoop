@@ -2564,7 +2564,8 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
                             )
                             X_i[[k + self.min_samples_ - 1], :] = X_ik[[-1], :]
                     except ValueError as ve:
-                        if (np.all(np.isfinite(X_ikm1))
+                        if (np.all(np.isfinite(X_ik))
+                                and np.all(np.isfinite(X_i))
                                 and np.all(np.isfinite(Theta_i))
                                 and np.all(np.isfinite(Upsilon_i))
                                 and np.all(np.isfinite(U_i))):
