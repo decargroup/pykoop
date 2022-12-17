@@ -7,8 +7,9 @@ with open('README.rst', 'r') as f:
 
 setuptools.setup(
     name='pykoop',
-    version='1.1.1',
-    description='Koopman operator identification library in Python',
+    version='1.1.2',
+    description=('Koopman operator identification library in Python, '
+                 'compatible with `scikit-learn`'),
     long_description=readme,
     author='Steven Dahdah',
     author_email='steven.dahdah@mail.mcgill.ca',
@@ -20,7 +21,7 @@ setuptools.setup(
         'Topic :: Scientific/Engineering',
     ],
     project_urls={
-        'Documentation': 'https://pykoop.readthedocs.io/en/latest',
+        'Documentation': 'https://pykoop.readthedocs.io/en/stable',
         'Source': 'https://github.com/decargroup/pykoop',
         'Tracker': 'https://github.com/decargroup/pykoop/issues',
         'PyPI': 'https://pypi.org/project/pykoop/',
