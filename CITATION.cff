@@ -10,7 +10,7 @@ authors:
     orcid: "https://orcid.org/0000-0002-1987-9268"
     affiliation: "McGill University"
 title: "decargroup/pykoop"
-version: v1.1.0
+version: v1.1.1
 doi: 10.5281/zenodo.5576490
 date-released: 2022-09-02
 url: "https://github.com/decargroup/pykoop"
