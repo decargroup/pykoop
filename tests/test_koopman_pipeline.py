@@ -464,6 +464,22 @@ class TestKoopmanPipelineScore:
                 True,
                 -(0 + 1) / (1 + 0 + 1 + 0),
             ),
+            (
+                np.array([
+                    [1, np.nan, 3, 4],
+                    [2, 3, 3, 2],
+                ]).T,
+                np.array([
+                    [1, 2, 3, 4],
+                    [2, 3, 3, 2],
+                ]).T,
+                None,
+                1,
+                'neg_mean_squared_error',
+                1,
+                False,
+                np.nan,
+            ),
         ],
     )
     def test_score_trajectory(
