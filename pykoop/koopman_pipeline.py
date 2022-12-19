@@ -3219,6 +3219,10 @@ def score_trajectory(
     }
     # Scores that do not need inversion
     greater_is_better = ['explained_variance', 'r2']
+    # Return NaN if any of inputs are NaN
+    if not (np.all(np.isfinite(X_predicted))
+            and np.all(np.isfinite(X_expected))):
+        return np.nan
     # Strip episode feature and initial conditions
     X_expected = strip_initial_conditions(
         X_expected,
