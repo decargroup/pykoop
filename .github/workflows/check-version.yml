@@ -9,8 +9,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - id: get_version
-      uses: battila7/get-version-action@v2
+    - name: Get previous pykoop version
+      id: latest_version
+      uses: Bruce17/ghaction-package-latest-version@v1
+      with:
+        package: pykoop
+        language: python
     - name: Get setup.py version
       run: echo "setup_py_version=`grep -Po "version='\K(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?" setup.py`" >> $GITHUB_ENV
     - name: Get CITATION.cff version
@@ -22,7 +26,7 @@ jobs:
         echo "setup.py version is ${{ env.setup_py_version }}"
         echo "CITATION.cff version is ${{ env.citation_cff_version }}"
         echo "README.rst version is ${{ env.readme_rst_version }}"
-        echo "Latest pushed version is ${{ steps.get_version.outputs.version-without-v }}"
+        echo "Latest pushed version is ${{ steps.latest_version.outputs.latestVersion }}"
     - name: Fail if versions do not match
       if: ${{ (env.setup_py_version != env.citation_cff_version) ||
               (env.citation_cff_version != env.readme_rst_version) ||
@@ -31,9 +35,9 @@ jobs:
         echo "Version numbers in source are not consistent."
         exit 1
     - name: Fail if any versions have not been updated
-      if: ${{ (env.setup_py_version == steps.get_version.outputs.version-without-v) ||
-              (env.citation_cff_version == steps.get_version.outputs.version-without-v) ||
-              (env.readme_rst_version == steps.get_version.outputs.version-without-v) }}
+      if: ${{ (env.setup_py_version == steps.latest_version.outputs.latestVersion) ||
+              (env.citation_cff_version == steps.latest_version.outputs.latestVersion) ||
+              (env.readme_rst_version == steps.latest_version.outputs.latestVersion) }}
       run: |
         echo "Version numbers in source have not been updated."
         exit 1
