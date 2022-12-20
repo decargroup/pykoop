@@ -4,7 +4,7 @@ import numpy as np
 import pandas
 import pytest
 import sklearn.utils.estimator_checks
-from sklearn import preprocessing, exceptions
+from sklearn import exceptions, preprocessing
 
 import pykoop
 
@@ -290,12 +290,12 @@ class TestKoopmanPipelineFit:
         assert all(kp.feature_names_in_ == names)
 
 
+@pytest.mark.filterwarnings(
+    'ignore:Prediction diverged or error occured while fitting, returning '
+    'error score.')
 class TestKoopmanPipelineScore:
     """Test Koopman pipeline scoring."""
 
-    @pytest.mark.filterwarnings(
-        'ignore:Prediction diverged or error occured while fitting, '
-        'returning error score.')
     @pytest.mark.parametrize(
         'X_predicted, X_expected, n_steps, discount_factor, '
         'regression_metric, error_score, min_samples, episode_feature, '
@@ -568,6 +568,77 @@ class TestKoopmanPipelineScore:
                 episode_feature,
             )
             np.testing.assert_allclose(score, score_exp)
+
+    @pytest.mark.filterwarnings('ignore:invalid value encountered in matmul')
+    @pytest.mark.filterwarnings('ignore:overflow encountered in multiply')
+    @pytest.mark.parametrize(
+        'kp, scorer, X_training, X_validation, episode_feature, n_inputs', [
+            (
+                pykoop.KoopmanPipeline(regressor=pykoop.Edmd()),
+                pykoop.KoopmanPipeline.make_scorer(),
+                np.array([
+                    [1, 2, 3, 4],
+                    [2, 3, 3, 2],
+                ]).T,
+                np.array([
+                    [1, 2, 1, 4],
+                    [1, 3, 3, 2],
+                ]).T,
+                False,
+                0,
+            ),
+            (
+                pykoop.KoopmanPipeline(regressor=pykoop.Edmd()),
+                pykoop.KoopmanPipeline.make_scorer(
+                    n_steps=2,
+                    discount_factor=0.9,
+                    regression_metric='r2',
+                ),
+                np.array([
+                    [1, 2, 3, 4],
+                    [2, 3, 3, 2],
+                ]).T,
+                np.array([
+                    [1, 2, 1, 4],
+                    [1, 3, 3, 2],
+                ]).T,
+                False,
+                0,
+            ),
+            (
+                pykoop.KoopmanPipeline(
+                    lifting_functions=[
+                        ('poly', pykoop.PolynomialLiftingFn(order=10))
+                    ],
+                    regressor=pykoop.Edmd(),
+                ),
+                pykoop.KoopmanPipeline.make_scorer(error_score=-100),
+                pykoop.example_data_msd()['X_train'],
+                pykoop.example_data_msd()['X_valid'],
+                True,
+                1,
+            ),
+        ])
+    def test_make_scorer_regression(
+        self,
+        ndarrays_regression,
+        kp,
+        scorer,
+        X_training,
+        X_validation,
+        episode_feature,
+        n_inputs,
+    ):
+        kp.fit(X_training, episode_feature=episode_feature, n_inputs=0)
+        score_default = kp.score(X_validation)
+        score_scorer = scorer(kp, X_validation, None)
+        ndarrays_regression.check(
+            {
+                'score_default': score_default,
+                'score_scorer': score_scorer,
+            },
+            default_tolerance=dict(atol=1e-6, rtol=0),
+        )
 
     @pytest.mark.parametrize(
         'X, w_exp, n_steps, discount_factor, episode_feature',
