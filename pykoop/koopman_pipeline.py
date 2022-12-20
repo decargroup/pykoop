@@ -2,11 +2,13 @@
 
 import abc
 import logging
+import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas
 import sklearn.base
+import sklearn.exceptions
 import sklearn.metrics
 from deprecated import deprecated
 from matplotlib import pyplot as plt
@@ -2772,6 +2774,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         n_steps: int = None,
         discount_factor: float = 1,
         regression_metric: str = 'neg_mean_squared_error',
+        error_score: Union[str, float] = np.nan,
         multistep: bool = True,
         relift_state: bool = True,
     ) -> Callable[['KoopmanPipeline', np.ndarray, Optional[np.ndarray]],
@@ -2813,6 +2816,13 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
             which are existing ``scikit-learn`` regression metrics [#sc]_.
 
+        error_score : Union[str, float]
+            Value to assign to the score if ``X_predicted`` has diverged or if
+            an error has occured in estimator fitting. If set to ``'raise'``, a
+            :class:`ValueError` is raised. If a numerical value is given, a
+            :class:`sklearn.exceptions.FitFailedWarning` warning is raised and
+            the specified score is returned.
+
         multistep : bool
             If true, predict using :func:`predict_trajectory`. Otherwise,
             predict using :func:`predict` (one-step-ahead prediction).
@@ -2834,7 +2844,8 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         Raises
         ------
         ValueError
-            If ``discount_factor`` is negative or greater than one.
+            If ``discount_factor`` is negative or greater than one or if
+            ``error_score='raise'`` and an error occurs in scoring.
 
         References
         ----------
@@ -2880,6 +2891,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
                     n_steps=n_steps,
                     discount_factor=discount_factor,
                     regression_metric=regression_metric,
+                    error_score=error_score,
                     min_samples=estimator.min_samples_,
                     episode_feature=estimator.episode_feature_,
                 )
@@ -2902,6 +2914,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
                     n_steps=None,
                     discount_factor=1,
                     regression_metric=regression_metric,
+                    error_score=error_score,
                     min_samples=estimator.min_samples_,
                     episode_feature=estimator.episode_feature_,
                 )
@@ -3149,6 +3162,7 @@ def score_trajectory(
     n_steps: int = None,
     discount_factor: float = 1,
     regression_metric: str = 'neg_mean_squared_error',
+    error_score: Union[str, float] = np.nan,
     min_samples: int = 1,
     episode_feature: bool = False,
 ) -> float:
@@ -3185,6 +3199,13 @@ def score_trajectory(
 
         which are existing ``scikit-learn`` regression metrics [#sc]_.
 
+    error_score : Union[str, float]
+        Value to assign to the score if ``X_predicted`` has diverged or if an
+        error has occured in estimator fitting. If set to ``'raise'``, a
+        :class:`ValueError` is raised. If a numerical value is given, a
+        :class:`sklearn.exceptions.FitFailedWarning` warning is raised and the
+        specified score is returned.
+
     min_samples : int
         Number of samples in initial condition.
 
@@ -3195,6 +3216,11 @@ def score_trajectory(
     -------
     float
         Score (greater is better).
+
+    Raises
+    ------
+    ValueError
+        If ``error_score='raise'`` and an error occurs in scoring.
 
     References
     ----------
@@ -3222,7 +3248,14 @@ def score_trajectory(
     # Return NaN if any of inputs are NaN
     if not (np.all(np.isfinite(X_predicted))
             and np.all(np.isfinite(X_expected))):
-        return np.nan
+        if error_score == 'raise':
+            raise ValueError(
+                'Prediction diverged or error occured while fitting.')
+        else:
+            warnings.warn(
+                'Prediction diverged or error occured while fitting, '
+                'returning error score.', sklearn.exceptions.FitFailedWarning)
+            return error_score
     # Strip episode feature and initial conditions
     X_expected = strip_initial_conditions(
         X_expected,

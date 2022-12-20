@@ -4,7 +4,7 @@ import numpy as np
 import pandas
 import pytest
 import sklearn.utils.estimator_checks
-from sklearn import preprocessing
+from sklearn import preprocessing, exceptions
 
 import pykoop
 
@@ -293,9 +293,13 @@ class TestKoopmanPipelineFit:
 class TestKoopmanPipelineScore:
     """Test Koopman pipeline scoring."""
 
+    @pytest.mark.filterwarnings(
+        'ignore:Prediction diverged or error occured while fitting, '
+        'returning error score.')
     @pytest.mark.parametrize(
         'X_predicted, X_expected, n_steps, discount_factor, '
-        'regression_metric, min_samples, episode_feature, score_exp',
+        'regression_metric, error_score, min_samples, episode_feature, '
+        'score_exp',
         [
             (
                 np.array([
@@ -309,6 +313,7 @@ class TestKoopmanPipelineScore:
                 None,
                 1,
                 'neg_mean_squared_error',
+                np.nan,
                 1,
                 False,
                 0,
@@ -325,6 +330,7 @@ class TestKoopmanPipelineScore:
                 None,
                 1,
                 'neg_mean_squared_error',
+                np.nan,
                 1,
                 False,
                 -np.mean([2**2, 1]),
@@ -339,6 +345,7 @@ class TestKoopmanPipelineScore:
                 None,
                 1,
                 'neg_mean_squared_error',
+                np.nan,
                 1,
                 False,
                 -np.mean([0, 0, 2**2]),
@@ -353,6 +360,7 @@ class TestKoopmanPipelineScore:
                 None,
                 1,
                 'neg_mean_absolute_error',
+                np.nan,
                 1,
                 False,
                 -np.mean([0, 0, 2]),
@@ -367,6 +375,7 @@ class TestKoopmanPipelineScore:
                 None,
                 1,
                 'neg_mean_squared_error',
+                np.nan,
                 2,
                 False,
                 -np.mean([0, 1]),
@@ -381,6 +390,7 @@ class TestKoopmanPipelineScore:
                 2,
                 1,
                 'neg_mean_squared_error',
+                np.nan,
                 1,
                 False,
                 0,
@@ -395,6 +405,7 @@ class TestKoopmanPipelineScore:
                 None,
                 0.5,
                 'neg_mean_squared_error',
+                np.nan,
                 1,
                 False,
                 # (0 * 1 + 0 * 0.5 + 1 * 0.25) / (1 + 0.5 + 0.25)
@@ -412,6 +423,7 @@ class TestKoopmanPipelineScore:
                 None,
                 1,
                 'neg_mean_squared_error',
+                np.nan,
                 1,
                 True,
                 -np.mean([0, 1, 1, 0]),
@@ -428,6 +440,7 @@ class TestKoopmanPipelineScore:
                 1,
                 1,
                 'neg_mean_squared_error',
+                np.nan,
                 1,
                 True,
                 -np.mean([0, 1]),
@@ -444,6 +457,7 @@ class TestKoopmanPipelineScore:
                 None,
                 0.5,
                 'neg_mean_squared_error',
+                np.nan,
                 1,
                 True,
                 -(0.5 + 1) / (1 + 0.5 + 1 + 0.5),
@@ -460,6 +474,7 @@ class TestKoopmanPipelineScore:
                 1,
                 0.5,
                 'neg_mean_squared_error',
+                np.nan,
                 1,
                 True,
                 -(0 + 1) / (1 + 0 + 1 + 0),
@@ -476,9 +491,44 @@ class TestKoopmanPipelineScore:
                 None,
                 1,
                 'neg_mean_squared_error',
+                np.nan,
                 1,
                 False,
                 np.nan,
+            ),
+            (
+                np.array([
+                    [1, np.nan, 3, 4],
+                    [2, 3, 3, 2],
+                ]).T,
+                np.array([
+                    [1, 2, 3, 4],
+                    [2, 3, 3, 2],
+                ]).T,
+                None,
+                1,
+                'neg_mean_squared_error',
+                -100,
+                1,
+                False,
+                -100,
+            ),
+            (
+                np.array([
+                    [1, np.nan, 3, 4],
+                    [2, 3, 3, 2],
+                ]).T,
+                np.array([
+                    [1, 2, 3, 4],
+                    [2, 3, 3, 2],
+                ]).T,
+                None,
+                1,
+                'neg_mean_squared_error',
+                'raise',
+                1,
+                False,
+                None,
             ),
         ],
     )
@@ -489,20 +539,35 @@ class TestKoopmanPipelineScore:
         n_steps,
         discount_factor,
         regression_metric,
+        error_score,
         min_samples,
         episode_feature,
         score_exp,
     ):
-        score = pykoop.score_trajectory(
-            X_predicted,
-            X_expected,
-            n_steps,
-            discount_factor,
-            regression_metric,
-            min_samples,
-            episode_feature,
-        )
-        np.testing.assert_allclose(score, score_exp)
+        if (error_score == 'raise') and (score_exp is None):
+            with pytest.raises(ValueError):
+                pykoop.score_trajectory(
+                    X_predicted,
+                    X_expected,
+                    n_steps,
+                    discount_factor,
+                    regression_metric,
+                    error_score,
+                    min_samples,
+                    episode_feature,
+                )
+        else:
+            score = pykoop.score_trajectory(
+                X_predicted,
+                X_expected,
+                n_steps,
+                discount_factor,
+                regression_metric,
+                error_score,
+                min_samples,
+                episode_feature,
+            )
+            np.testing.assert_allclose(score, score_exp)
 
     @pytest.mark.parametrize(
         'X, w_exp, n_steps, discount_factor, episode_feature',
