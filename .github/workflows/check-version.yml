@@ -15,6 +15,7 @@ jobs:
       with:
         package: pykoop
         language: python
+    # RegEx adapted from https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
     - name: Get setup.py version
       run: echo "setup_py_version=`grep -Po "version='\K(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?" setup.py`" >> $GITHUB_ENV
     - name: Get CITATION.cff version
