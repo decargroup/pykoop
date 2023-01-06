@@ -530,6 +530,36 @@ class TestKoopmanPipelineScore:
                 False,
                 None,
             ),
+            (
+                np.array([
+                    [1e-2, 1e-3],
+                ]).T,
+                np.array([
+                    [1e150, 1e250],
+                ]).T,
+                None,
+                1,
+                'neg_mean_squared_error',
+                -100,
+                1,
+                False,
+                -100,
+            ),
+            (
+                np.array([
+                    [1e-2, 1e-3],
+                ]).T,
+                np.array([
+                    [1e150, 1e250],
+                ]).T,
+                None,
+                1,
+                'neg_mean_squared_error',
+                'raise',
+                1,
+                False,
+                None,
+            ),
         ],
     )
     def test_score_trajectory(
