@@ -153,6 +153,10 @@ The following class and function implementations are located in
 ``pykoop.regressors``, but have been imported into the ``pykoop`` namespace for
 convenience.
 
+The :class:`pykoop.DataRegressor` regressor is a dummy regressor if you want to
+force the Koopman matrix to take on a specific value (maybe you know what it
+should be, or you got it from another library).
+
 .. autosummary::
    :toctree: _autosummary/
 
@@ -160,6 +164,7 @@ convenience.
    pykoop.Dmdc
    pykoop.Edmd
    pykoop.EdmdMeta
+   pykoop.DataRegressor
 
 
 Kernel approximation methods
@@ -262,6 +267,7 @@ The following class and function implementations are located in
    :toctree: _autosummary/
 
    pykoop.dynamic_models.DiscreteVanDerPol
+   pykoop.dynamic_models.DuffingOscillator
    pykoop.dynamic_models.MassSpringDamper
    pykoop.dynamic_models.Pendulum
 

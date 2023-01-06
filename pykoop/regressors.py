@@ -449,6 +449,23 @@ class DataRegressor(koopman_pipeline.KoopmanRegressor):
         Array of input feature name strings.
     coef_ : np.ndarray
         Fit coefficient matrix.
+
+    Examples
+    --------
+    Create a Koopman pipeline with the Koopman matrix forced to be::
+
+        0.0 -0.5
+        1.0 -0.5
+        0.0  1.0
+
+    You may want to do this because you have a Koopman matrix from another
+    library and you want to use ``pykoop`` to evaluate its performance.
+
+    >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.DataRegressor(
+    ...     coef=np.array([[0, 1, 0], [-0.5, -0.5, 1]]).T)
+    ... )
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=DataRegressor(coef=array(...
     """
 
     def __init__(self, coef: np.ndarray = None) -> None:
