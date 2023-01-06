@@ -3245,7 +3245,7 @@ def score_trajectory(
     }
     # Scores that do not need inversion
     greater_is_better = ['explained_variance', 'r2']
-    # Return NaN if any of inputs are NaN
+    # Return error score if any of inputs are NaN or inf
     if not (np.all(np.isfinite(X_predicted))
             and np.all(np.isfinite(X_expected))):
         if error_score == 'raise':
@@ -3285,6 +3285,16 @@ def score_trajectory(
         sample_weight=weights,
         multioutput='uniform_average',
     )
+    # Return error score if score is not finite
+    if not np.isfinite(score):
+        if error_score == 'raise':
+            raise ValueError(
+                'Prediction diverged or error occured while scoring.')
+        else:
+            warnings.warn(
+                'Prediction diverged or error occured while scoring, '
+                'returning error score.', sklearn.exceptions.FitFailedWarning)
+            return error_score
     # Invert losses
     if regression_metric not in greater_is_better:
         score *= -1

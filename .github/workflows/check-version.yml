@@ -27,7 +27,7 @@ jobs:
         echo "setup.py version is ${{ env.setup_py_version }}"
         echo "CITATION.cff version is ${{ env.citation_cff_version }}"
         echo "README.rst version is ${{ env.readme_rst_version }}"
-        echo "Latest pushed version is ${{ steps.latest_version.outputs.latestVersion }}"
+        echo "Latest PyPi version is ${{ steps.latest_version.outputs.latestVersion }}"
     - name: Fail if versions do not match
       if: ${{ (env.setup_py_version != env.citation_cff_version) ||
               (env.citation_cff_version != env.readme_rst_version) ||
