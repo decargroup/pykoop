@@ -210,6 +210,7 @@ class TestSkLearn:
         pykoop.EdmdMeta(regressor=sklearn.linear_model.Ridge(alpha=1)),
         pykoop.Dmdc(),
         pykoop.Dmd(),
+        pykoop.DataRegressor(),
     ])
     def test_compatible_estimator(self, estimator, check):
         """Test ``scikit-learn`` compatibility of estimators."""
@@ -224,11 +225,14 @@ class TestExceptions:
         [4, 3, 2, 1],
     ])
 
-    @pytest.mark.parametrize('estimator', [
-        pykoop.Edmd(alpha=-1),
-        pykoop.Dmdc(mode_type='blah'),
-        pykoop.Dmd(mode_type='blah'),
-    ])
+    @pytest.mark.parametrize(
+        'estimator',
+        [
+            pykoop.Edmd(alpha=-1),
+            pykoop.Dmdc(mode_type='blah'),
+            pykoop.Dmd(mode_type='blah'),
+            pykoop.DataRegressor(coef=np.eye(2)),  # Wrong dimensions for data
+        ])
     def test_invalid_params(self, estimator):
         """Test a selection of invalid estimator parameter."""
         with pytest.raises(ValueError):

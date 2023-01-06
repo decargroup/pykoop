@@ -426,3 +426,64 @@ class Dmd(koopman_pipeline.KoopmanRegressor):
                 'check_fit_check_is_fitted': reason,
             }
         }
+
+
+class DataRegressor(koopman_pipeline.KoopmanRegressor):
+    """Create a :class:`KoopmanRegressor` object from a NumPy array.
+
+    This is useful for interoperability with other packages, where you may
+    already have a Koopman (or discrete-time state-space) matirx, but you want
+    to test it with ``pykoop``.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+    """
+
+    def __init__(self, coef: np.ndarray = None) -> None:
+        """Instantiate :class:`DataRegressor`.
+
+        Parameters
+        ----------
+        coef : np.ndarray
+            Coefficient matrix to copy to ``coef_``. If ``None``, an
+            appropriately-sized zero matrix is used.
+        """
+        self.coef = coef
+
+    def _fit_regressor(self, X_unshifted: np.ndarray,
+                       X_shifted: np.ndarray) -> np.ndarray:
+        required_shape = (X_unshifted.shape[1], X_shifted.shape[1])
+        if self.coef is None:
+            coef = np.zeros(required_shape)
+        else:
+            if self.coef.shape != required_shape:
+                raise ValueError(
+                    f'Parameter `coef` has shape {self.coef.shape} data `X` '
+                    f'requires shape {required_shape}.')
+            coef = np.copy(self.coef)
+        return coef
+
+    def _validate_parameters(self) -> None:
+        # No parameters to validate
+        pass
+
+    def _more_tags(self):
+        return {
+            'multioutput': True,
+            'multioutput_only': True,
+            # Allow a bad score since the ``coef_`` matrix will be filled with
+            # zeros, and we just care to test ``scikit-learn`` API compliance.
+            'poor_score': True,
+        }
