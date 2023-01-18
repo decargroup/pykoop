@@ -560,6 +560,22 @@ class TestKoopmanPipelineScore:
                 False,
                 None,
             ),
+            # Finite score worse than error score should return error score.
+            (
+                np.array([
+                    [1e-2, 1e-3],
+                ]).T,
+                np.array([
+                    [1e5, 1e6],
+                ]).T,
+                None,
+                1,
+                'neg_mean_squared_error',
+                -100,
+                1,
+                False,
+                -100,
+            ),
         ],
     )
     def test_score_trajectory(

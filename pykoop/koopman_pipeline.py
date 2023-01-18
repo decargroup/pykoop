@@ -2824,7 +2824,9 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             an error has occured in estimator fitting. If set to ``'raise'``, a
             :class:`ValueError` is raised. If a numerical value is given, a
             :class:`sklearn.exceptions.FitFailedWarning` warning is raised and
-            the specified score is returned.
+            the specified score is returned. The error score defines the worst
+            possible score. If a score is finite but lower than the error
+            score, the error score will be returned instead.
 
         multistep : bool
             If true, predict using :func:`predict_trajectory`. Otherwise,
@@ -3207,7 +3209,9 @@ def score_trajectory(
         error has occured in estimator fitting. If set to ``'raise'``, a
         :class:`ValueError` is raised. If a numerical value is given, a
         :class:`sklearn.exceptions.FitFailedWarning` warning is raised and the
-        specified score is returned.
+        specified score is returned. The error score defines the worst possible
+        score. If a score is finite but lower than the error score, the error
+        score will be returned instead.
 
     min_samples : int
         Number of samples in initial condition.
@@ -3301,6 +3305,13 @@ def score_trajectory(
     # Invert losses
     if regression_metric not in greater_is_better:
         score *= -1
+    # If score is worse than error score, return that.
+    if np.isfinite(error_score) and (score < error_score):
+        warnings.warn(
+            f'Score `score={score}` is finite, but is lower than error '
+            f'score `error_score={error_score}`. Returning error score.',
+            sklearn.exceptions.FitFailedWarning)
+        return error_score
     return score
 
 
