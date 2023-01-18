@@ -3298,6 +3298,9 @@ def score_trajectory(
     # Invert losses
     if regression_metric not in greater_is_better:
         score *= -1
+    # If score is worse than error score, return that.
+    if np.isfinite(error_score) and (score < error_score):
+        return error_score
     return score
 
 
