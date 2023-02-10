@@ -1193,8 +1193,11 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
             X = sklearn.utils.validation.check_array(
                 X, **self._check_array_params)
         else:
-            X, y = sklearn.utils.validation.check_X_y(X, y,
-                                                      **self._check_X_y_params)
+            X, y = sklearn.utils.validation.check_X_y(
+                X,
+                y,
+                **self._check_X_y_params,
+            )
         # Validate constructor parameters
         self._validate_parameters()
         # Compute fit attributes

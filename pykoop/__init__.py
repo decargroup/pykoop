@@ -39,7 +39,7 @@ from .lifting_functions import (
     KernelApproxLiftingFn,
     SkLearnLiftingFn,
 )
-from .regressors import Dmd, Dmdc, Edmd, EdmdMeta
+from .regressors import Dmd, Dmdc, Edmd, EdmdMeta, DataRegressor
 from .tsvd import Tsvd
 from .util import (
     AnglePreprocessor,

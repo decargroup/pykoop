@@ -124,6 +124,51 @@ class TestRegressorsExact:
         )
 
 
+class TestDataRegressorExact:
+    """Test :class:`DataRegressor` with exact solutions."""
+
+    def test_fit(self, request):
+        """Test fit accuracy by comparing Koopman matrix."""
+        # Get fixture from name
+        msd = request.getfixturevalue('mass_spring_damper_sine_input')
+        regressor = pykoop.DataRegressor(coef=msd['U_valid'].T)
+        # Fit regressor
+        regressor.fit(
+            msd['X_train'],
+            msd['Xp_train'],
+            n_inputs=msd['n_inputs'],
+            episode_feature=msd['episode_feature'],
+        )
+        # Test value of Koopman operator
+        np.testing.assert_allclose(
+            regressor.coef_.T,
+            msd['U_valid'],
+            atol=1e-5,
+            rtol=0,
+        )
+
+    def test_predict(self, request):
+        """Test fit accuracy by comparing prediction."""
+        # Get fixture from name
+        msd = request.getfixturevalue('mass_spring_damper_sine_input')
+        regressor = pykoop.DataRegressor(coef=msd['U_valid'].T)
+        # Fit regressor
+        regressor.fit(
+            msd['X_train'],
+            msd['Xp_train'],
+            n_inputs=msd['n_inputs'],
+            episode_feature=msd['episode_feature'],
+        )
+        # Test prediction
+        prediction = regressor.predict(msd['X_valid'])
+        np.testing.assert_allclose(
+            prediction,
+            msd['Xp_valid'],
+            atol=1e-3,
+            rtol=0,
+        )
+
+
 @pytest.mark.parametrize(
     'regressor, mass_spring_damper',
     [
@@ -210,6 +255,7 @@ class TestSkLearn:
         pykoop.EdmdMeta(regressor=sklearn.linear_model.Ridge(alpha=1)),
         pykoop.Dmdc(),
         pykoop.Dmd(),
+        pykoop.DataRegressor(),
     ])
     def test_compatible_estimator(self, estimator, check):
         """Test ``scikit-learn`` compatibility of estimators."""
@@ -224,11 +270,14 @@ class TestExceptions:
         [4, 3, 2, 1],
     ])
 
-    @pytest.mark.parametrize('estimator', [
-        pykoop.Edmd(alpha=-1),
-        pykoop.Dmdc(mode_type='blah'),
-        pykoop.Dmd(mode_type='blah'),
-    ])
+    @pytest.mark.parametrize(
+        'estimator',
+        [
+            pykoop.Edmd(alpha=-1),
+            pykoop.Dmdc(mode_type='blah'),
+            pykoop.Dmd(mode_type='blah'),
+            pykoop.DataRegressor(coef=np.eye(2)),  # Wrong dimensions for data
+        ])
     def test_invalid_params(self, estimator):
         """Test a selection of invalid estimator parameter."""
         with pytest.raises(ValueError):
