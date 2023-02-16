@@ -3,8 +3,9 @@
 import numpy as np
 import pandas
 import pytest
+import sklearn.metrics
+import sklearn.preprocessing
 import sklearn.utils.estimator_checks
-from sklearn import exceptions, preprocessing
 
 import pykoop
 
@@ -92,8 +93,9 @@ import pykoop
             pykoop.KoopmanPipeline(
                 lifting_functions=[
                     ('pl', pykoop.PolynomialLiftingFn(order=2)),
-                    ('sc', pykoop.SkLearnLiftingFn(
-                        preprocessing.MaxAbsScaler())),
+                    ('sc',
+                     pykoop.SkLearnLiftingFn(
+                         sklearn.preprocessing.MaxAbsScaler())),
                 ],
                 regressor=None,
             ),
@@ -132,8 +134,9 @@ import pykoop
         (
             pykoop.KoopmanPipeline(
                 lifting_functions=[
-                    ('sc', pykoop.SkLearnLiftingFn(
-                        preprocessing.MaxAbsScaler())),
+                    ('sc',
+                     pykoop.SkLearnLiftingFn(
+                         sklearn.preprocessing.MaxAbsScaler())),
                     ('pl', pykoop.PolynomialLiftingFn(order=2)),
                 ],
                 regressor=None,
@@ -290,9 +293,9 @@ class TestKoopmanPipelineFit:
         assert all(kp.feature_names_in_ == names)
 
 
-@pytest.mark.filterwarnings(
-    'ignore:Prediction diverged or error occured while fitting, returning '
-    'error score.')
+@pytest.mark.filterwarnings('ignore:Score `score=')
+@pytest.mark.filterwarnings('ignore:Prediction diverged or error occured')
+@pytest.mark.filterwarnings('ignore:overflow encountered in square')
 class TestKoopmanPipelineScore:
     """Test Koopman pipeline scoring."""
 
@@ -671,6 +674,24 @@ class TestKoopmanPipelineScore:
                     discount_factor=0.9,
                     regression_metric='explained_variance',
                     regression_metric_kw={'multioutput': 'variance_weighted'},
+                ),
+                np.array([
+                    [1, 2, 3, 4],
+                    [2, 3, 3, 2],
+                ]).T,
+                np.array([
+                    [1, 2, 1, 4],
+                    [1, 3, 3, 2],
+                ]).T,
+                False,
+                0,
+            ),
+            (
+                pykoop.KoopmanPipeline(regressor=pykoop.Edmd()),
+                pykoop.KoopmanPipeline.make_scorer(
+                    n_steps=2,
+                    discount_factor=0.9,
+                    regression_metric=sklearn.metrics.r2_score,
                 ),
                 np.array([
                     [1, 2, 3, 4],

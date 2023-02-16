@@ -2776,7 +2776,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     def make_scorer(
         n_steps: int = None,
         discount_factor: float = 1,
-        regression_metric: str = 'neg_mean_squared_error',
+        regression_metric: Union[str, Callable] = 'neg_mean_squared_error',
         regression_metric_kw: Dict[str, Any] = None,
         error_score: Union[str, float] = np.nan,
         multistep: bool = True,
@@ -2807,7 +2807,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             timestep is weighted by ``discount_factor**k``, where ``k`` is the
             timestep.
 
-        regression_metric : str
+        regression_metric : Union[str, Callable]
             Regression metric to use. One of
 
             - ``'explained_variance'``,
@@ -2818,7 +2818,10 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             - ``'r2'``, or
             - ``'neg_mean_absolute_percentage_error'``,
 
-            which are existing ``scikit-learn`` regression metrics [#sc]_.
+            which are existing ``scikit-learn`` regression metrics [#sc]_. Can
+            also directly specify a function with the same keyword arguments as
+            the ``scikit-learn`` ones. That is, at least ``y_true``,
+            ``y_pred``, ``sample_weight``, and ``multioutput``.
 
         regression_metric_kw : Dict[str, Any]
             Keyword arguments for ``regression_method``. If ``sample_weight``
@@ -3173,7 +3176,7 @@ def score_trajectory(
     X_expected: np.ndarray,
     n_steps: int = None,
     discount_factor: float = 1,
-    regression_metric: str = 'neg_mean_squared_error',
+    regression_metric: Union[str, Callable] = 'neg_mean_squared_error',
     regression_metric_kw: Dict[str, Any] = None,
     error_score: Union[str, float] = np.nan,
     min_samples: int = 1,
@@ -3199,7 +3202,7 @@ def score_trajectory(
         timestep is weighted by ``discount_factor**k``, where ``k`` is the
         timestep.
 
-    regression_metric : str
+    regression_metric : Union[str, Callable]
         Regression metric to use. One of
 
         - ``'explained_variance'``,
@@ -3210,7 +3213,10 @@ def score_trajectory(
         - ``'r2'``, or
         - ``'neg_mean_absolute_percentage_error'``,
 
-        which are existing ``scikit-learn`` regression metrics [#sc]_.
+        which are existing ``scikit-learn`` regression metrics [#sc]_. Can also
+        directly specify a function with the same keyword arguments as the
+        ``scikit-learn`` ones. That is, at least ``y_true``, ``y_pred``,
+        ``sample_weight``, and ``multioutput``.
 
     regression_metric_kw : Dict[str, Any]
         Keyword arguments for ``regression_method``. If ``sample_weight``
@@ -3309,7 +3315,10 @@ def score_trajectory(
     regression_metric_args['y_true'] = X_expected
     regression_metric_args['y_pred'] = X_predicted
     # Calculate score
-    score = regression_metrics[regression_metric](**regression_metric_args)
+    if isinstance(regression_metric, str):
+        score = regression_metrics[regression_metric](**regression_metric_args)
+    else:
+        score = regression_metric(**regression_metric_args)
     # Return error score if score is not finite
     if not np.isfinite(score):
         if error_score == 'raise':
