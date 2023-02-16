@@ -2776,7 +2776,8 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     def make_scorer(
         n_steps: int = None,
         discount_factor: float = 1,
-        regression_metric: str = 'neg_mean_squared_error',
+        regression_metric: Union[str, Callable] = 'neg_mean_squared_error',
+        regression_metric_kw: Dict[str, Any] = None,
         error_score: Union[str, float] = np.nan,
         multistep: bool = True,
         relift_state: bool = True,
@@ -2806,7 +2807,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             timestep is weighted by ``discount_factor**k``, where ``k`` is the
             timestep.
 
-        regression_metric : str
+        regression_metric : Union[str, Callable]
             Regression metric to use. One of
 
             - ``'explained_variance'``,
@@ -2817,7 +2818,14 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             - ``'r2'``, or
             - ``'neg_mean_absolute_percentage_error'``,
 
-            which are existing ``scikit-learn`` regression metrics [#sc]_.
+            which are existing ``scikit-learn`` regression metrics [#sc]_. Can
+            also directly specify a function with the same keyword arguments as
+            the ``scikit-learn`` ones. That is, at least ``y_true``,
+            ``y_pred``, ``sample_weight``, and ``multioutput``.
+
+        regression_metric_kw : Dict[str, Any]
+            Keyword arguments for ``regression_method``. If ``sample_weight``
+            keyword argument is specified, ``discount_factor`` is ignored.
 
         error_score : Union[str, float]
             Value to assign to the score if ``X_predicted`` has diverged or if
@@ -2896,6 +2904,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
                     n_steps=n_steps,
                     discount_factor=discount_factor,
                     regression_metric=regression_metric,
+                    regression_metric_kw=regression_metric_kw,
                     error_score=error_score,
                     min_samples=estimator.min_samples_,
                     episode_feature=estimator.episode_feature_,
@@ -2919,6 +2928,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
                     n_steps=None,
                     discount_factor=1,
                     regression_metric=regression_metric,
+                    regression_metric_kw=regression_metric_kw,
                     error_score=error_score,
                     min_samples=estimator.min_samples_,
                     episode_feature=estimator.episode_feature_,
@@ -3166,7 +3176,8 @@ def score_trajectory(
     X_expected: np.ndarray,
     n_steps: int = None,
     discount_factor: float = 1,
-    regression_metric: str = 'neg_mean_squared_error',
+    regression_metric: Union[str, Callable] = 'neg_mean_squared_error',
+    regression_metric_kw: Dict[str, Any] = None,
     error_score: Union[str, float] = np.nan,
     min_samples: int = 1,
     episode_feature: bool = False,
@@ -3191,7 +3202,7 @@ def score_trajectory(
         timestep is weighted by ``discount_factor**k``, where ``k`` is the
         timestep.
 
-    regression_metric : str
+    regression_metric : Union[str, Callable]
         Regression metric to use. One of
 
         - ``'explained_variance'``,
@@ -3202,7 +3213,14 @@ def score_trajectory(
         - ``'r2'``, or
         - ``'neg_mean_absolute_percentage_error'``,
 
-        which are existing ``scikit-learn`` regression metrics [#sc]_.
+        which are existing ``scikit-learn`` regression metrics [#sc]_. Can also
+        directly specify a function with the same keyword arguments as the
+        ``scikit-learn`` ones. That is, at least ``y_true``, ``y_pred``,
+        ``sample_weight``, and ``multioutput``.
+
+    regression_metric_kw : Dict[str, Any]
+        Keyword arguments for ``regression_method``. If ``sample_weight``
+        keyword argument is specified, ``discount_factor`` is ignored.
 
     error_score : Union[str, float]
         Value to assign to the score if ``X_predicted`` has diverged or if an
@@ -3285,13 +3303,22 @@ def score_trajectory(
     if episode_feature:
         X_expected = X_expected[:, 1:]
         X_predicted = X_predicted[:, 1:]
+    # Set default arguments
+    regression_metric_args = {
+        'sample_weight': weights,
+        'multioutput': 'uniform_average',
+    }
+    # Override default arguments
+    if regression_metric_kw is not None:
+        regression_metric_args.update(regression_metric_kw)
+    # Add arguments that can't be overridden
+    regression_metric_args['y_true'] = X_expected
+    regression_metric_args['y_pred'] = X_predicted
     # Calculate score
-    score = regression_metrics[regression_metric](
-        X_expected,
-        X_predicted,
-        sample_weight=weights,
-        multioutput='uniform_average',
-    )
+    if isinstance(regression_metric, str):
+        score = regression_metrics[regression_metric](**regression_metric_args)
+    else:
+        score = regression_metric(**regression_metric_args)
     # Return error score if score is not finite
     if not np.isfinite(score):
         if error_score == 'raise':

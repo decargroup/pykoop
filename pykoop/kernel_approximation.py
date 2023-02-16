@@ -328,7 +328,7 @@ class RandomBinningKernelApprox(KernelApproximation):
         kernel_or_ddot: Union[str, scipy.stats.rv_continuous] = 'laplacian',
         n_components: int = 100,
         shape: float = 1,
-        encoder_kwargs: Dict[str, Any] = None,
+        encoder_kw: Dict[str, Any] = None,
         random_state: Union[int, np.random.RandomState] = None,
     ) -> None:
         r"""Instantiate :class:`RandomBinningKernelApprox`.
@@ -360,7 +360,7 @@ class RandomBinningKernelApprox(KernelApproximation):
             This can lead to a mysterious factor of ``sqrt(2)`` in other
             kernels. Default is ``1``.
 
-        encoder_kwargs : Dict[str, Any]
+        encoder_kw : Dict[str, Any]
             Extra keyword arguments for internal
             :class:`sklearn.preprocessing.OneHotEncoder`. For experimental use
             only. The wrong arguments can break everything. Overrides defaults.
@@ -371,7 +371,7 @@ class RandomBinningKernelApprox(KernelApproximation):
         self.kernel_or_ddot = kernel_or_ddot
         self.n_components = n_components
         self.shape = shape
-        self.encoder_kwargs = encoder_kwargs
+        self.encoder_kw = encoder_kw
         self.random_state = random_state
 
     def fit(
@@ -429,8 +429,8 @@ class RandomBinningKernelApprox(KernelApproximation):
             'sparse': False,
             'handle_unknown': 'ignore',
         }
-        if self.encoder_kwargs is not None:
-            encoder_args.update(self.encoder_kwargs)
+        if self.encoder_kw is not None:
+            encoder_args.update(self.encoder_kw)
         self.encoder_ = sklearn.preprocessing.OneHotEncoder(**encoder_args)
         self.encoder_.fit(X_hashed)
         # Get number of output features from the encoder
