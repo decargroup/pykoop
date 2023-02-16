@@ -593,25 +593,25 @@ class TestKoopmanPipelineScore:
         if (error_score == 'raise') and (score_exp is None):
             with pytest.raises(ValueError):
                 pykoop.score_trajectory(
-                    X_predicted,
-                    X_expected,
-                    n_steps,
-                    discount_factor,
-                    regression_metric,
-                    error_score,
-                    min_samples,
-                    episode_feature,
+                    X_predicted=X_predicted,
+                    X_expected=X_expected,
+                    n_steps=n_steps,
+                    discount_factor=discount_factor,
+                    regression_metric=regression_metric,
+                    error_score=error_score,
+                    min_samples=min_samples,
+                    episode_feature=episode_feature,
                 )
         else:
             score = pykoop.score_trajectory(
-                X_predicted,
-                X_expected,
-                n_steps,
-                discount_factor,
-                regression_metric,
-                error_score,
-                min_samples,
-                episode_feature,
+                X_predicted=X_predicted,
+                X_expected=X_expected,
+                n_steps=n_steps,
+                discount_factor=discount_factor,
+                regression_metric=regression_metric,
+                error_score=error_score,
+                min_samples=min_samples,
+                episode_feature=episode_feature,
             )
             np.testing.assert_allclose(score, score_exp)
 
@@ -663,6 +663,25 @@ class TestKoopmanPipelineScore:
                 pykoop.example_data_msd()['X_valid'],
                 True,
                 1,
+            ),
+            (
+                pykoop.KoopmanPipeline(regressor=pykoop.Edmd()),
+                pykoop.KoopmanPipeline.make_scorer(
+                    n_steps=2,
+                    discount_factor=0.9,
+                    regression_metric='explained_variance',
+                    regression_metric_kw={'multioutput': 'variance_weighted'},
+                ),
+                np.array([
+                    [1, 2, 3, 4],
+                    [2, 3, 3, 2],
+                ]).T,
+                np.array([
+                    [1, 2, 1, 4],
+                    [1, 3, 3, 2],
+                ]).T,
+                False,
+                0,
             ),
         ])
     def test_make_scorer_regression(
