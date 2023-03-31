@@ -154,6 +154,57 @@ class EdmdMeta(koopman_pipeline.KoopmanRegressor):
         pass
 
 
+class TlsEdmd(koopman_pipeline.KoopmanRegressor):
+    """Extended Dynamic Mode Decomposition with total least squares.
+
+    Attributes
+    ----------
+    n_features_in_ : int
+        Number of features input, including episode feature.
+    n_states_in_ : int
+        Number of states input.
+    n_inputs_in_ : int
+        Number of inputs input.
+    episode_feature_ : bool
+        Indicates if episode feature was present during :func:`fit`.
+    feature_names_in_ : np.ndarray
+        Array of input feature name strings.
+    coef_ : np.ndarray
+        Fit coefficient matrix.
+
+    Examples
+    --------
+    TLS EDMD without regularization on mass-spring-damper data
+
+    >>> kp = pykoop.KoopmanPipeline(regressor=pykoop.TlsEdmd())
+    >>> kp.fit(X_msd, n_inputs=1, episode_feature=True)
+    KoopmanPipeline(regressor=Edmd())
+    """
+
+    def __init__(self) -> None:
+        """Instantiate :class:`TlsEdmd`."""
+        pass
+
+    def _fit_regressor(self, X_unshifted: np.ndarray,
+                       X_shifted: np.ndarray) -> np.ndarray:
+        Psi = X_unshifted.T
+        Theta_p = X_shifted.T
+        q = Psi.shape[1]
+        A = (Psi @ Psi.T) / q
+        B = (Psi @ Theta_p.T) / q
+        C = np.hstack([A, B])
+        Q, sig, Zh = linalg.svd(C, full_matrices=True)
+        Z = Zh.T
+        n = A.shape[1]
+        V12 = Z[:n, n:]
+        V22 = Z[n:, n:]
+        coef = -1 * linalg.solve(V22.T, V12.T).T
+        return coef
+
+    def _validate_parameters(self) -> None:
+        pass
+
+
 class Dmdc(koopman_pipeline.KoopmanRegressor):
     """Dynamic Mode Decomposition with control.
 
