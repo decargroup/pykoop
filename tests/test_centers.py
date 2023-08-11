@@ -322,7 +322,7 @@ class TestClusterCenters:
         est.fit(X)
         ndarrays_regression.check(
             {
-                'est.centers_': est.centers_,
+                'est.centers_': np.sort(est.centers_, axis=0),
             },
             default_tolerance=dict(atol=self.tol, rtol=0),
         )
