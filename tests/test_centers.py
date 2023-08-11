@@ -119,9 +119,10 @@ class TestUniformRandomCenters:
     def test_uniform_centers(self, ndarrays_regression, est, X):
         """Test center locations."""
         est.fit(X)
+        idx = np.argsort(est.centers_[:, 0])
         ndarrays_regression.check(
             {
-                'est.centers_': np.sort(est.centers_, axis=0),
+                'est.centers_': est.centers_[idx],
             },
             default_tolerance=dict(atol=self.tol, rtol=0),
         )
@@ -174,9 +175,10 @@ class TestGaussianRandomCenters:
     def test_gaussian_centers(self, ndarrays_regression, est, X):
         """Test center locations."""
         est.fit(X)
+        idx = np.argsort(est.centers_[:, 0])
         ndarrays_regression.check(
             {
-                'est.centers_': np.sort(est.centers_, axis=0),
+                'est.centers_': est.centers_[idx],
             },
             default_tolerance=dict(atol=self.tol, rtol=0),
         )
@@ -247,10 +249,9 @@ class TestQmcCenters:
     def test_qmc_centers(self, ndarrays_regression, est, X):
         """Test center locations."""
         est.fit(X)
+        idx = np.argsort(est.centers_[:, 0])
         ndarrays_regression.check(
-            {
-                'est.centers_': np.sort(est.centers_, axis=0),
-            },
+            {'est.centers_': est.centers_[idx]},
             default_tolerance=dict(atol=self.tol, rtol=0),
         )
 
@@ -320,9 +321,10 @@ class TestClusterCenters:
     def test_cluster_centers(self, ndarrays_regression, est, X):
         """Test center locations."""
         est.fit(X)
+        idx = np.argsort(est.centers_[:, 0])
         ndarrays_regression.check(
             {
-                'est.centers_': np.sort(est.centers_, axis=0),
+                'est.centers_': est.centers_[idx],
             },
             default_tolerance=dict(atol=self.tol, rtol=0),
         )
@@ -369,9 +371,10 @@ class TestGaussianMixtureRandomCenters:
     def test_mixture_centers(self, ndarrays_regression, est, X):
         """Test center locations."""
         est.fit(X)
+        idx = np.argsort(est.centers_[:, 0])
         ndarrays_regression.check(
             {
-                'est.centers_': np.sort(est.centers_, axis=0),
+                'est.centers_': est.centers_[idx],
             },
             default_tolerance=dict(atol=self.tol, rtol=0),
         )
