@@ -292,6 +292,28 @@ class TestKoopmanPipelineFit:
         kp.transform(X_names)
         assert all(kp.feature_names_in_ == names)
 
+    def test_frequency_response(
+        self,
+        ndarrays_regression,
+        mass_spring_damper_sine_input,
+    ):
+        """Test Koopman pipeline frequency response."""
+        kp = pykoop.KoopmanPipeline(regressor=pykoop.Edmd())
+        kp.fit(
+            mass_spring_damper_sine_input['X_train'],
+            n_inputs=mass_spring_damper_sine_input['n_inputs'],
+            episode_feature=mass_spring_damper_sine_input['episode_feature'],
+        )
+        freq, mag = kp.frequency_response(
+            t_step=mass_spring_damper_sine_input['t_step'], )
+        ndarrays_regression.check(
+            {
+                'freq': freq,
+                'mag': mag,
+            },
+            default_tolerance=dict(atol=1e-6, rtol=0),
+        )
+
 
 @pytest.mark.filterwarnings('ignore:Score `score=')
 @pytest.mark.filterwarnings('ignore:Prediction diverged or error occured')

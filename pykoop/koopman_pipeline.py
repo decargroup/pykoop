@@ -1290,6 +1290,73 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         """
         raise NotImplementedError()
 
+    def frequency_response(
+        self,
+        t_step: float,
+        f_min: float = 0,
+        f_max: float = None,
+        n_points: int = 1000,
+        decibels: bool = True,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Compute frequency response of Koopman system.
+
+        Parameters
+        ----------
+        t_step : float
+            Sampling timestep.
+        f_min : float
+            Minimum frequency to plot.
+        f_max : float
+            Maximum frequency to plot.
+        n_points : int
+            Number of frequecy points to plot.
+        decibels : bool
+            Plot gain in dB (default is true).
+
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray]
+            Frequency (Hz) and frequency response (gain or dB).
+
+        Raises
+        ------
+        ValueError
+            If ``f_min`` is less than zero or ``f_max`` is greater than the
+            Nyquist frequency.
+        """
+        sklearn.utils.validation.check_is_fitted(self)
+        # Get Koopman ``A`` and ``B`` matrices
+        koop_mat = self.coef_.T
+        A = koop_mat[:, :koop_mat.shape[0]]
+        B = koop_mat[:, koop_mat.shape[0]:]
+
+        def _sigma_bar_G(f):
+            """Compute Bode plot at given frequency."""
+            z = np.exp(1j * 2 * np.pi * f * t_step)
+            G = linalg.solve((np.diag([z] * A.shape[0]) - A), B)
+            return linalg.svdvals(G)[0]
+
+        # Generate frequency response data
+        f_samp = 1 / t_step
+        if f_min < 0:
+            raise ValueError('`f_min` must be at least 0.')
+        if f_max is None:
+            f_max = f_samp / 2
+        if f_max > f_samp / 2:
+            raise ValueError(
+                '`f_max` must be less than the Nyquist frequency.')
+        f_plot = np.linspace(f_min, f_max, n_points)
+        bode = []
+        for k in range(f_plot.size):
+            bode.append(_sigma_bar_G(f_plot[k]))
+        mag = np.array(bode)
+        if decibels:
+            mag_db = 20 * np.log10(mag)
+            freqresp = (f_plot, mag_db)
+        else:
+            freqresp = (f_plot, mag)
+        return freqresp
+
     def plot_bode(
         self,
         t_step: float,
@@ -1332,32 +1399,6 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
             Nyquist frequency.
         """
         sklearn.utils.validation.check_is_fitted(self)
-        # Get Koopman ``A`` and ``B`` matrices
-        koop_mat = self.coef_.T
-        A = koop_mat[:, :koop_mat.shape[0]]
-        B = koop_mat[:, koop_mat.shape[0]:]
-
-        def _sigma_bar_G(f):
-            """Compute Bode plot at given frequency."""
-            z = np.exp(1j * 2 * np.pi * f * t_step)
-            G = linalg.solve((np.diag([z] * A.shape[0]) - A), B)
-            return linalg.svdvals(G)[0]
-
-        # Generate frequency response data
-        f_samp = 1 / t_step
-        if f_min < 0:
-            raise ValueError('`f_min` must be at least 0.')
-        if f_max is None:
-            f_max = f_samp / 2
-        if f_max > f_samp / 2:
-            raise ValueError(
-                '`f_max` must be less than the Nyquist frequency.')
-        f_plot = np.linspace(f_min, f_max, n_points)
-        bode = []
-        for k in range(f_plot.size):
-            bode.append(_sigma_bar_G(f_plot[k]))
-        mag = np.array(bode)
-        mag_db = 20 * np.log10(mag)
         # Create figure
         subplots_args = {} if subplots_kw is None else subplots_kw
         subplots_args.update({
@@ -1368,12 +1409,19 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         plot_args = {} if plot_kw is None else plot_kw
         # Plot data
         ylabel = r'$\bar{\sigma}\left({\bf G}(e^{j \theta})\right)$'
+        f_plot, mag = self.frequency_response(
+            t_step,
+            f_min,
+            f_max,
+            n_points,
+            decibels,
+        )
+        ax.semilogx(f_plot, mag, **plot_args)
         if decibels:
-            ax.semilogx(f_plot, mag_db, **plot_args)
-            ax.set_ylabel(f'{ylabel} (dB)')
+            ylabel = f'{ylabel} (dB)'
         else:
-            ax.semilogx(f_plot, mag, **plot_args)
-            ax.set_ylabel(f'{ylabel} (unitless gain)')
+            ylabel = f'{ylabel} (unitless gain)'
+        ax.set_ylabel(ylabel)
         ax.set_xlabel(r'$f$ (Hz)')
         return fig, ax
 
@@ -3035,6 +3083,50 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
                                  'samples but at least `min_samples_`='
                                  f'{self.min_samples_} samples are required.')
         return episodes
+
+    def frequency_response(
+        self,
+        t_step: float,
+        f_min: float = 0,
+        f_max: float = None,
+        n_points: int = 1000,
+        decibels: bool = True,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Compute frequency response of Koopman system.
+
+        Parameters
+        ----------
+        t_step : float
+            Sampling timestep.
+        f_min : float
+            Minimum frequency to plot.
+        f_max : float
+            Maximum frequency to plot.
+        n_points : int
+            Number of frequecy points to plot.
+        decibels : bool
+            Plot gain in dB (default is true).
+
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray]
+            Frequency (Hz) and frequency response (gain or dB).
+
+        Raises
+        ------
+        ValueError
+            If ``f_min`` is less than zero or ``f_max`` is greater than the
+            Nyquist frequency.
+        """
+        # Ensure fit has been done
+        sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
+        return self.regressor_.frequency_response(
+            t_step,
+            f_min,
+            f_max,
+            n_points,
+            decibels,
+        )
 
     def plot_bode(
         self,
