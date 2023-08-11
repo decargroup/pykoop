@@ -299,7 +299,7 @@ class TestQmcCenters:
     (
         pykoop.ClusterCenters(estimator=sklearn.mixture.GaussianMixture(
             n_components=2,
-            tol=1e-6
+            tol=1e-6,
             random_state=1234,
         )),
         np.array([
