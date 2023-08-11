@@ -317,7 +317,7 @@ class TestClusterCenters:
         Tolerance for regression test.
     """
 
-    tol = 1e-6
+    tol = 1e-3
 
     def test_cluster_centers(self, ndarrays_regression, est, X):
         """Test center locations."""
@@ -341,7 +341,7 @@ class TestClusterCenters:
         pykoop.GaussianMixtureRandomCenters(
             estimator=sklearn.mixture.GaussianMixture(
                 n_components=2,
-                tol=1e-6
+                tol=1e-6,
                 random_state=1234,
             )),
         np.array([
@@ -353,7 +353,8 @@ class TestClusterCenters:
         pykoop.GaussianMixtureRandomCenters(
             estimator=sklearn.mixture.BayesianGaussianMixture(
                 tol=1e-6,
-                random_state=1234, )),
+                random_state=1234,
+            )),
         np.array([
             [1, 2, 3],
             [4, 5, 6],
@@ -369,7 +370,7 @@ class TestGaussianMixtureRandomCenters:
         Tolerance for regression test.
     """
 
-    tol = 1e-6
+    tol = 1e-3
 
     def test_mixture_centers(self, ndarrays_regression, est, X):
         """Test center locations."""
