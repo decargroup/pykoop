@@ -276,6 +276,7 @@ class TestQmcCenters:
     (
         pykoop.ClusterCenters(estimator=sklearn.cluster.KMeans(
             n_clusters=1,
+            n_init=10,
             random_state=1234,
         )),
         np.array([
@@ -286,6 +287,7 @@ class TestQmcCenters:
     (
         pykoop.ClusterCenters(estimator=sklearn.cluster.KMeans(
             n_clusters=2,
+            n_init=10,
             random_state=1234,
         )),
         np.array([
