@@ -122,7 +122,7 @@ class TestUniformRandomCenters:
         idx = np.argsort(est.centers_[:, 0])
         ndarrays_regression.check(
             {
-                'est.centers_': est.centers_[idx],
+                'est.centers_': est.centers_[idx, :],
             },
             default_tolerance=dict(atol=self.tol, rtol=0),
         )
@@ -178,7 +178,7 @@ class TestGaussianRandomCenters:
         idx = np.argsort(est.centers_[:, 0])
         ndarrays_regression.check(
             {
-                'est.centers_': est.centers_[idx],
+                'est.centers_': est.centers_[idx, :],
             },
             default_tolerance=dict(atol=self.tol, rtol=0),
         )
@@ -251,7 +251,7 @@ class TestQmcCenters:
         est.fit(X)
         idx = np.argsort(est.centers_[:, 0])
         ndarrays_regression.check(
-            {'est.centers_': est.centers_[idx]},
+            {'est.centers_': est.centers_[idx, :]},
             default_tolerance=dict(atol=self.tol, rtol=0),
         )
 
@@ -324,7 +324,7 @@ class TestClusterCenters:
         idx = np.argsort(est.centers_[:, 0])
         ndarrays_regression.check(
             {
-                'est.centers_': est.centers_[idx],
+                'est.centers_': est.centers_[idx, :],
             },
             default_tolerance=dict(atol=self.tol, rtol=0),
         )
@@ -374,7 +374,7 @@ class TestGaussianMixtureRandomCenters:
         idx = np.argsort(est.centers_[:, 0])
         ndarrays_regression.check(
             {
-                'est.centers_': est.centers_[idx],
+                'est.centers_': est.centers_[idx, :],
             },
             default_tolerance=dict(atol=self.tol, rtol=0),
         )
