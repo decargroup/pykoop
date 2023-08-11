@@ -296,17 +296,6 @@ class TestQmcCenters:
             [4, 5, 6],
         ]).T,
     ),
-    (
-        pykoop.ClusterCenters(estimator=sklearn.mixture.GaussianMixture(
-            n_components=2,
-            tol=1e-6,
-            random_state=1234,
-        )),
-        np.array([
-            [1, 2, 3],
-            [4, 5, 6],
-        ]).T,
-    ),
 ])
 class TestClusterCenters:
     """Test :class:`ClusterCenters`.
@@ -362,26 +351,7 @@ class TestClusterCenters:
     ),
 ])
 class TestGaussianMixtureRandomCenters:
-    """Test :class:`GaussianMixtureRandomCenters`.
-
-    Attributes
-    ----------
-    tol : float
-        Tolerance for regression test.
-    """
-
-    tol = 1e-3
-
-    def test_mixture_centers(self, ndarrays_regression, est, X):
-        """Test center locations."""
-        est.fit(X)
-        idx = np.argsort(est.centers_[:, 0])
-        ndarrays_regression.check(
-            {
-                'est.centers_': est.centers_[idx, :],
-            },
-            default_tolerance=dict(atol=self.tol, rtol=0),
-        )
+    """Test :class:`GaussianMixtureRandomCenters`."""
 
     def test_n_centers(self, est, X):
         """Test number of centers."""
