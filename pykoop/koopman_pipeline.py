@@ -1614,15 +1614,11 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
 class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     """Meta-estimator for lifting states and inputs separately.
 
-    Only works with episode-independent lifting functions! It's too complicated
-    to make this work with :class:`DelayLiftingFn`, especially when you can
-    just set ``n_delays_input=0``.
-
     Attributes
     ----------
-    lifting_functions_state_: List[Tuple[str, EpisodeIndependentLiftingFn]]
+    lifting_functions_state_: List[Tuple[str, KoopmanLiftingFn]]
         Fit state lifting functions (and their names).
-    lifting_functions_input_: List[Tuple[str, EpisodeIndependentLiftingFn]]
+    lifting_functions_input_: List[Tuple[str, KoopmanLiftingFn]]
         Fit input lifting functions (and their names).
     n_features_in_ : int
         Number of features before transformation, including episode feature.
@@ -1667,18 +1663,16 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
     def __init__(
         self,
-        lifting_functions_state: List[Tuple[
-            str, EpisodeIndependentLiftingFn]] = None,
-        lifting_functions_input: List[Tuple[
-            str, EpisodeIndependentLiftingFn]] = None,
+        lifting_functions_state: List[Tuple[str, KoopmanLiftingFn]] = None,
+        lifting_functions_input: List[Tuple[str, KoopmanLiftingFn]] = None,
     ) -> None:
         """Instantiate :class:`SplitPipeline`.
 
         Parameters
         ----------
-        lifting_functions_state : List[Tuple[str, EpisodeIndependentLiftingFn]]
+        lifting_functions_state : List[Tuple[str, KoopmanLiftingFn]]
             Lifting functions to apply to the state features (and their names).
-        lifting_functions_input : List[Tuple[str, EpisodeIndependentLiftingFn]]
+        lifting_functions_input : List[Tuple[str, KoopmanLiftingFn]]
             Lifting functions to apply to the input features (and their names).
         """
         self.lifting_functions_state = lifting_functions_state
@@ -1776,9 +1770,7 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         # Compute number of features and minimum samples needed
         self.n_features_out_ = (self.n_states_out_ + self.n_inputs_out_ +
                                 (1 if self.episode_feature_ else 0))
-        # Since all lifting functions are episode-independent, we only ever
-        # need one sample.
-        self.min_samples_ = 1
+        self.min_samples_ = self.n_samples_in(1)
         return self
 
     def transform(self, X: np.ndarray) -> np.ndarray:
@@ -1820,15 +1812,17 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         X_out_input = X_input
         for _, lf in self.lifting_functions_input_:
             X_out_input = lf.transform(X_out_input)
+        # Truncate to same shape
+        n_samples = min(X_out_state.shape[0], X_out_input.shape[0])
         if self.episode_feature_:
             Xt = np.hstack((
-                X_out_state,
-                X_out_input[:, 1:],
+                X_out_state[-n_samples:, :],
+                X_out_input[-n_samples:, 1:],
             ))
         else:
             Xt = np.hstack((
-                X_out_state,
-                X_out_input,
+                X_out_state[-n_samples:, :],
+                X_out_input[-n_samples:, :],
             ))
         return Xt
 
@@ -1866,23 +1860,34 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         X_out_input = X_input
         for _, lf in self.lifting_functions_input_[::-1]:
             X_out_input = lf.inverse_transform(X_out_input)
+        # Truncate to same shape
+        n_samples = min(X_out_state.shape[0], X_out_input.shape[0])
         if self.episode_feature_:
             Xt = np.hstack((
-                X_out_state,
-                X_out_input[:, 1:],
+                X_out_state[-n_samples:, :],
+                X_out_input[-n_samples:, 1:],
             ))
         else:
             Xt = np.hstack((
-                X_out_state,
-                X_out_input,
+                X_out_state[-n_samples:, :],
+                X_out_input[-n_samples:, :],
             ))
         return Xt
 
     def n_samples_in(self, n_samples_out: int = 1) -> int:
         # noqa: D102
-        # Since this pipeline only works with episode-independent lifting
-        # functions, we know ``n_samples_in == n_samples_out``.
-        return n_samples_out
+        # Get number of samples from state lifting functions
+        n_samples_in_state = n_samples_out
+        if self.lifting_functions_state is not None:
+            for _, tf in self.lifting_functions_state[::-1]:
+                n_samples_in_state = tf.n_samples_in(n_samples_in_state)
+        # Get number of samples from input lifting functions
+        n_samples_in_input = n_samples_out
+        if self.lifting_functions_input is not None:
+            for _, tf in self.lifting_functions_input[::-1]:
+                n_samples_in_input = tf.n_samples_in(n_samples_in_input)
+        n_samples_in = max(n_samples_in_state, n_samples_in_input)
+        return n_samples_in
 
     def get_params(self, deep: bool = True) -> Dict[str, Any]:
         # noqa: D102
