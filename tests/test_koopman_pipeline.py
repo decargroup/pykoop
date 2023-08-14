@@ -1672,6 +1672,39 @@ class TestSplitCombineEpisodes:
                 'min_samples_': 1,
             },
         ),
+        # With delays but no episode feature
+        (
+            pykoop.SplitPipeline(
+                lifting_functions_state=pykoop.DelayLiftingFn(1, 0),
+                lifting_functions_input=None,
+            ),
+            np.array(['x0', 'x1', 'u0', 'u1']),
+            # TODO
+            np.array([
+                [0, 1, 2, 3, 4, 5],
+                [5, 4, 3, 2, 1, 0],
+                [4, 5, 6, 7, 8, 9],
+                [0, 8, 7, 6, 5, 4],
+            ]).T,
+            np.array(['x0', 'x1', 'u0', 'u1']),
+            np.array([
+                [0, 1, 2, 3, 4, 5],
+                [5, 4, 3, 2, 1, 0],
+                [4, 5, 6, 7, 8, 9],
+                [0, 8, 7, 6, 5, 4],
+            ]).T,
+            2,
+            False,
+            {
+                'n_features_in_': 4,
+                'n_states_in_': 2,
+                'n_inputs_in_': 2,
+                'n_features_out_': 4,
+                'n_states_out_': 2,
+                'n_inputs_out_': 2,
+                'min_samples_': 1,
+            },
+        ),
     ],
 )
 class TestSplitPipeline:
