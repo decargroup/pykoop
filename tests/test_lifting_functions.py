@@ -1255,8 +1255,8 @@ class TestDelayLiftingFnTransform:
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         Xt = lf.transform(X)
         Xt_inv = lf.inverse_transform(Xt)
-        # If the number of delays for x and u are different, only the last
-        # samples will be the same in each episode. Must compare the last
+        # If the number of delays for ``x`` and ``u`` are different, only the
+        # last samples will be the same in each episode. Must compare the last
         # samples of each episode to ensure correctness.
         if episode_feature:
             episodes = []

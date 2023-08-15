@@ -1672,6 +1672,268 @@ class TestSplitCombineEpisodes:
                 'min_samples_': 1,
             },
         ),
+        # State delay
+        (
+            pykoop.SplitPipeline(
+                lifting_functions_state=[('dl', pykoop.DelayLiftingFn(1, 0))],
+                lifting_functions_input=None,
+            ),
+            np.array(['ep', 'x0', 'x1', 'u0', 'u1']),
+            np.array([
+                # ep
+                [0, 0, 0, 0, 1, 1],
+                # x
+                [0, 1, 2, 3, 4, 5],
+                [5, 4, 3, 2, 1, 0],
+                # u
+                [4, 5, 6, 7, 8, 9],
+                [0, 8, 7, 6, 5, 4],
+            ]).T,
+            np.array(['ep', 'x0', 'x1', 'D1(x0)', 'D1(x1)', 'u0', 'u1']),
+            np.array([
+                # ep
+                [0, 0, 0, 1],
+                # x
+                [1, 2, 3, 5],
+                [4, 3, 2, 0],
+                [0, 1, 2, 4],
+                [5, 4, 3, 1],
+                # u
+                [5, 6, 7, 9],
+                [8, 7, 6, 4],
+            ]).T,
+            2,
+            True,
+            {
+                'n_features_in_': 5,
+                'n_states_in_': 2,
+                'n_inputs_in_': 2,
+                'n_features_out_': 7,
+                'n_states_out_': 4,
+                'n_inputs_out_': 2,
+                'min_samples_': 2,
+            },
+        ),
+        # Input delay
+        (
+            pykoop.SplitPipeline(
+                lifting_functions_state=None,
+                lifting_functions_input=[('dl', pykoop.DelayLiftingFn(0, 1))],
+            ),
+            np.array(['ep', 'x0', 'x1', 'u0', 'u1']),
+            np.array([
+                # ep
+                [0, 0, 0, 0, 1, 1],
+                # x
+                [0, 1, 2, 3, 4, 5],
+                [5, 4, 3, 2, 1, 0],
+                # u
+                [4, 5, 6, 7, 8, 9],
+                [0, 8, 7, 6, 5, 4],
+            ]).T,
+            np.array(['ep', 'x0', 'x1', 'u0', 'u1', 'D1(u0)', 'D1(u1)']),
+            np.array([
+                # ep
+                [0, 0, 0, 1],
+                # x
+                [1, 2, 3, 5],
+                [4, 3, 2, 0],
+                # u
+                [5, 6, 7, 9],
+                [8, 7, 6, 4],
+                [4, 5, 6, 8],
+                [0, 8, 7, 5],
+            ]).T,
+            2,
+            True,
+            {
+                'n_features_in_': 5,
+                'n_states_in_': 2,
+                'n_inputs_in_': 2,
+                'n_features_out_': 7,
+                'n_states_out_': 2,
+                'n_inputs_out_': 4,
+                'min_samples_': 2,
+            },
+        ),
+        # State delay with nonzero ``n_delays_input``
+        (
+            pykoop.SplitPipeline(
+                lifting_functions_state=[('dl', pykoop.DelayLiftingFn(1, 1))],
+                lifting_functions_input=None,
+            ),
+            np.array(['ep', 'x0', 'x1', 'u0', 'u1']),
+            np.array([
+                # ep
+                [0, 0, 0, 0, 1, 1],
+                # x
+                [0, 1, 2, 3, 4, 5],
+                [5, 4, 3, 2, 1, 0],
+                # u
+                [4, 5, 6, 7, 8, 9],
+                [0, 8, 7, 6, 5, 4],
+            ]).T,
+            np.array(['ep', 'x0', 'x1', 'D1(x0)', 'D1(x1)', 'u0', 'u1']),
+            np.array([
+                # ep
+                [0, 0, 0, 1],
+                # x
+                [1, 2, 3, 5],
+                [4, 3, 2, 0],
+                [0, 1, 2, 4],
+                [5, 4, 3, 1],
+                # u
+                [5, 6, 7, 9],
+                [8, 7, 6, 4],
+            ]).T,
+            2,
+            True,
+            {
+                'n_features_in_': 5,
+                'n_states_in_': 2,
+                'n_inputs_in_': 2,
+                'n_features_out_': 7,
+                'n_states_out_': 4,
+                'n_inputs_out_': 2,
+                'min_samples_': 2,
+            },
+        ),
+        # Input delay with nonzero ``n_delays_state``
+        (
+            pykoop.SplitPipeline(
+                lifting_functions_state=None,
+                lifting_functions_input=[('dl', pykoop.DelayLiftingFn(1, 1))],
+            ),
+            np.array(['ep', 'x0', 'x1', 'u0', 'u1']),
+            np.array([
+                # ep
+                [0, 0, 0, 0, 1, 1],
+                # x
+                [0, 1, 2, 3, 4, 5],
+                [5, 4, 3, 2, 1, 0],
+                # u
+                [4, 5, 6, 7, 8, 9],
+                [0, 8, 7, 6, 5, 4],
+            ]).T,
+            np.array(['ep', 'x0', 'x1', 'u0', 'u1', 'D1(u0)', 'D1(u1)']),
+            np.array([
+                # ep
+                [0, 0, 0, 1],
+                # x
+                [1, 2, 3, 5],
+                [4, 3, 2, 0],
+                # u
+                [5, 6, 7, 9],
+                [8, 7, 6, 4],
+                [4, 5, 6, 8],
+                [0, 8, 7, 5],
+            ]).T,
+            2,
+            True,
+            {
+                'n_features_in_': 5,
+                'n_states_in_': 2,
+                'n_inputs_in_': 2,
+                'n_features_out_': 7,
+                'n_states_out_': 2,
+                'n_inputs_out_': 4,
+                'min_samples_': 2,
+            },
+        ),
+        # State and input delay
+        (
+            pykoop.SplitPipeline(
+                lifting_functions_state=[('dls', pykoop.DelayLiftingFn(1, 0))],
+                lifting_functions_input=[('dli', pykoop.DelayLiftingFn(0, 1))],
+            ),
+            np.array(['ep', 'x0', 'x1', 'u0', 'u1']),
+            np.array([
+                # ep
+                [0, 0, 0, 0, 1, 1],
+                # x
+                [0, 1, 2, 3, 4, 5],
+                [5, 4, 3, 2, 1, 0],
+                # u
+                [4, 5, 6, 7, 8, 9],
+                [0, 8, 7, 6, 5, 4],
+            ]).T,
+            np.array([
+                'ep', 'x0', 'x1', 'D1(x0)', 'D1(x1)', 'u0', 'u1', 'D1(u0)',
+                'D1(u1)'
+            ]),
+            np.array([
+                # ep
+                [0, 0, 0, 1],
+                # x
+                [1, 2, 3, 5],
+                [4, 3, 2, 0],
+                [0, 1, 2, 4],
+                [5, 4, 3, 1],
+                # u
+                [5, 6, 7, 9],
+                [8, 7, 6, 4],
+                [4, 5, 6, 8],
+                [0, 8, 7, 5],
+            ]).T,
+            2,
+            True,
+            {
+                'n_features_in_': 5,
+                'n_states_in_': 2,
+                'n_inputs_in_': 2,
+                'n_features_out_': 9,
+                'n_states_out_': 4,
+                'n_inputs_out_': 4,
+                'min_samples_': 2,
+            },
+        ),
+        # State and input delay with nonzero input/state delays
+        (
+            pykoop.SplitPipeline(
+                lifting_functions_state=[('dls', pykoop.DelayLiftingFn(1, 1))],
+                lifting_functions_input=[('dli', pykoop.DelayLiftingFn(1, 1))],
+            ),
+            np.array(['ep', 'x0', 'x1', 'u0', 'u1']),
+            np.array([
+                # ep
+                [0, 0, 0, 0, 1, 1],
+                # x
+                [0, 1, 2, 3, 4, 5],
+                [5, 4, 3, 2, 1, 0],
+                # u
+                [4, 5, 6, 7, 8, 9],
+                [0, 8, 7, 6, 5, 4],
+            ]).T,
+            np.array([
+                'ep', 'x0', 'x1', 'D1(x0)', 'D1(x1)', 'u0', 'u1', 'D1(u0)',
+                'D1(u1)'
+            ]),
+            np.array([
+                # ep
+                [0, 0, 0, 1],
+                # x
+                [1, 2, 3, 5],
+                [4, 3, 2, 0],
+                [0, 1, 2, 4],
+                [5, 4, 3, 1],
+                # u
+                [5, 6, 7, 9],
+                [8, 7, 6, 4],
+                [4, 5, 6, 8],
+                [0, 8, 7, 5],
+            ]).T,
+            2,
+            True,
+            {
+                'n_features_in_': 5,
+                'n_states_in_': 2,
+                'n_inputs_in_': 2,
+                'n_features_out_': 9,
+                'n_states_out_': 4,
+                'n_inputs_out_': 4,
+                'min_samples_': 2,
+            },
+        ),
     ],
 )
 class TestSplitPipeline:
@@ -1702,8 +1964,21 @@ class TestSplitPipeline:
         # Fit estimator
         lf.fit(X, n_inputs=n_inputs, episode_feature=episode_feature)
         Xt = lf.transform(X)
-        Xi = lf.inverse_transform(Xt)
-        np.testing.assert_allclose(Xi, X)
+        Xt_inv = lf.inverse_transform(Xt)
+        # If the number of delays for ``x`` and ``u`` are different, only the
+        # last samples will be the same in each episode. Must compare the last
+        # samples of each episode to ensure correctness.
+        if episode_feature:
+            episodes = []
+            for i in pandas.unique(X[:, 0]):
+                # Select episode and inverse
+                X_i = X[X[:, 0] == i, :]
+                Xt_inv_i = Xt_inv[Xt_inv[:, 0] == i, :]
+                episodes.append(X_i[-Xt_inv_i.shape[0]:, :])
+            Xt_inv_trimmed = np.vstack(episodes)
+        else:
+            Xt_inv_trimmed = X[-Xt_inv.shape[0]:, :]
+        np.testing.assert_allclose(Xt_inv_trimmed, Xt_inv)
 
     def test_feature_names_in(self, lf, names_in, X, names_out, Xt_exp,
                               n_inputs, episode_feature, attr_exp):
