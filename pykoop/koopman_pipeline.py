@@ -1366,7 +1366,7 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         decibels: bool = True,
         subplots_kw: Dict[str, Any] = None,
         plot_kw: Dict[str, Any] = None,
-    ) -> Tuple[plt.Figure, np.ndarray]:
+    ) -> Tuple[plt.Figure, plt.Axes]:
         """Plot frequency response of Koopman system.
 
         Parameters
@@ -1388,9 +1388,8 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
 
         Returns
         -------
-        Tuple[plt.Figure, np.ndarray]
-            Matplotlib :class:`plt.Figure` object and two-dimensional array of
-            :class:`plt.Axes` objects.
+        Tuple[plt.Figure, plt.Axes]
+            Matplotlib :class:`plt.Figure` and :class:`plt.Axes` objects.
 
         Raises
         ------
@@ -1431,7 +1430,7 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         figure_kw: Dict[str, Any] = None,
         subplot_kw: Dict[str, Any] = None,
         plot_kw: Dict[str, Any] = None,
-    ) -> Tuple[plt.Figure, np.ndarray]:
+    ) -> Tuple[plt.Figure, plt.Axes]:
         """Plot eigenvalues of Koopman ``A`` matrix.
 
         Parameters
@@ -1445,9 +1444,8 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
 
         Returns
         -------
-        Tuple[plt.Figure, np.ndarray]
-            Matplotlib :class:`plt.Figure` object and two-dimensional array of
-            :class:`plt.Axes` objects.
+        Tuple[plt.Figure, plt.Axes]
+            Matplotlib :class:`plt.Figure` and :class:`plt.Axes` objects.
         """
         sklearn.utils.validation.check_is_fitted(self)
         # Get Koopman ``A`` matrix
@@ -1485,7 +1483,7 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         self,
         subplots_kw: Dict[str, Any] = None,
         plot_kw: Dict[str, Any] = None,
-    ) -> Tuple[plt.Figure, np.ndarray]:
+    ) -> Tuple[plt.Figure, plt.Axes]:
         """Plot heatmap of Koopman matrices.
 
         Parameters
@@ -1497,9 +1495,8 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
 
         Returns
         -------
-        Tuple[plt.Figure, np.ndarray]
-            Matplotlib :class:`plt.Figure` object and two-dimensional array of
-            :class:`plt.Axes` objects.
+        Tuple[plt.Figure, plt.Axes]
+            Matplotlib :class:`plt.Figure` and :class:`plt.Axes` objects.
         """
         sklearn.utils.validation.check_is_fitted(self)
         U = self.coef_.T
@@ -1537,7 +1534,7 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         self,
         subplots_kw: Dict[str, Any] = None,
         plot_kw: Dict[str, Any] = None,
-    ) -> Tuple[plt.Figure, np.ndarray]:
+    ) -> Tuple[plt.Figure, plt.Axes]:
         """Plot singular values of Koopman matrices.
 
         Parameters
@@ -1549,9 +1546,8 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
 
         Returns
         -------
-        Tuple[plt.Figure, np.ndarray]
-            Matplotlib :class:`plt.Figure` object and two-dimensional array of
-            :class:`plt.Axes` objects.
+        Tuple[plt.Figure, plt.Axes]
+            Matplotlib :class:`plt.Figure` and :class:`plt.Axes` objects.
         """
         sklearn.utils.validation.check_is_fitted(self)
         koop_mat = self.coef_.T
@@ -3164,7 +3160,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         decibels: bool = True,
         subplots_kw: Dict[str, Any] = None,
         plot_kw: Dict[str, Any] = None,
-    ) -> Tuple[plt.Figure, np.ndarray]:
+    ) -> Tuple[plt.Figure, plt.Axes]:
         """Plot frequency response of Koopman system.
 
         Parameters
@@ -3186,9 +3182,8 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
         Returns
         -------
-        Tuple[plt.Figure, np.ndarray]
-            Matplotlib :class:`plt.Figure` object and two-dimensional array of
-            :class:`plt.Axes` objects.
+        Tuple[plt.Figure, plt.Axes]
+            Matplotlib :class:`plt.Figure` and :class:`plt.Axes` objects.
 
         Raises
         ------
@@ -3214,7 +3209,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         figure_kw: Dict[str, Any] = None,
         subplot_kw: Dict[str, Any] = None,
         plot_kw: Dict[str, Any] = None,
-    ) -> Tuple[plt.Figure, np.ndarray]:
+    ) -> Tuple[plt.Figure, plt.Axes]:
         """Plot eigenvalues of Koopman ``A`` matrix.
 
         Parameters
@@ -3228,9 +3223,8 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
         Returns
         -------
-        Tuple[plt.Figure, np.ndarray]
-            Matplotlib :class:`plt.Figure` object and two-dimensional array of
-            :class:`plt.Axes` objects.
+        Tuple[plt.Figure, plt.Axes]
+            Matplotlib :class:`plt.Figure` and :class:`plt.Axes` objects.
         """
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
@@ -3245,7 +3239,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         self,
         subplots_kw: Dict[str, Any] = None,
         plot_kw: Dict[str, Any] = None,
-    ) -> Tuple[plt.Figure, np.ndarray]:
+    ) -> Tuple[plt.Figure, plt.Axes]:
         """Plot heatmap of Koopman matrices.
 
         Parameters
@@ -3257,9 +3251,8 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
         Returns
         -------
-        Tuple[plt.Figure, np.ndarray]
-            Matplotlib :class:`plt.Figure` object and two-dimensional array of
-            :class:`plt.Axes` objects.
+        Tuple[plt.Figure, plt.Axes]
+            Matplotlib :class:`plt.Figure` and :class:`plt.Axes` objects.
         """
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
@@ -3269,7 +3262,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         self,
         subplots_kw: Dict[str, Any] = None,
         plot_kw: Dict[str, Any] = None,
-    ) -> Tuple[plt.Figure, np.ndarray]:
+    ) -> Tuple[plt.Figure, plt.Axes]:
         """Plot singular values of Koopman matrices.
 
         Parameters
@@ -3281,9 +3274,8 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
         Returns
         -------
-        Tuple[plt.Figure, np.ndarray]
-            Matplotlib :class:`plt.Figure` object and two-dimensional array of
-            :class:`plt.Axes` objects.
+        Tuple[plt.Figure, plt.Axes]
+            Matplotlib :class:`plt.Figure` and :class:`plt.Axes` objects.
         """
         # Ensure fit has been done
         sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
