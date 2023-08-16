@@ -1,6 +1,7 @@
 """Truncated singular value decomposition."""
 
 import logging
+from typing import Optional
 
 import numpy as np
 import optht
@@ -25,9 +26,11 @@ class Tsvd(sklearn.base.BaseEstimator):
         Number of features input.
     """
 
-    def __init__(self,
-                 truncation: str = 'economy',
-                 truncation_param: float = None) -> None:
+    def __init__(
+        self,
+        truncation: str = 'economy',
+        truncation_param: Optional[float] = None,
+    ) -> None:
         """Instantiate :class:`Tsvd`.
 
         Parameters
@@ -44,7 +47,7 @@ class Tsvd(sklearn.base.BaseEstimator):
               or
             - ``'rank'`` -- truncate singular values to a fixed rank.
 
-        truncation_param : float
+        truncation_param : Optional[float]
             Parameter whose interpretation is based on the truncation method.
             For each truncation method, ``truncation_param`` is interpreted as
 
@@ -97,14 +100,14 @@ class Tsvd(sklearn.base.BaseEstimator):
         self.truncation = truncation
         self.truncation_param = truncation_param
 
-    def fit(self, X: np.ndarray, y: np.ndarray = None) -> 'Tsvd':
+    def fit(self, X: np.ndarray, y: Optional[np.ndarray] = None) -> 'Tsvd':
         """Compute the truncated singular value decomposition.
 
         Parameters
         ----------
         X : np.ndarray
             Data matrix.
-        y : np.ndarray
+        y : Optional[np.ndarray]
             Ignored.
 
         Returns

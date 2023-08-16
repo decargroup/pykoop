@@ -4,7 +4,7 @@ All of the lifting functions included in this module adhere to the interface
 defined in :class:`KoopmanLiftingFn`.
 """
 
-from typing import Callable, Tuple, Union
+from typing import Callable, Optional, Tuple, Union
 
 import numpy as np
 import sklearn.base
@@ -76,13 +76,13 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
 
     def __init__(
         self,
-        transformer: sklearn.base.BaseEstimator = None,
+        transformer: Optional[sklearn.base.BaseEstimator] = None,
     ) -> None:
         """Instantiate :class:`SkLearnLiftingFn`.
 
         Parameters
         ----------
-        transformer : sklearn.base.BaseEstimator
+        transformer : Optional[sklearn.base.BaseEstimator]
             Transformer to wrap.
         """
         self.transformer = transformer
@@ -107,7 +107,7 @@ class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     def _transform_feature_names(
         self,
         feature_names: np.ndarray,
-        format: str = None,
+        format: Optional[str] = None,
     ) -> np.ndarray:
         # noqa: D102
         if format == 'latex':
@@ -264,7 +264,7 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     def _transform_feature_names(
         self,
         feature_names: np.ndarray,
-        format: str = None,
+        format: Optional[str] = None,
     ) -> np.ndarray:
         # noqa: D102
         if format == 'latex':
@@ -396,7 +396,7 @@ class BilinearInputLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     def _transform_feature_names(
         self,
         feature_names: np.ndarray,
-        format: str = None,
+        format: Optional[str] = None,
     ) -> np.ndarray:
         # noqa: D102
         if format == 'latex':
@@ -531,51 +531,42 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         )
 
     _rbf_lookup = {
-        'exponential': {
-            'callable': _rbf_exponential,
-            'offset': 0,
-        },
-        'gaussian': {
-            'callable': _rbf_gaussian,
-            'offset': 0,
-        },
-        'multiquadric': {
-            'callable': _rbf_multiquadric,
-            'offset': 0,
-        },
-        'inverse_quadratic': {
-            'callable': _rbf_inverse_quadratic,
-            'offset': 0
-        },
-        'inverse_multiquadric': {
-            'callable': _rbf_inverse_multiquadric,
-            'offset': 0,
-        },
-        'thin_plate': {
-            'callable': _rbf_thin_plate,
-            'offset': 1e-3,
-        },
-        'bump_function': {
-            'callable': _rbf_bump_function,
-            'offset': 0,
-        },
+        'exponential': _rbf_exponential,
+        'gaussian': _rbf_gaussian,
+        'multiquadric': _rbf_multiquadric,
+        'inverse_quadratic': _rbf_inverse_quadratic,
+        'inverse_multiquadric': _rbf_inverse_multiquadric,
+        'thin_plate': _rbf_thin_plate,
+        'bump_function': _rbf_bump_function,
     }
-    """Lookup table mapping RBF name to callable and default offset.
-
-    The default offset should only be nonzero if the function is not defined
-    for ``r = 0``.
+    """Lookup table mapping RBF name to callable
 
     The private functions here are not `@staticmethod`s because that would
     prevent `scikit-learn` from pickling them, which would make the estimator
     check fail.
     """
 
+    _offset_lookup = {
+        'exponential': 0,
+        'gaussian': 0,
+        'multiquadric': 0,
+        'inverse_quadratic': 0,
+        'inverse_multiquadric': 0,
+        'thin_plate': 1e-3,
+        'bump_function': 0,
+    }
+    """Lookup table mapping RBF name to default offset.
+
+    The default offset should only be nonzero if the function is not defined
+    for ``r = 0``.
+    """
+
     def __init__(
         self,
         rbf: Union[str, Callable[[np.ndarray], np.ndarray]] = 'gaussian',
-        centers: centers.Centers = None,
+        centers: Optional[centers.Centers] = None,
         shape: float = 1,
-        offset: float = None,
+        offset: Optional[float] = None,
     ) -> None:
         """Instantiate :class:`RbfLiftingFn`.
 
@@ -599,7 +590,7 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
             can be used. It must be vectorized, i.e., it must be callable
             with an array of radii and operate on it elementwise.
 
-        centers : centers.Centers
+        centers : Optional[pykoop.Centers]
             Estimator to generate centers from data. Number of lifting
             functions is controlled by the number of centers generated.
             Defaults to :class:`QmcCenters` with its default arguments.
@@ -608,7 +599,7 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
             Shape parameter. Must be greater than zero. Larger numbers produce
             "sharper" basis functions. Default is ``1``.
 
-        offset : float
+        offset : Optional[float]
             Offset to apply to the norm. Not needed unless RBF is not defined
             for zero radius. Default is ``None``, where zero is used for all
             ``rbf`` values except ``'thin_plate'``, where ``1e-3`` is used.
@@ -621,7 +612,7 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     def _fit_one_ep(self, X: np.ndarray) -> Tuple[int, int]:
         # Set basis function type
         if isinstance(self.rbf, str):
-            self.rbf_ = self._rbf_lookup[self.rbf]['callable']
+            self.rbf_ = self._rbf_lookup[self.rbf]
         else:
             self.rbf_ = self.rbf
         # Set and fit centers
@@ -633,7 +624,7 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         # Set offset
         if self.offset is None:
             if isinstance(self.rbf, str):
-                self.offset_ = self._rbf_lookup[self.rbf]['offset']
+                self.offset_ = self._offset_lookup[self.rbf]
             else:
                 self.offset_ = 0
         else:
@@ -683,6 +674,10 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
                 raise ValueError('`rbf` must be one of '
                                  f'{self._rbf_lookup.keys()} or a '
                                  '`Callable[[np.ndarray], np.ndarray]`.')
+            if self.rbf not in self._offset_lookup.keys():
+                raise ValueError('`rbf` must be one of '
+                                 f'{self._offset_lookup.keys()} or a '
+                                 '`Callable[[np.ndarray], np.ndarray]`.')
         if self.shape <= 0:
             raise ValueError('`shape` must be greater than zero.')
         if (self.offset is not None) and (self.offset < 0):
@@ -691,7 +686,7 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     def _transform_feature_names(
         self,
         feature_names: np.ndarray,
-        format: str = None,
+        format: Optional[str] = None,
     ) -> np.ndarray:
         if format == 'latex':
             pre = '{'
@@ -805,12 +800,15 @@ class KernelApproxLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     random_state=1234))
     """
 
-    def __init__(self, kernel_approx: KernelApproxEstimator = None) -> None:
+    def __init__(
+        self,
+        kernel_approx: Optional[KernelApproxEstimator] = None,
+    ) -> None:
         """Instantiate :class:`KernelApproxLiftingFn`.
 
         Attributes
         ----------
-        kernel_approx : KernelApproxEstimator
+        kernel_approx : Optional[KernelApproxEstimator]
             Estimator that approximates feature maps from kernels. Can be an
             instance of :class:`pykoop.KernelApprox` or one of the estimators
             from :mod:`sklearn.kernel_approximation`. Defaults to
@@ -873,7 +871,7 @@ class KernelApproxLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     def _transform_feature_names(
         self,
         feature_names: np.ndarray,
-        format: str = None,
+        format: Optional[str] = None,
     ) -> np.ndarray:
         if format == 'latex':
             pre = '{'
@@ -981,7 +979,7 @@ class ConstantLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     def _transform_feature_names(
         self,
         feature_names: np.ndarray,
-        format: str = None,
+        format: Optional[str] = None,
     ) -> np.ndarray:
         # Deal with episode feature
         if self.episode_feature_:
@@ -1009,6 +1007,8 @@ class ConstantLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
 
 class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
     """Lifting function to generate delay coordinates for state and input.
+
+    See [PD20]_ for an in-depth treatment of time-delay embeddings.
 
     Attributes
     ----------
@@ -1055,9 +1055,11 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
     >>> Xt_msd = delay.transform(X_msd[:3, :])
     """
 
-    def __init__(self,
-                 n_delays_state: int = 0,
-                 n_delays_input: int = 0) -> None:
+    def __init__(
+        self,
+        n_delays_state: int = 0,
+        n_delays_input: int = 0,
+    ) -> None:
         """Instantiate :class:`DelayLiftingFn`.
 
         Parameters
@@ -1119,7 +1121,7 @@ class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
     def _transform_feature_names(
         self,
         feature_names: np.ndarray,
-        format: str = None,
+        format: Optional[str] = None,
     ) -> np.ndarray:
         # noqa: D102
         if format == 'latex':

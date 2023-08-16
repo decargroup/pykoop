@@ -2,7 +2,7 @@
 
 import abc
 import logging
-from typing import Dict, List, Tuple, Union, Any
+from typing import Dict, List, Tuple, Union, Any, Optional
 
 import numpy as np
 import scipy.stats
@@ -38,7 +38,7 @@ class KernelApproximation(
     def fit(
         self,
         X: np.ndarray,
-        y: np.ndarray = None,
+        y: Optional[np.ndarray] = None,
     ) -> 'KernelApproximation':
         """Fit kernel approximation.
 
@@ -46,7 +46,7 @@ class KernelApproximation(
         ----------
         X : np.ndarray
             Data matrix.
-        y : np.ndarray
+        y : Optional[np.ndarray]
             Ignored.
 
         Returns
@@ -134,7 +134,7 @@ class RandomFourierKernelApprox(KernelApproximation):
         n_components: int = 100,
         shape: float = 1,
         method: str = 'weight_offset',
-        random_state: Union[int, np.random.RandomState] = None,
+        random_state: Union[int, np.random.RandomState, None] = None,
     ) -> None:
         """Instantiate :class:`RandomFourierKernelApprox`.
 
@@ -176,7 +176,7 @@ class RandomFourierKernelApprox(KernelApproximation):
             ``sin(weight.T @ x)``, meaning the number of features generated is
             ``2 * n_components``.
 
-        random_state : Union[int, np.random.RandomState]
+        random_state : Union[int, np.random.RandomState, None]
             Random seed.
         """
         self.kernel_or_ift = kernel_or_ift
@@ -188,7 +188,7 @@ class RandomFourierKernelApprox(KernelApproximation):
     def fit(
         self,
         X: np.ndarray,
-        y: np.ndarray = None,
+        y: Optional[np.ndarray] = None,
     ) -> 'RandomFourierKernelApprox':
         """Fit kernel approximation.
 
@@ -196,7 +196,7 @@ class RandomFourierKernelApprox(KernelApproximation):
         ----------
         X : np.ndarray
             Data matrix.
-        y : np.ndarray
+        y : Optional[np.ndarray]
             Ignored.
 
         Returns
@@ -328,8 +328,8 @@ class RandomBinningKernelApprox(KernelApproximation):
         kernel_or_ddot: Union[str, scipy.stats.rv_continuous] = 'laplacian',
         n_components: int = 100,
         shape: float = 1,
-        encoder_kw: Dict[str, Any] = None,
-        random_state: Union[int, np.random.RandomState] = None,
+        encoder_kw: Optional[Dict[str, Any]] = None,
+        random_state: Union[int, np.random.RandomState, None] = None,
     ) -> None:
         r"""Instantiate :class:`RandomBinningKernelApprox`.
 
@@ -360,12 +360,12 @@ class RandomBinningKernelApprox(KernelApproximation):
             This can lead to a mysterious factor of ``sqrt(2)`` in other
             kernels. Default is ``1``.
 
-        encoder_kw : Dict[str, Any]
+        encoder_kw : Optional[Dict[str, Any]]
             Extra keyword arguments for internal
             :class:`sklearn.preprocessing.OneHotEncoder`. For experimental use
             only. The wrong arguments can break everything. Overrides defaults.
 
-        random_state : Union[int, np.random.RandomState]
+        random_state : Union[int, np.random.RandomState, None]
             Random seed.
         """
         self.kernel_or_ddot = kernel_or_ddot
@@ -377,7 +377,7 @@ class RandomBinningKernelApprox(KernelApproximation):
     def fit(
         self,
         X: np.ndarray,
-        y: np.ndarray = None,
+        y: Optional[np.ndarray] = None,
     ) -> 'RandomBinningKernelApprox':
         """Fit kernel approximation.
 
@@ -385,7 +385,7 @@ class RandomBinningKernelApprox(KernelApproximation):
         ----------
         X : np.ndarray
             Data matrix.
-        y : np.ndarray
+        y : Optional[np.ndarray]
             Ignored.
 
         Returns

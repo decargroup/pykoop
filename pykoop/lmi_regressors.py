@@ -123,7 +123,7 @@ class LmiEdmd(LmiRegressor):
         Matrix two norm or nuclear norm regularization coefficient used.
     tsvd_ : pykoop.Tsvd
         Fit truncated SVD object.
-    solver_params_ : Dict[str, Any]
+    solver_params_ : Optional[Dict[str, Any]]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -183,15 +183,17 @@ class LmiEdmd(LmiRegressor):
     square_norm=True))
     """
 
-    def __init__(self,
-                 alpha: float = 0,
-                 ratio: float = 1,
-                 reg_method: str = 'tikhonov',
-                 inv_method: str = 'svd',
-                 tsvd: tsvd.Tsvd = None,
-                 square_norm: bool = False,
-                 picos_eps: float = 0,
-                 solver_params: Dict[str, Any] = None) -> None:
+    def __init__(
+        self,
+        alpha: float = 0,
+        ratio: float = 1,
+        reg_method: str = 'tikhonov',
+        inv_method: str = 'svd',
+        tsvd: Optional[tsvd.Tsvd] = None,
+        square_norm: bool = False,
+        picos_eps: float = 0,
+        solver_params: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """Instantiate :class:`LmiEdmd`.
 
         To disable regularization, use ``alpha=0`` paired with
@@ -230,7 +232,7 @@ class LmiEdmd(LmiRegressor):
             - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
             - ``'svd'`` -- split ``H`` using a singular value decomposition.
 
-        tsvd : pykoop.Tsvd()
+        tsvd : Optional[pykoop.Tsvd]
             Singular value truncation method if ``inv_method='svd'``. If
             ``None``, economy SVD is used.
 
@@ -243,7 +245,7 @@ class LmiEdmd(LmiRegressor):
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : Dict[str, Any]
+        solver_params : Optional[Dict[str, Any]]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -423,7 +425,7 @@ class LmiDmdc(LmiRegressor):
         Fit truncated SVD object for shifted data matrix.
     U_hat_ : np.ndarray
         Reduced Koopman matrix for debugging.
-    solver_params_ : Dict[str, Any]
+    solver_params_ : Optional[Dict[str, Any]]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -484,15 +486,17 @@ class LmiDmdc(LmiRegressor):
     tsvd_unshifted=Tsvd(truncation='known_noise', truncation_param=0.1)))
     """
 
-    def __init__(self,
-                 alpha: float = 0,
-                 ratio: float = 1,
-                 tsvd_unshifted: tsvd.Tsvd = None,
-                 tsvd_shifted: tsvd.Tsvd = None,
-                 reg_method: str = 'tikhonov',
-                 square_norm: bool = False,
-                 picos_eps: float = 0,
-                 solver_params: Dict[str, Any] = None) -> None:
+    def __init__(
+        self,
+        alpha: float = 0,
+        ratio: float = 1,
+        tsvd_unshifted: Optional[tsvd.Tsvd] = None,
+        tsvd_shifted: Optional[tsvd.Tsvd] = None,
+        reg_method: str = 'tikhonov',
+        square_norm: bool = False,
+        picos_eps: float = 0,
+        solver_params: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """Instantiate :class:`LmiDmdc`.
 
         Parameters
@@ -506,11 +510,11 @@ class LmiDmdc(LmiRegressor):
             regularization. If ``ratio=1``, no Tikhonov regularization is
             used. Cannot be zero. Ignored if ``reg_method='tikhonov'``.
 
-        tsvd_unshifted : pykoop.Tsvd
+        tsvd_unshifted : Optional[pykoop.Tsvd]
             Singular value truncation method used to change basis of unshifted
             data matrix. If ``None``, economy SVD is used.
 
-        tsvd_shifted : pykoop.Tsvd
+        tsvd_shifted : Optional[pykoop.Tsvd]
             Singular value truncation method used to change basis of shifted
             data matrix. If ``None``, economy SVD is used.
 
@@ -533,7 +537,7 @@ class LmiDmdc(LmiRegressor):
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : Dict[str, Any]
+        solver_params : Optional[Dict[str, Any]]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -695,7 +699,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
-    solver_params_ : Dict[str, Any]
+    solver_params_ : Optional[Dict[str, Any]]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -723,16 +727,18 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
     KoopmanPipeline(regressor=LmiEdmdSpectralRadiusConstr(spectral_radius=0.9))
     """
 
-    def __init__(self,
-                 spectral_radius: float = 1.0,
-                 max_iter: int = 100,
-                 iter_atol: float = 1e-6,
-                 iter_rtol: float = 0,
-                 alpha: float = 0,
-                 inv_method: str = 'svd',
-                 tsvd: tsvd.Tsvd = None,
-                 picos_eps: float = 0,
-                 solver_params: Dict[str, Any] = None) -> None:
+    def __init__(
+        self,
+        spectral_radius: float = 1.0,
+        max_iter: int = 100,
+        iter_atol: float = 1e-6,
+        iter_rtol: float = 0,
+        alpha: float = 0,
+        inv_method: str = 'svd',
+        tsvd: Optional[tsvd.Tsvd] = None,
+        picos_eps: float = 0,
+        solver_params: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """Instantiate :class:`LmiEdmdSpectralRadiusConstr`.
 
         To disable regularization, use ``alpha=0``.
@@ -767,7 +773,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
             - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
             - ``'svd'`` -- split ``H`` using a singular value decomposition.
 
-         tsvd : pykoop.Tsvd
+         tsvd : Optional[pykoop.Tsvd]
             Singular value truncation method if ``inv_method='svd'``. If
             ``None``, economy SVD is used.
 
@@ -775,7 +781,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : Dict[str, Any]
+        solver_params : Optional[Dict[str, Any]]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -941,7 +947,7 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
-    solver_params_ : Dict[str, Any]
+    solver_params_ : Optional[Dict[str, Any]]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -973,16 +979,18 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
     tsvd_unshifted=Tsvd(truncation='cutoff', truncation_param=1e-06)))
     """
 
-    def __init__(self,
-                 spectral_radius: float = 1.0,
-                 max_iter: int = 100,
-                 iter_atol: float = 1e-6,
-                 iter_rtol: float = 0,
-                 alpha: float = 0,
-                 tsvd_unshifted: tsvd.Tsvd = None,
-                 tsvd_shifted: tsvd.Tsvd = None,
-                 picos_eps: float = 0,
-                 solver_params: Dict[str, Any] = None) -> None:
+    def __init__(
+        self,
+        spectral_radius: float = 1.0,
+        max_iter: int = 100,
+        iter_atol: float = 1e-6,
+        iter_rtol: float = 0,
+        alpha: float = 0,
+        tsvd_unshifted: Optional[tsvd.Tsvd] = None,
+        tsvd_shifted: Optional[tsvd.Tsvd] = None,
+        picos_eps: float = 0,
+        solver_params: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """Instantiate :class:`LmiDmdcSpectralRadiusConstr`.
 
         To disable regularization, use ``alpha=0``.
@@ -999,16 +1007,16 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
             Relative tolerance for change in objective function value.
         alpha : float
             Tikhonov regularization coefficient.
-        tsvd_unshifted : pykoop.Tsvd
+        tsvd_unshifted : Optional[pykoop.Tsvd]
             Singular value truncation method used to change basis of unshifted
             data matrix. If ``None``, economy SVD is used.
-        tsvd_shifted : pykoop.Tsvd
+        tsvd_shifted : Optional[pykoop.Tsvd]
             Singular value truncation method used to change basis of shifted
             data matrix. If ``None``, economy SVD is used.
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
-        solver_params : Dict[str, Any]
+        solver_params : Optional[Dict[str, Any]]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -1199,7 +1207,7 @@ class LmiEdmdHinfReg(LmiRegressor):
         Reason iteration stopped.
     n_iter_ : int
         Number of iterations
-    solver_params_ : Dict[str, Any]
+    solver_params_ : Optional[Dict[str, Any]]
         Solver parameters used (defaults merged with constructor input).
     n_features_in_ : int
         Number of features input, including episode feature.
@@ -1248,16 +1256,16 @@ class LmiEdmdHinfReg(LmiRegressor):
         self,
         alpha: float = 1,
         ratio: float = 1,
-        weight: Tuple[str, np.ndarray, np.ndarray, np.ndarray,
-                      np.ndarray] = None,
+        weight: Optional[Tuple[str, np.ndarray, np.ndarray, np.ndarray,
+                               np.ndarray]] = None,
         max_iter: int = 100,
         iter_atol: float = 1e-6,
         iter_rtol: float = 0,
         inv_method: str = 'svd',
-        tsvd: tsvd.Tsvd = None,
+        tsvd: Optional[tsvd.Tsvd] = None,
         square_norm: bool = False,
         picos_eps: float = 0,
-        solver_params: Dict[str, Any] = None,
+        solver_params: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Instantiate :class:`LmiEdmdHinfReg`.
 
@@ -1272,7 +1280,8 @@ class LmiEdmdHinfReg(LmiRegressor):
             Ratio of H-infinity norm to use in mixed regularization. If
             ``ratio=1``, no Tikhonov regularization is used. Cannot be zero.
 
-        weight : Tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        weight : Optional[Tuple[str, np.ndarray, np.ndarray, np.ndarray,
+                                np.ndarray]]
             Tuple containing weight type (``'pre'`` or ``'post'``), and the
             weight state space matrices (``A``, ``B``, ``C``, and ``D``). If
             ``None``, no weighting is used.
@@ -1298,7 +1307,7 @@ class LmiEdmdHinfReg(LmiRegressor):
             - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
             - ``'svd'`` -- split ``H`` using a singular value decomposition.
 
-         tsvd : pykoop.Tsvd
+         tsvd : Optional[pykoop.Tsvd]
             Singular value truncation method if ``inv_method='svd'``. If
             ``None``, economy SVD is used.
 
@@ -1311,7 +1320,7 @@ class LmiEdmdHinfReg(LmiRegressor):
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : Dict[str, Any]
+        solver_params : Optional[Dict[str, Any]]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -1586,16 +1595,16 @@ class LmiDmdcHinfReg(LmiRegressor):
         self,
         alpha: float = 1,
         ratio: float = 1,
-        weight: Tuple[str, np.ndarray, np.ndarray, np.ndarray,
-                      np.ndarray] = None,
+        weight: Optional[Tuple[str, np.ndarray, np.ndarray, np.ndarray,
+                               np.ndarray]] = None,
         max_iter: int = 100,
         iter_atol: float = 1e-6,
         iter_rtol: float = 0,
-        tsvd_unshifted: tsvd.Tsvd = None,
-        tsvd_shifted: tsvd.Tsvd = None,
+        tsvd_unshifted: Optional[tsvd.Tsvd] = None,
+        tsvd_shifted: Optional[tsvd.Tsvd] = None,
         square_norm: bool = False,
         picos_eps: float = 0,
-        solver_params: Dict[str, Any] = None,
+        solver_params: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Instantiate :class:`LmiDmdcHinfReg`.
 
@@ -1608,7 +1617,8 @@ class LmiDmdcHinfReg(LmiRegressor):
         ratio : float
             Ratio of H-infinity norm to use in mixed regularization. If
             ``ratio=1``, no Tikhonov regularization is used. Cannot be zero.
-        weight : Tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        weight : Optional[Tuple[str, np.ndarray, np.ndarray, np.ndarray,
+                                np.ndarray]]
             Tuple containing weight type (``'pre'`` or ``'post'``), and the
             weight state space matrices (``A``, ``B``, ``C``, and ``D``). If
             ``None``, no weighting is used.
@@ -1618,10 +1628,10 @@ class LmiDmdcHinfReg(LmiRegressor):
             Absolute tolerance for change in objective function value.
         iter_rtol : float
             Relative tolerance for change in objective function value.
-        tsvd_unshifted : pykoop.Tsvd
+        tsvd_unshifted : Optional[pykoop.Tsvd]
             Singular value truncation method used to change basis of unshifted
             data matrix. If ``None``, economy SVD is used.
-        tsvd_shifted : pykoop.Tsvd
+        tsvd_shifted : Optional[pykoop.Tsvd]
             Singular value truncation method used to change basis of shifted
             data matrix. If ``None``, economy SVD is used.
         square_norm : bool
@@ -1631,7 +1641,7 @@ class LmiDmdcHinfReg(LmiRegressor):
         picos_eps : float
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
-        solver_params : Dict[str, Any]
+        solver_params : Optional[Dict[str, Any]]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -1908,14 +1918,14 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
     def __init__(
         self,
         alpha: float = 1,
-        supply_rate: np.ndarray = None,
+        supply_rate: Optional[np.ndarray] = None,
         max_iter: int = 100,
         iter_atol: float = 1e-6,
         iter_rtol: float = 0,
         inv_method: str = 'svd',
-        tsvd: tsvd.Tsvd = None,
+        tsvd: Optional[tsvd.Tsvd] = None,
         picos_eps: float = 0,
-        solver_params: Dict[str, Any] = None,
+        solver_params: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Instantiate :class:`LmiEdmdDissipativityConstr`.
 
@@ -1933,7 +1943,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         alpha : float
             Regularization coefficient. Cannot be zero.
 
-        supply_rate : np.ndarray
+        supply_rate : Optional[np.ndarray]
             Supply rate matrix ``Xi``, where ``s(u, y) = -[y, u] Xi [y; u]``.
             If ``None``, the an L2 gain of ``gamma=1`` is imposed.
 
@@ -1958,7 +1968,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
             - ``'sqrt'`` -- split ``H`` using :func:`scipy.linalg.sqrtm()`, or
             - ``'svd'`` -- split ``H`` using a singular value decomposition.
 
-         tsvd : pykoop.Tsvd
+         tsvd : Optional[pykoop.Tsvd]
             Singular value truncation method if ``inv_method='svd'``. If
             ``None``, economy SVD is used.
 
@@ -1966,7 +1976,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
             Tolerance used for strict LMIs. If nonzero, should be larger than
             solver tolerance.
 
-        solver_params : Dict[str, Any]
+        solver_params : Optional[Dict[str, Any]]
             Parameters passed to PICOS :func:`picos.Problem.solve()`. By
             default, allows chosen solver to select its own tolerances.
         """
@@ -2180,10 +2190,10 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
 
     def __init__(
         self,
-        hinf_regressor: koopman_pipeline.KoopmanRegressor = None,
+        hinf_regressor: Optional[koopman_pipeline.KoopmanRegressor] = None,
         type: str = 'post',
-        zeros: Union[float, np.ndarray] = None,
-        poles: Union[float, np.ndarray] = None,
+        zeros: Union[float, np.ndarray, None] = None,
+        poles: Union[float, np.ndarray, None] = None,
         gain: float = 1,
         discretization: str = 'bilinear',
         t_step: float = 1,
@@ -2193,17 +2203,17 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
 
         Parameters
         ----------
-        hinf_regressor : koopman_pipeline.KoopmanRegressor
+        hinf_regressor : Optional[koopman_pipeline.KoopmanRegressor]
             Instance of :class:`LmiEdmdHinfReg` or :class:`LmiDmdcHinfReg`.
 
         type : str
             Type of weight (``'pre'`` or ``'post'``).
 
-        zeros : Union[float, np.ndarray]
+        zeros : Union[float, np.ndarray, None]
             Filter zeros. If ``None``, no zeros are used. Accepts scalar input
             if only one zero is required.
 
-        poles : Union[float, np.ndarray]
+        poles : Union[float, np.ndarray, None]
             Filter poles. If ``None``, no poles are used. Accepts scalar input
             if only one pole is required.
 
@@ -2262,11 +2272,13 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         self.t_step = t_step
         self.units = units
 
-    def fit(self,
-            X: np.ndarray,
-            y: np.ndarray = None,
-            n_inputs: int = 0,
-            episode_feature: bool = False) -> 'LmiHinfZpkMeta':
+    def fit(
+        self,
+        X: np.ndarray,
+        y: Optional[np.ndarray] = None,
+        n_inputs: int = 0,
+        episode_feature: bool = False,
+    ) -> 'LmiHinfZpkMeta':
         """Fit the regressor.
 
         If only ``X`` is specified, the regressor will compute its unshifted
@@ -2279,7 +2291,7 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         X : np.ndarray
             Full data matrix if ``y=None``. Unshifted data matrix if ``y`` is
             specified.
-        y : np.ndarray
+        y : Optional[np.ndarray]
             Optional shifted data matrix. If ``None``, shifted data matrix is
             computed using ``X``.
         n_inputs : int
@@ -2370,7 +2382,7 @@ def _create_ss(
     U: np.ndarray,
     weight: Optional[Tuple[str, np.ndarray, np.ndarray, np.ndarray,
                            np.ndarray]],
-    Q_hat: np.ndarray = None,
+    Q_hat: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Augment Koopman system with weight if present.
 
@@ -2384,7 +2396,7 @@ def _create_ss(
         Tuple containing weight type (``'pre'`` or ``'post'``), and the
         weight state space matrices (``A``, ``B``, ``C``, and ``D``). If
         ``None``, no weighting is used.
-    Q_hat : np.ndarray
+    Q_hat : Optioanl[np.ndarray]
         Left singular vectors of shifted data matrix. Used to construct ``C``
         matrix. Should only be used with DMDc methods.
 
