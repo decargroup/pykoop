@@ -447,7 +447,7 @@ def example_data_pendulum() -> Dict[str, Any]:
             t_range=t_range,
             t_step=t_step,
             x0=x0,
-            u=lambda t: 0,
+            u=lambda t: np.array(0),
         )
         # Format the data
         X_pend_lst.append(np.hstack((

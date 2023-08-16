@@ -531,43 +531,34 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         )
 
     _rbf_lookup = {
-        'exponential': {
-            'callable': _rbf_exponential,
-            'offset': 0,
-        },
-        'gaussian': {
-            'callable': _rbf_gaussian,
-            'offset': 0,
-        },
-        'multiquadric': {
-            'callable': _rbf_multiquadric,
-            'offset': 0,
-        },
-        'inverse_quadratic': {
-            'callable': _rbf_inverse_quadratic,
-            'offset': 0
-        },
-        'inverse_multiquadric': {
-            'callable': _rbf_inverse_multiquadric,
-            'offset': 0,
-        },
-        'thin_plate': {
-            'callable': _rbf_thin_plate,
-            'offset': 1e-3,
-        },
-        'bump_function': {
-            'callable': _rbf_bump_function,
-            'offset': 0,
-        },
+        'exponential': _rbf_exponential,
+        'gaussian': _rbf_gaussian,
+        'multiquadric': _rbf_multiquadric,
+        'inverse_quadratic': _rbf_inverse_quadratic,
+        'inverse_multiquadric': _rbf_inverse_multiquadric,
+        'thin_plate': _rbf_thin_plate,
+        'bump_function': _rbf_bump_function,
     }
-    """Lookup table mapping RBF name to callable and default offset.
-
-    The default offset should only be nonzero if the function is not defined
-    for ``r = 0``.
+    """Lookup table mapping RBF name to callable
 
     The private functions here are not `@staticmethod`s because that would
     prevent `scikit-learn` from pickling them, which would make the estimator
     check fail.
+    """
+
+    _offset_lookup = {
+        'exponential': 0,
+        'gaussian': 0,
+        'multiquadric': 0,
+        'inverse_quadratic': 0,
+        'inverse_multiquadric': 0,
+        'thin_plate': 1e-3,
+        'bump_function': 0,
+    }
+    """Lookup table mapping RBF name to default offset.
+
+    The default offset should only be nonzero if the function is not defined
+    for ``r = 0``.
     """
 
     def __init__(
@@ -621,7 +612,7 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
     def _fit_one_ep(self, X: np.ndarray) -> Tuple[int, int]:
         # Set basis function type
         if isinstance(self.rbf, str):
-            self.rbf_ = self._rbf_lookup[self.rbf]['callable']
+            self.rbf_ = self._rbf_lookup[self.rbf]
         else:
             self.rbf_ = self.rbf
         # Set and fit centers
@@ -633,7 +624,7 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
         # Set offset
         if self.offset is None:
             if isinstance(self.rbf, str):
-                self.offset_ = self._rbf_lookup[self.rbf]['offset']
+                self.offset_ = self._offset_lookup[self.rbf]
             else:
                 self.offset_ = 0
         else:
@@ -682,6 +673,10 @@ class RbfLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
             if self.rbf not in self._rbf_lookup.keys():
                 raise ValueError('`rbf` must be one of '
                                  f'{self._rbf_lookup.keys()} or a '
+                                 '`Callable[[np.ndarray], np.ndarray]`.')
+            if self.rbf not in self._offset_lookup.keys():
+                raise ValueError('`rbf` must be one of '
+                                 f'{self._offset_lookup.keys()} or a '
                                  '`Callable[[np.ndarray], np.ndarray]`.')
         if self.shape <= 0:
             raise ValueError('`shape` must be greater than zero.')

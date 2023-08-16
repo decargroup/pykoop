@@ -1944,16 +1944,11 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         if self.episode_feature_:
             names_in = feature_names[1:]
             ep = feature_names[[0]]
+            names_in_state = np.hstack((ep, names_in[:self.n_states_in_]))
+            names_in_input = np.hstack((ep, names_in[self.n_states_in_:]))
         else:
-            names_in = feature_names
-            ep = None
-        # Split states and inputs
-        # breakpoint()
-        names_in_state = names_in[:self.n_states_in_]
-        names_in_input = names_in[self.n_states_in_:]
-        if self.episode_feature_:
-            names_in_state = np.hstack((ep, names_in_state))
-            names_in_input = np.hstack((ep, names_in_input))
+            names_in_state = feature_names[:self.n_states_in_]
+            names_in_input = feature_names[self.n_states_in_:]
         # Transform state and input
         names_out_state = names_in_state
         for _, lf in self.lifting_functions_state_:
@@ -3396,7 +3391,7 @@ def score_trajectory(
     # Return error score if any of inputs are NaN or inf
     if not (np.all(np.isfinite(X_predicted))
             and np.all(np.isfinite(X_expected))):
-        if error_score == 'raise':
+        if isinstance(error_score, str):
             raise ValueError(
                 'Prediction diverged or error occured while fitting.')
         else:
@@ -3444,7 +3439,7 @@ def score_trajectory(
         score = regression_metric(**regression_metric_args)
     # Return error score if score is not finite
     if not np.isfinite(score):
-        if error_score == 'raise':
+        if isinstance(error_score, str):
             raise ValueError(
                 'Prediction diverged or error occured while scoring.')
         else:
@@ -3456,7 +3451,8 @@ def score_trajectory(
     if regression_metric not in greater_is_better:
         score *= -1
     # If score is worse than error score, return that.
-    if np.isfinite(error_score) and (score < error_score):
+    if ((not isinstance(error_score, str)) and np.isfinite(error_score)
+            and (score < error_score)):
         warnings.warn(
             f'Score `score={score}` is finite, but is lower than error '
             f'score `error_score={error_score}`. Returning error score.',
