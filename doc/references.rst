@@ -16,6 +16,9 @@ References
 .. [BFV20] Daniel Bruder, Xun Fu, and Ram Vasudevan. "Advantages of bilinear
    Koopman realizations for the modeling and control of systems with unknown
    dynamics." arXiv:2010.09961v3 [cs.RO] (2020).
+.. [PD20] Shaowu Pan and Karthik Duraisamy. "On the structure of time-delay
+   embedding in linear models of non-linear dynamical systems." Chaos, vol. 30,
+   no. 7, 2020. https://doi.org/10.1063/5.0010886
 .. [MAM22] Giorgos Mamakoukas, Ian Abraham, and Todd D. Murphey. "Learning
    Stable Models for Prediction and Control." arXiv:2005.04291v2 [cs.RO]
    (2022). https://arxiv.org/abs/2005.04291v2

@@ -1008,6 +1008,8 @@ class ConstantLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
 class DelayLiftingFn(koopman_pipeline.EpisodeDependentLiftingFn):
     """Lifting function to generate delay coordinates for state and input.
 
+    See [PD20]_ for an in-depth treatment of time-delay embeddings.
+
     Attributes
     ----------
     n_features_in_ : int
