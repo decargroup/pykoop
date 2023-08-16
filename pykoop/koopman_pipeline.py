@@ -57,7 +57,7 @@ class KoopmanLiftingFn(
     def fit(
         self,
         X: np.ndarray,
-        y: np.ndarray = None,
+        y: Optional[np.ndarray] = None,
         n_inputs: int = 0,
         episode_feature: bool = False,
     ) -> 'KoopmanLiftingFn':
@@ -67,7 +67,7 @@ class KoopmanLiftingFn(
         ----------
         X : np.ndarray
             Data matrix.
-        y : np.ndarray
+        y : Optional[np.ndarray]
             Ignored.
         n_inputs : int
             Number of input features at the end of ``X``.
@@ -134,7 +134,11 @@ class KoopmanLiftingFn(
         """
         raise NotImplementedError()
 
-    def lift(self, X: np.ndarray, episode_feature: bool = None) -> np.ndarray:
+    def lift(
+        self,
+        X: np.ndarray,
+        episode_feature: Optional[bool] = None,
+    ) -> np.ndarray:
         """Lift state and input.
 
         Potentially more convenient alternative to calling :func:`transform`.
@@ -143,7 +147,7 @@ class KoopmanLiftingFn(
         ----------
         X : np.ndarray
             State and input.
-        episode_feature : bool
+        episode_feature : Optional[bool]
             True if first feature indicates which episode a timestep is from.
             If ``None``, ``self.episode_feature_`` is used.
 
@@ -182,7 +186,7 @@ class KoopmanLiftingFn(
     def retract(
         self,
         X: np.ndarray,
-        episode_feature: bool = None,
+        episode_feature: Optional[bool] = None,
     ) -> np.ndarray:
         """Retract lifted state and input.
 
@@ -193,7 +197,7 @@ class KoopmanLiftingFn(
         ----------
         X : np.ndarray
             Lifted state and input.
-        episode_feature : bool
+        episode_feature : Optional[bool]
             True if first feature indicates which episode a timestep is from.
             If ``None``, ``self.episode_feature_`` is used.
 
@@ -232,7 +236,7 @@ class KoopmanLiftingFn(
     def lift_state(
         self,
         X: np.ndarray,
-        episode_feature: bool = None,
+        episode_feature: Optional[bool] = None,
     ) -> np.ndarray:
         """Lift state only.
 
@@ -243,7 +247,7 @@ class KoopmanLiftingFn(
         ----------
         X : np.ndarray
             State.
-        episode_feature : bool
+        episode_feature : Optional[bool]
             True if first feature indicates which episode a timestep is from.
             If ``None``, ``self.episode_feature_`` is used.
 
@@ -263,7 +267,7 @@ class KoopmanLiftingFn(
     def retract_state(
         self,
         X: np.ndarray,
-        episode_feature: bool = None,
+        episode_feature: Optional[bool] = None,
     ) -> np.ndarray:
         """Retract lifted state only.
 
@@ -274,7 +278,7 @@ class KoopmanLiftingFn(
         ----------
         X : np.ndarray
             Lifted state.
-        episode_feature : bool
+        episode_feature : Optional[bool]
             True if first feature indicates which episode a timestep is from.
             If ``None``, ``self.episode_feature_`` is used.
 
@@ -294,7 +298,7 @@ class KoopmanLiftingFn(
     def lift_input(
         self,
         X: np.ndarray,
-        episode_feature: bool = None,
+        episode_feature: Optional[bool] = None,
     ) -> np.ndarray:
         """Lift input only.
 
@@ -305,7 +309,7 @@ class KoopmanLiftingFn(
         ----------
         X : np.ndarray
             State and input.
-        episode_feature : bool
+        episode_feature : Optional[bool]
             True if first feature indicates which episode a timestep is from.
             If ``None``, ``self.episode_feature_`` is used.
 
@@ -329,7 +333,7 @@ class KoopmanLiftingFn(
     def retract_input(
         self,
         X: np.ndarray,
-        episode_feature: bool = None,
+        episode_feature: Optional[bool] = None,
     ) -> np.ndarray:
         """Retract lifted input only.
 
@@ -341,7 +345,7 @@ class KoopmanLiftingFn(
         ----------
         X : np.ndarray
             Lifted input.
-        episode_feature : bool
+        episode_feature : Optional[bool]
             True if first feature indicates which episode a timestep is from.
             If ``None``, ``self.episode_feature_`` is used.
 
@@ -371,10 +375,10 @@ class KoopmanLiftingFn(
     def plot_lifted_trajectory(
         self,
         X: np.ndarray,
-        episode_feature: bool = None,
-        episode_style: str = None,
-        subplots_kw: Dict[str, Any] = None,
-        plot_kw: Dict[str, Any] = None,
+        episode_feature: Optional[bool] = None,
+        episode_style: Optional[str] = None,
+        subplots_kw: Optional[Dict[str, Any]] = None,
+        plot_kw: Optional[Dict[str, Any]] = None,
     ) -> Tuple[plt.Figure, np.ndarray]:
         """Plot lifted data matrix.
 
@@ -382,16 +386,16 @@ class KoopmanLiftingFn(
         ----------
         X : np.ndarray
             Data matrix.
-        episode_feature : bool
+        episode_feature : Optional[bool]
             True if first feature indicates which episode a timestep is from.
             If ``None``, ``self.episode_feature_`` is used.
-        episode_style : str
+        episode_style : Optional[str]
             If ``'columns'``, each episode is a column (default). If
             ``'overlay'``, states from each episode are plotted overtop of each
             other in different colors.
-        subplots_kw : Dict[str, Any] = None,
+        subplots_kw : Optional[Dict[str, Any]]
             Keyword arguments for :func:`plt.subplots()`.
-        plot_kw : Dict[str, Any] = None,
+        plot_kw : Optional[Dict[str, Any]]
             Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
 
         Returns
@@ -461,7 +465,7 @@ class KoopmanLiftingFn(
     def _transform_feature_names(
         self,
         feature_names: np.ndarray,
-        format: str = None,
+        format: Optional[str] = None,
     ) -> np.ndarray:
         """Transform feature names.
 
@@ -469,7 +473,7 @@ class KoopmanLiftingFn(
         ----------
         feature_names : np.ndarray
             Feature names.
-        format : str
+        format : Optional[str]
             Feature name formatting method. Possible values are ``'plaintext'``
             (default if ``None``) or ``'latex'``.
 
@@ -482,25 +486,25 @@ class KoopmanLiftingFn(
 
     def get_feature_names_out(
         self,
-        input_features: np.ndarray = None,
+        input_features: Optional[np.ndarray] = None,
         symbols_only: bool = False,
-        format: str = None,
-        episode_feature: bool = None,
+        format: Optional[str] = None,
+        episode_feature: Optional[bool] = None,
     ) -> np.ndarray:
         """Get output feature names.
 
         Parameters
         ----------
-        input_features : np.ndarray
+        input_features : Optional[np.ndarray]
             Array of string input feature names. If provided, they are checked
             against ``feature_names_in_``. If ``None``, ignored.
         symbols_only : bool
             If true, only return symbols (``theta_0``, ``upsilon_0``, etc.).
             Otherwise, returns the full equations (default).
-        format : str
+        format : Optional[str]
             Feature name formatting method. Possible values are ``'plaintext'``
             (default if ``None``) or ``'latex'``.
-        episode_feature : bool
+        episode_feature : Optional[bool]
             True if first feature indicates which episode a timestep is from.
             If ``None``, ``self.episode_feature_`` is used.
 
@@ -540,17 +544,17 @@ class KoopmanLiftingFn(
 
     def get_feature_names_in(
         self,
-        format: str = None,
-        episode_feature: bool = None,
+        format: Optional[str] = None,
+        episode_feature: Optional[bool] = None,
     ) -> np.ndarray:
         """Automatically generate input feature names.
 
         Parameters
         ----------
-        format : str
+        format : Optional[str]
             Feature name formatting method. Possible values are ``'plaintext'``
             (default if ``None``) or ``'latex'``.
-        episode_feature : bool
+        episode_feature : Optional[bool]
             True if first feature indicates which episode a timestep is from.
             If ``None``, ``self.episode_feature_`` is used.
 
@@ -595,8 +599,8 @@ class KoopmanLiftingFn(
     def _generate_feature_names(
         self,
         lifted: bool = False,
-        format: str = None,
-        episode_feature: bool = None,
+        format: Optional[str] = None,
+        episode_feature: Optional[bool] = None,
     ) -> np.ndarray:
         """Generate feature names.
 
@@ -605,10 +609,10 @@ class KoopmanLiftingFn(
         lifted : bool
             If true, return lifted feature names. If false, return unlifted
             feature names (default).
-        format : str
+        format : Optional[str]
             Feature name formatting method. Possible values are ``'plaintext'``
             (default if ``None``) or ``'latex'``.
-        episode_feature : bool
+        episode_feature : Optional[bool]
             True if first feature indicates which episode a timestep is from.
             If ``None``, ``self.episode_feature_`` is used.
 
@@ -694,11 +698,13 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
         Array of input feature name strings.
     """
 
-    def fit(self,
-            X: np.ndarray,
-            y: np.ndarray = None,
-            n_inputs: int = 0,
-            episode_feature: bool = False) -> 'EpisodeIndependentLiftingFn':
+    def fit(
+        self,
+        X: np.ndarray,
+        y: Optional[np.ndarray] = None,
+        n_inputs: int = 0,
+        episode_feature: bool = False,
+    ) -> 'EpisodeIndependentLiftingFn':
         # noqa: D102
         # Validate constructor parameters
         self._validate_parameters()
@@ -934,7 +940,7 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
 
     def fit(self,
             X: np.ndarray,
-            y: np.ndarray = None,
+            y: Optional[np.ndarray] = None,
             n_inputs: int = 0,
             episode_feature: bool = False) -> 'EpisodeDependentLiftingFn':
         # noqa: D102
@@ -1151,11 +1157,13 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         'dtype': 'numeric',
     }
 
-    def fit(self,
-            X: np.ndarray,
-            y: np.ndarray = None,
-            n_inputs: int = 0,
-            episode_feature: bool = False) -> 'KoopmanRegressor':
+    def fit(
+        self,
+        X: np.ndarray,
+        y: Optional[np.ndarray] = None,
+        n_inputs: int = 0,
+        episode_feature: bool = False,
+    ) -> 'KoopmanRegressor':
         """Fit the regressor.
 
         If only ``X`` is specified, the regressor will compute its unshifted
@@ -1168,7 +1176,7 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         X : np.ndarray
             Full data matrix if ``y=None``. Unshifted data matrix if ``y`` is
             specified.
-        y : np.ndarray
+        y : Optional[np.ndarray]
             Optional shifted data matrix. If ``None``, shifted data matrix is
             computed using ``X``.
         n_inputs : int
@@ -1294,7 +1302,7 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         self,
         t_step: float,
         f_min: float = 0,
-        f_max: float = None,
+        f_max: Optional[float] = None,
         n_points: int = 1000,
         decibels: bool = True,
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -1306,8 +1314,8 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
             Sampling timestep.
         f_min : float
             Minimum frequency to plot.
-        f_max : float
-            Maximum frequency to plot.
+        f_max : Optional[float]
+            Maximum frequency to plot. If ``None``, uses Nyquist frequency.
         n_points : int
             Number of frequecy points to plot.
         decibels : bool
@@ -1361,11 +1369,11 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         self,
         t_step: float,
         f_min: float = 0,
-        f_max: float = None,
+        f_max: Optional[float] = None,
         n_points: int = 1000,
         decibels: bool = True,
-        subplots_kw: Dict[str, Any] = None,
-        plot_kw: Dict[str, Any] = None,
+        subplots_kw: Optional[Dict[str, Any]] = None,
+        plot_kw: Optional[Dict[str, Any]] = None,
     ) -> Tuple[plt.Figure, plt.Axes]:
         """Plot frequency response of Koopman system.
 
@@ -1375,15 +1383,15 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
             Sampling timestep.
         f_min : float
             Minimum frequency to plot.
-        f_max : float
-            Maximum frequency to plot.
+        f_max : Optional[float]
+            Maximum frequency to plot. If ``None``, uses Nyquist frequency.
         n_points : int
             Number of frequecy points to plot.
         decibels : bool
             Plot gain in dB (default is true).
-        subplots_kw : Dict[str, Any] = None,
+        subplots_kw : Optional[Dict[str, Any]]
             Keyword arguments for :func:`plt.subplots()`.
-        plot_kw : Dict[str, Any] = None,
+        plot_kw : Optional[Dict[str, Any]]
             Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
 
         Returns
@@ -1427,19 +1435,19 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
     def plot_eigenvalues(
         self,
         unit_circle: bool = True,
-        figure_kw: Dict[str, Any] = None,
-        subplot_kw: Dict[str, Any] = None,
-        plot_kw: Dict[str, Any] = None,
+        figure_kw: Optional[Dict[str, Any]] = None,
+        subplot_kw: Optional[Dict[str, Any]] = None,
+        plot_kw: Optional[Dict[str, Any]] = None,
     ) -> Tuple[plt.Figure, plt.Axes]:
         """Plot eigenvalues of Koopman ``A`` matrix.
 
         Parameters
         ----------
-        figure_kw : Dict[str, Any] = None,
+        figure_kw : Optional[Dict[str, Any]]
             Keyword arguments for :func:`plt.figure()`.
-        subplot_kw : Dict[str, Any] = None,
+        subplot_kw : Optional[Dict[str, Any]]
             Keyword arguments for :func:`plt.subplot()`.
-        plot_kw : Dict[str, Any] = None,
+        plot_kw : Optional[Dict[str, Any]]
             Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
 
         Returns
@@ -1481,16 +1489,16 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
 
     def plot_koopman_matrix(
         self,
-        subplots_kw: Dict[str, Any] = None,
-        plot_kw: Dict[str, Any] = None,
+        subplots_kw: Optional[Dict[str, Any]] = None,
+        plot_kw: Optional[Dict[str, Any]] = None,
     ) -> Tuple[plt.Figure, plt.Axes]:
         """Plot heatmap of Koopman matrices.
 
         Parameters
         ----------
-        subplots_kw : Dict[str, Any] = None,
+        subplots_kw : Optional[Dict[str, Any]]
             Keyword arguments for :func:`plt.subplots()`.
-        plot_kw : Dict[str, Any] = None,
+        plot_kw : Optional[Dict[str, Any]]
             Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
 
         Returns
@@ -1532,16 +1540,16 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
 
     def plot_svd(
         self,
-        subplots_kw: Dict[str, Any] = None,
-        plot_kw: Dict[str, Any] = None,
+        subplots_kw: Optional[Dict[str, Any]] = None,
+        plot_kw: Optional[Dict[str, Any]] = None,
     ) -> Tuple[plt.Figure, plt.Axes]:
         """Plot singular values of Koopman matrices.
 
         Parameters
         ----------
-        subplots_kw : Dict[str, Any] = None,
+        subplots_kw : Optional[Dict[str, Any]]
             Keyword arguments for :func:`plt.subplots()`.
-        plot_kw : Dict[str, Any] = None,
+        plot_kw : Optional[Dict[str, Any]]
             Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
 
         Returns
@@ -1659,26 +1667,30 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
     def __init__(
         self,
-        lifting_functions_state: List[Tuple[str, KoopmanLiftingFn]] = None,
-        lifting_functions_input: List[Tuple[str, KoopmanLiftingFn]] = None,
+        lifting_functions_state: Optional[List[Tuple[
+            str, KoopmanLiftingFn]]] = None,
+        lifting_functions_input: Optional[List[Tuple[
+            str, KoopmanLiftingFn]]] = None,
     ) -> None:
         """Instantiate :class:`SplitPipeline`.
 
         Parameters
         ----------
-        lifting_functions_state : List[Tuple[str, KoopmanLiftingFn]]
+        lifting_functions_state : Optional[List[Tuple[str, KoopmanLiftingFn]]]
             Lifting functions to apply to the state features (and their names).
-        lifting_functions_input : List[Tuple[str, KoopmanLiftingFn]]
+        lifting_functions_input : Optional[List[Tuple[str, KoopmanLiftingFn]]]
             Lifting functions to apply to the input features (and their names).
         """
         self.lifting_functions_state = lifting_functions_state
         self.lifting_functions_input = lifting_functions_input
 
-    def fit(self,
-            X: np.ndarray,
-            y: np.ndarray = None,
-            n_inputs: int = 0,
-            episode_feature: bool = False) -> 'SplitPipeline':
+    def fit(
+        self,
+        X: np.ndarray,
+        y: Optional[np.ndarray] = None,
+        n_inputs: int = 0,
+        episode_feature: bool = False,
+    ) -> 'SplitPipeline':
         # noqa: D102
         # Set feature names
         self.feature_names_in_ = _extract_feature_names(X)
@@ -1925,7 +1937,7 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     def _transform_feature_names(
         self,
         feature_names: np.ndarray,
-        format: str = None,
+        format: Optional[str] = None,
     ) -> np.ndarray:
         # noqa: D102
         # Deal with episode feature
@@ -2075,16 +2087,16 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
     def __init__(
         self,
-        lifting_functions: List[Tuple[str, KoopmanLiftingFn]] = None,
-        regressor: KoopmanRegressor = None,
+        lifting_functions: Optional[List[Tuple[str, KoopmanLiftingFn]]] = None,
+        regressor: Optional[KoopmanRegressor] = None,
     ) -> None:
         """Instantiate for :class:`KoopmanPipeline`.
 
         Parameters
         ----------
-        lifting_functions : List[Tuple[str, KoopmanLiftingFn]]
+        lifting_functions : Optional[List[Tuple[str, KoopmanLiftingFn]]]
             List of names and lifting function objects.
-        regressor : KoopmanRegressor
+        regressor : Optional[KoopmanRegressor]
             Koopman regressor.
         """
         self.lifting_functions = lifting_functions
@@ -2092,7 +2104,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
     def fit(self,
             X: np.ndarray,
-            y: np.ndarray = None,
+            y: Optional[np.ndarray] = None,
             n_inputs: int = 0,
             episode_feature: bool = False) -> 'KoopmanPipeline':
         """Fit the Koopman pipeline.
@@ -2101,7 +2113,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         ----------
         X : np.ndarray
             Data matrix.
-        y : np.ndarray
+        y : Optional[np.ndarray]
             Ignored.
         n_inputs : int
             Number of input features at the end of ``X``.
@@ -2151,7 +2163,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     def fit_transformers(
         self,
         X: np.ndarray,
-        y: np.ndarray = None,
+        y: Optional[np.ndarray] = None,
         n_inputs: int = 0,
         episode_feature: bool = False,
     ) -> 'KoopmanPipeline':
@@ -2163,7 +2175,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         ----------
         X : np.ndarray
             Data matrix.
-        y : np.ndarray
+        y : Optional[np.ndarray]
             Ignored.
         n_inputs : int
             Number of input features at the end of ``X``.
@@ -2339,7 +2351,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             X_pred_inv = X_pred_pad_inv
         return X_pred_inv
 
-    def score(self, X: np.ndarray, y: np.ndarray = None) -> float:
+    def score(self, X: np.ndarray, y: Optional[np.ndarray] = None) -> float:
         """Calculate prediction score.
 
         For more flexible scoring, see :func:`make_scorer`.
@@ -2348,7 +2360,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         ----------
         X : np.ndarray
             Data matrix.
-        y : np.ndarray
+        y : Optional[np.ndarray]
             Ignored.
 
         Returns
@@ -2451,11 +2463,11 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     def predict_trajectory(
         self,
         X0_or_X: np.ndarray,
-        U: np.ndarray = None,
+        U: Optional[np.ndarray] = None,
         relift_state: bool = True,
         return_lifted: bool = False,
         return_input: bool = False,
-        episode_feature: bool = None,
+        episode_feature: Optional[bool] = None,
     ) -> np.ndarray:
         """Predict state trajectory given input for each episode.
 
@@ -2465,7 +2477,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             Initial state if ``U`` is specified. If ``U`` is ``None``, then
             treated as the initial state and full input in one matrix, where
             the remaining states are ignored.
-        U : np.ndarray
+        U : Optional[np.ndarray]
             Input. Length of prediction is governed by length of input. If
             ``None``, input is taken from last features of ``X0_or_X``.
         relift_state : bool
@@ -2479,7 +2491,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         return_input : bool
             If true, return the input as well as the state. If false, return
             only the original state (default).
-        episode_feature : bool
+        episode_feature : Optional[bool]
             True if first feature indicates which episode a timestep is from.
             If ``None``, ``self.episode_feature_`` is used.
 
@@ -2680,15 +2692,15 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     def plot_predicted_trajectory(
         self,
         X0_or_X: np.ndarray,
-        U: np.ndarray = None,
+        U: Optional[np.ndarray] = None,
         relift_state: bool = True,
         plot_lifted: bool = False,
         plot_input: bool = False,
-        episode_feature: bool = None,
+        episode_feature: Optional[bool] = None,
         plot_ground_truth: bool = True,
-        episode_style: str = None,
-        subplots_kw: Dict[str, Any] = None,
-        plot_kw: Dict[str, Any] = None,
+        episode_style: Optional[str] = None,
+        subplots_kw: Optional[Dict[str, Any]] = None,
+        plot_kw: Optional[Dict[str, Any]] = None,
     ) -> Tuple[plt.Figure, np.ndarray]:
         """Plot predicted trajectory.
 
@@ -2698,7 +2710,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             Initial state if ``U`` is specified. If ``U`` is ``None``, then
             treated as the ground truth trajectory from which the initial state
             and full input are extracted.
-        U : np.ndarray
+        U : Optional[np.ndarray]
             Input. Length of prediction is governed by length of input. If
             ``None``, input is taken from last features of ``X0_or_X``.
         relift_state : bool
@@ -2712,19 +2724,19 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         plot_input : bool
             If true, plot the input as well as the state. If false, plot
             only the original state (default).
-        episode_feature : bool
+        episode_feature : Optional[bool]
             True if first feature indicates which episode a timestep is from.
             If ``None``, ``self.episode_feature_`` is used.
         plot_ground_truth : bool
             Plot contents of ``X0_or_X`` as ground truth if ``U`` is ``None``.
             Ignored if ``U`` is not ``None``.
-        episode_style : str
+        episode_style : Optional[str]
             If ``'columns'``, each episode is a column (default). If
             ``'overlay'``, states from each episode are plotted overtop of each
             other in different colors.
-        subplots_kw : Dict[str, Any] = None,
+        subplots_kw : Optional[Dict[str, Any]]
             Keyword arguments for :func:`plt.subplots()`.
-        plot_kw : Dict[str, Any] = None,
+        plot_kw : Optional[Dict[str, Any]]
             Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
 
         Returns
@@ -2845,10 +2857,10 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
     @staticmethod
     def make_scorer(
-        n_steps: int = None,
+        n_steps: Optional[int] = None,
         discount_factor: float = 1,
         regression_metric: Union[str, Callable] = 'neg_mean_squared_error',
-        regression_metric_kw: Dict[str, Any] = None,
+        regression_metric_kw: Optional[Dict[str, Any]] = None,
         error_score: Union[str, float] = np.nan,
         multistep: bool = True,
         relift_state: bool = True,
@@ -2868,7 +2880,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
         Parameters
         ----------
-        n_steps : int
+        n_steps : Optional[int]
             Number of steps ahead to predict. If ``None`` or longer than the
             episode, will score the entire episode.
 
@@ -2894,7 +2906,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             the ``scikit-learn`` ones. That is, at least ``y_true``,
             ``y_pred``, ``sample_weight``, and ``multioutput``.
 
-        regression_metric_kw : Dict[str, Any]
+        regression_metric_kw : Optional[Dict[str, Any]]
             Keyword arguments for ``regression_method``. If ``sample_weight``
             keyword argument is specified, ``discount_factor`` is ignored.
 
@@ -2939,7 +2951,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         def koopman_pipeline_scorer(
             estimator: KoopmanPipeline,
             X: np.ndarray,
-            y: np.ndarray = None,
+            y: Optional[np.ndarray] = None,
         ) -> float:
             # Shift episodes
             X_unshifted, X_shifted = shift_episodes(
@@ -3020,7 +3032,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     def _transform_feature_names(
         self,
         feature_names: np.ndarray,
-        format: str = None,
+        format: Optional[str] = None,
     ) -> np.ndarray:
         """Transform feature names.
 
@@ -3028,7 +3040,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         ----------
         feature_names : np.ndarray
             Feature names.
-        format : str
+        format : Optional[str]
             Feature name formatting method. Possible values are ``'plaintext'``
             (default if ``None``) or ``'latex'``.
 
@@ -3045,7 +3057,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     def _split_state_input_episodes(
         self,
         X0_or_X: np.ndarray,
-        U: np.ndarray = None,
+        U: Optional[np.ndarray] = None,
         episode_feature: bool = False,
     ) -> List[Tuple[float, np.ndarray, np.ndarray]]:
         """Break initial conditions and inputs into episodes.
@@ -3056,7 +3068,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             Initial state if ``U`` is specified. If ``U`` is ``None``, then
             treated as the initial state and full input in one matrix, where
             the remaining states are ignored.
-        U : np.ndarray
+        U : Optional[np.ndarray]
             Input. Length of prediction is governed by length of input. If
             ``None``, input is taken from last features of ``X0_or_X``.
         episode_feature : bool
@@ -3111,7 +3123,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         self,
         t_step: float,
         f_min: float = 0,
-        f_max: float = None,
+        f_max: Optional[float] = None,
         n_points: int = 1000,
         decibels: bool = True,
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -3124,7 +3136,7 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         f_min : float
             Minimum frequency to plot.
         f_max : float
-            Maximum frequency to plot.
+            Maximum frequency to plot. If ``None``, uses the Nyquist frequency.
         n_points : int
             Number of frequecy points to plot.
         decibels : bool
@@ -3155,11 +3167,11 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         self,
         t_step: float,
         f_min: float = 0,
-        f_max: float = None,
+        f_max: Optional[float] = None,
         n_points: int = 1000,
         decibels: bool = True,
-        subplots_kw: Dict[str, Any] = None,
-        plot_kw: Dict[str, Any] = None,
+        subplots_kw: Optional[Dict[str, Any]] = None,
+        plot_kw: Optional[Dict[str, Any]] = None,
     ) -> Tuple[plt.Figure, plt.Axes]:
         """Plot frequency response of Koopman system.
 
@@ -3169,15 +3181,15 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             Sampling timestep.
         f_min : float
             Minimum frequency to plot.
-        f_max : float
-            Maximum frequency to plot.
+        f_max : Optional[float]
+            Maximum frequency to plot. If ``None``, uses the Nyquist frequency.
         n_points : int
             Number of frequecy points to plot.
         decibels : bool
             Plot gain in dB (default is true).
-        subplots_kw : Dict[str, Any] = None,
+        subplots_kw : Optional[Dict[str, Any]]
             Keyword arguments for :func:`plt.subplots()`.
-        plot_kw : Dict[str, Any] = None,
+        plot_kw : Optional[Dict[str, Any]]
             Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
 
         Returns
@@ -3206,19 +3218,19 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
     def plot_eigenvalues(
         self,
         unit_circle: bool = True,
-        figure_kw: Dict[str, Any] = None,
-        subplot_kw: Dict[str, Any] = None,
-        plot_kw: Dict[str, Any] = None,
+        figure_kw: Optional[Dict[str, Any]] = None,
+        subplot_kw: Optional[Dict[str, Any]] = None,
+        plot_kw: Optional[Dict[str, Any]] = None,
     ) -> Tuple[plt.Figure, plt.Axes]:
         """Plot eigenvalues of Koopman ``A`` matrix.
 
         Parameters
         ----------
-        figure_kw : Dict[str, Any] = None,
+        figure_kw : Optional[Dict[str, Any]]
             Keyword arguments for :func:`plt.figure()`.
-        subplot_kw : Dict[str, Any] = None,
+        subplot_kw : Optional[Dict[str, Any]]
             Keyword arguments for :func:`plt.subplot()`.
-        plot_kw : Dict[str, Any] = None,
+        plot_kw : Optional[Dict[str, Any]]
             Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
 
         Returns
@@ -3237,16 +3249,16 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
     def plot_koopman_matrix(
         self,
-        subplots_kw: Dict[str, Any] = None,
-        plot_kw: Dict[str, Any] = None,
+        subplots_kw: Optional[Dict[str, Any]] = None,
+        plot_kw: Optional[Dict[str, Any]] = None,
     ) -> Tuple[plt.Figure, plt.Axes]:
         """Plot heatmap of Koopman matrices.
 
         Parameters
         ----------
-        subplots_kw : Dict[str, Any] = None,
+        subplots_kw : Optional[Dict[str, Any]]
             Keyword arguments for :func:`plt.subplots()`.
-        plot_kw : Dict[str, Any] = None,
+        plot_kw : Optional[Dict[str, Any]]
             Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
 
         Returns
@@ -3260,16 +3272,16 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
     def plot_svd(
         self,
-        subplots_kw: Dict[str, Any] = None,
-        plot_kw: Dict[str, Any] = None,
+        subplots_kw: Optional[Dict[str, Any]] = None,
+        plot_kw: Optional[Dict[str, Any]] = None,
     ) -> Tuple[plt.Figure, plt.Axes]:
         """Plot singular values of Koopman matrices.
 
         Parameters
         ----------
-        subplots_kw : Dict[str, Any] = None,
+        subplots_kw : Optional[Dict[str, Any]]
             Keyword arguments for :func:`plt.subplots()`.
-        plot_kw : Dict[str, Any] = None,
+        plot_kw : Optional[Dict[str, Any]]
             Keyword arguments for Matplotlib :func:`plt.Axes.plot()`.
 
         Returns
@@ -3285,10 +3297,10 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 def score_trajectory(
     X_predicted: np.ndarray,
     X_expected: np.ndarray,
-    n_steps: int = None,
+    n_steps: Optional[int] = None,
     discount_factor: float = 1,
     regression_metric: Union[str, Callable] = 'neg_mean_squared_error',
-    regression_metric_kw: Dict[str, Any] = None,
+    regression_metric_kw: Optional[Dict[str, Any]] = None,
     error_score: Union[str, float] = np.nan,
     min_samples: int = 1,
     episode_feature: bool = False,
@@ -3303,7 +3315,7 @@ def score_trajectory(
     X_expected : np.ndarray
         Expected state data matrix.
 
-    n_steps : int
+    n_steps : Optional[int]
         Number of steps ahead to predict. If ``None`` or longer than the
         episode, will score the entire episode.
 
@@ -3329,7 +3341,7 @@ def score_trajectory(
         ``scikit-learn`` ones. That is, at least ``y_true``, ``y_pred``,
         ``sample_weight``, and ``multioutput``.
 
-    regression_metric_kw : Dict[str, Any]
+    regression_metric_kw : Optional[Dict[str, Any]]
         Keyword arguments for ``regression_method``. If ``sample_weight``
         keyword argument is specified, ``discount_factor`` is ignored.
 
@@ -3681,7 +3693,7 @@ def combine_episodes(episodes: List[Tuple[float, np.ndarray]],
 
 def _weights_from_data_matrix(
     X: np.ndarray,
-    n_steps: int = None,
+    n_steps: Optional[int] = None,
     discount_factor: float = 1,
     episode_feature: bool = False,
 ) -> np.ndarray:
@@ -3691,7 +3703,7 @@ def _weights_from_data_matrix(
     ----------
     X : np.ndarray
         Data matrix
-    n_steps : int
+    n_steps : Optional[int]
         Number of steps ahead to predict. If ``None`` or longer than the
         episode, will weight the entire episode.
     discount_factor : float

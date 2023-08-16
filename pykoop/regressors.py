@@ -5,7 +5,7 @@ defined in :class:`KoopmanRegressor`.
 """
 
 import logging
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 import sklearn.base
@@ -119,12 +119,15 @@ class EdmdMeta(koopman_pipeline.KoopmanRegressor):
     KoopmanPipeline(regressor=EdmdMeta(regressor=Lasso(alpha=1)))
     """
 
-    def __init__(self, regressor: sklearn.base.BaseEstimator = None) -> None:
+    def __init__(
+        self,
+        regressor: Optional[sklearn.base.BaseEstimator] = None,
+    ) -> None:
         """Instantiate :class:`EdmdMeta`.
 
         Parameters
         ----------
-        regressor : sklearn.base.BaseEstimator
+        regressor : Optional[sklearn.base.BaseEstimator]
             Wrapped ``scikit-learn`` regressor. Defaults to
             :class:`sklearn.linear_model.LinearRegression`.
         """
@@ -204,8 +207,8 @@ class Dmdc(koopman_pipeline.KoopmanRegressor):
     def __init__(
         self,
         mode_type: str = 'projected',
-        tsvd_unshifted: tsvd.Tsvd = None,
-        tsvd_shifted: tsvd.Tsvd = None,
+        tsvd_unshifted: Optional[tsvd.Tsvd] = None,
+        tsvd_shifted: Optional[tsvd.Tsvd] = None,
     ) -> None:
         """Instantiate :class:`Dmdc`.
 
@@ -213,10 +216,10 @@ class Dmdc(koopman_pipeline.KoopmanRegressor):
         ----------
         mode_type : str
             DMD mode type, either ``'exact'`` or ``'projected'``.
-        tsvd_unshifted : pykoop.Tsvd
+        tsvd_unshifted : Optional[pykoop.Tsvd]
             Singular value truncation method used to change basis of unshifted
             data matrix. If ``None``, economy SVD is used.
-        tsvd_shifted : pykoop.Tsvd
+        tsvd_shifted : Optional[pykoop.Tsvd]
             Singular value truncation method used to change basis of shifted
             data matrix. If ``None``, economy SVD is used.
         """
@@ -327,16 +330,18 @@ class Dmd(koopman_pipeline.KoopmanRegressor):
         'ensure_min_samples': 2,
     }
 
-    def __init__(self,
-                 mode_type: str = 'projected',
-                 tsvd: tsvd.Tsvd = None) -> None:
+    def __init__(
+        self,
+        mode_type: str = 'projected',
+        tsvd: Optional[tsvd.Tsvd] = None,
+    ) -> None:
         """Instantiate :class:`Dmd`.
 
         Parameters
         ----------
         mode_type : str
             DMD mode type, either ``'exact'`` or ``'projected'``.
-        tsvd : pykoop.Tsvd
+        tsvd : Optional[pykoop.Tsvd]
             Truncated singular value object used to change bases. If ``None``,
             economy SVD is used.
 
@@ -468,12 +473,12 @@ class DataRegressor(koopman_pipeline.KoopmanRegressor):
     KoopmanPipeline(regressor=DataRegressor(coef=array(...
     """
 
-    def __init__(self, coef: np.ndarray = None) -> None:
+    def __init__(self, coef: Optional[np.ndarray] = None) -> None:
         """Instantiate :class:`DataRegressor`.
 
         Parameters
         ----------
-        coef : np.ndarray
+        coef : Optional[np.ndarray]
             Coefficient matrix to copy to ``coef_``. If ``None``, an
             appropriately-sized zero matrix is used.
         """

@@ -2,7 +2,7 @@
 
 import abc
 import logging
-from typing import Any, Callable, Dict, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import numpy as np
 import sklearn.base
@@ -30,14 +30,14 @@ class Centers(sklearn.base.BaseEstimator, metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def fit(self, X: np.ndarray, y: np.ndarray = None) -> 'Centers':
+    def fit(self, X: np.ndarray, y: Optional[np.ndarray] = None) -> 'Centers':
         """Generate centers from data.
 
         Parameters
         ----------
         X : np.ndarray
             Data matrix.
-        y : np.ndarray
+        y : Optional[np.ndarray]
             Ignored.
 
         Returns
@@ -100,7 +100,11 @@ class GridCenters(Centers):
         self.n_points_per_feature = n_points_per_feature
         self.symmetric_range = symmetric_range
 
-    def fit(self, X: np.ndarray, y: np.ndarray = None) -> 'GridCenters':
+    def fit(
+        self,
+        X: np.ndarray,
+        y: Optional[np.ndarray] = None,
+    ) -> 'GridCenters':
         # noqa: D102
         X = sklearn.utils.validation.check_array(X)
         self.n_features_in_ = X.shape[1]
@@ -157,7 +161,7 @@ class UniformRandomCenters(Centers):
         self,
         n_centers: int = 100,
         symmetric_range: bool = False,
-        random_state: Union[int, np.random.RandomState] = None,
+        random_state: Union[int, np.random.RandomState, None] = None,
     ) -> None:
         """Instantiate :class:`UniformRandomCenters`.
 
@@ -170,7 +174,7 @@ class UniformRandomCenters(Centers):
             symmetric about zero (i.e., ``[-max(abs(x)), max(abs(x))]``).
             Otherwise, the grid range is taken directly on the data
             (i.e., ``[min(x), max(x)]``). Default is false.
-        random_state : Union[int, np.random.RandomState]
+        random_state : Union[int, np.random.RandomState, None]
             Random seed.
         """
         self.n_centers = n_centers
@@ -180,7 +184,7 @@ class UniformRandomCenters(Centers):
     def fit(
         self,
         X: np.ndarray,
-        y: np.ndarray = None,
+        y: Optional[np.ndarray] = None,
     ) -> 'UniformRandomCenters':
         # noqa: D102
         X = sklearn.utils.validation.check_array(X)
@@ -236,7 +240,7 @@ class GaussianRandomCenters(Centers):
     def __init__(
         self,
         n_centers: int = 100,
-        random_state: Union[int, np.random.RandomState] = None,
+        random_state: Union[int, np.random.RandomState, None] = None,
     ) -> None:
         """Instantiate :class:`GaussianRandomCenters`.
 
@@ -244,7 +248,7 @@ class GaussianRandomCenters(Centers):
         ----------
         n_centers : int
             Number of centers to generate.
-        random_state : Union[int, np.random.RandomState]
+        random_state : Union[int, np.random.RandomState, None]
             Random seed.
         """
         self.n_centers = n_centers
@@ -253,7 +257,7 @@ class GaussianRandomCenters(Centers):
     def fit(
         self,
         X: np.ndarray,
-        y: np.ndarray = None,
+        y: Optional[np.ndarray] = None,
     ) -> 'GaussianRandomCenters':
         # noqa: D102
         X = sklearn.utils.validation.check_array(X, ensure_min_samples=2)
@@ -316,9 +320,9 @@ class QmcCenters(Centers):
         self,
         n_centers: int = 100,
         symmetric_range: bool = False,
-        qmc: Callable[..., stats.qmc.QMCEngine] = None,
-        qmc_kw: Dict[str, Any] = None,
-        random_state: Union[int, np.random.RandomState] = None,
+        qmc: Optional[Callable[..., stats.qmc.QMCEngine]] = None,
+        qmc_kw: Optional[Dict[str, Any]] = None,
+        random_state: Union[int, np.random.RandomState, None] = None,
     ) -> None:
         """Instantiate :class:`QmcCenters`.
 
@@ -333,7 +337,7 @@ class QmcCenters(Centers):
             Otherwise, the grid range is taken directly on the data
             (i.e., ``[min(x), max(x)]``). Default is false.
 
-        qmc : Callable[..., stats.qmc.QMCEngine]
+        qmc : Optional[Callable[..., stats.qmc.QMCEngine]]
             Quasi-Monte Carlo method from :mod:`scipy.stats.qmc` to use.
             Argument is the desired subclass of
             :class:`scipy.stats.qmc.QMCEngine` to use. Accepts the class
@@ -352,12 +356,12 @@ class QmcCenters(Centers):
 
             If ``None``, defaults to Latin hypercube sampling.
 
-        qmc_kw : Dict[str, Any]
+        qmc_kw : Optional[Dict[str, Any]]
             Additional keyword arguments passed when instantiating ``qmc``. If
             ``seed`` is specified here, it takes precedence over
             ``random_state``.
 
-        random_state : Union[int, np.random.RandomState]
+        random_state : Union[int, np.random.RandomState, None]
             Random seed.
         """
         self.n_centers = n_centers
@@ -369,7 +373,7 @@ class QmcCenters(Centers):
     def fit(
         self,
         X: np.ndarray,
-        y: np.ndarray = None,
+        y: Optional[np.ndarray] = None,
     ) -> 'QmcCenters':
         # noqa: D102
         X = sklearn.utils.validation.check_array(X, ensure_min_samples=2)
@@ -391,8 +395,11 @@ class QmcCenters(Centers):
         self.qmc_ = qmc(self.n_features_in_, **qmc_args)
         # Generate and scale samples
         unscaled_centers = self.qmc_.random(self.n_centers_)
-        self.centers_ = stats.qmc.scale(unscaled_centers, self.range_min_,
-                                        self.range_max_)
+        self.centers_ = stats.qmc.scale(
+            unscaled_centers,
+            self.range_min_,
+            self.range_max_,
+        )
         return self
 
 
@@ -425,12 +432,15 @@ class ClusterCenters(Centers):
     array([...])
     """
 
-    def __init__(self, estimator: sklearn.base.BaseEstimator = None) -> None:
+    def __init__(
+        self,
+        estimator: Optional[sklearn.base.BaseEstimator] = None,
+    ) -> None:
         """Instantiate :class:`ClusterCenters`.
 
         Parameters
         ----------
-        estimator : sklearn.base.BaseEstimator
+        estimator : Optional[sklearn.base.BaseEstimator]
             Clustering estimator or Gaussian mixture model. Must provide
             ``cluster_centers_`` or ``means_`` once fit. Possible algorithms
             include
@@ -449,7 +459,11 @@ class ClusterCenters(Centers):
         """
         self.estimator = estimator
 
-    def fit(self, X: np.ndarray, y: np.ndarray = None) -> 'ClusterCenters':
+    def fit(
+        self,
+        X: np.ndarray,
+        y: Optional[np.ndarray] = None,
+    ) -> 'ClusterCenters':
         # noqa: D102
         X = sklearn.utils.validation.check_array(X)
         self.n_features_in_ = X.shape[1]
@@ -523,7 +537,7 @@ class GaussianMixtureRandomCenters(Centers):
     def fit(
         self,
         X: np.ndarray,
-        y: np.ndarray = None,
+        y: Optional[np.ndarray] = None,
     ) -> 'GaussianMixtureRandomCenters':
         # noqa: D102
         X = sklearn.utils.validation.check_array(X)
@@ -552,7 +566,7 @@ class DataCenters(Centers):
         Number of features input.
     """
 
-    def __init__(self, centers: np.ndarray = None):
+    def __init__(self, centers: Optional[np.ndarray] = None):
         """Instantiate :class:`DataCenters`.
 
         Parameters
@@ -563,7 +577,11 @@ class DataCenters(Centers):
         """
         self.centers = centers
 
-    def fit(self, X: np.ndarray, y: np.ndarray = None) -> 'DataCenters':
+    def fit(
+        self,
+        X: np.ndarray,
+        y: Optional[np.ndarray] = None,
+    ) -> 'DataCenters':
         # noqa: D102
         X = sklearn.utils.validation.check_array(X)
         self.n_features_in_ = X.shape[1]

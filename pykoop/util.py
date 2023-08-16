@@ -1,6 +1,6 @@
 """Utilities for data generation and preprocessing."""
 
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 from scipy import interpolate, signal
@@ -60,14 +60,16 @@ class AnglePreprocessor(koopman_pipeline.EpisodeIndependentLiftingFn):
     >>> X_pend_pp = angle_pp.transform(X_pend)
     """
 
-    def __init__(self,
-                 angle_features: np.ndarray = None,
-                 unwrap_inverse: bool = False) -> None:
+    def __init__(
+        self,
+        angle_features: Optional[np.ndarray] = None,
+        unwrap_inverse: bool = False,
+    ) -> None:
         """Instantiate :class:`AnglePreprocessor`.
 
         Parameters
         ----------
-        angle_features : np.ndarray
+        angle_features : Optional[np.ndarray]
             Indices of features that are angles.
         unwrap_inverse : bool
             Unwrap inverse by replacing absolute jumps greater than ``pi`` by
@@ -142,7 +144,7 @@ class AnglePreprocessor(koopman_pipeline.EpisodeIndependentLiftingFn):
     def _transform_feature_names(
         self,
         feature_names: np.ndarray,
-        format: str = None,
+        format: Optional[str] = None,
     ) -> np.ndarray:
         # noqa: D102
         if format == 'latex':
@@ -185,7 +187,7 @@ def random_state(low, high, rng=None):
         Lower bound for uniform random distribution.
     high : float or (n, 1) np.ndarray
         Upper bound for uniform random distribution.
-    rng : Generator
+    rng : Optional[Generator]
         Random number generator, `numpy.random.default_rng(seed)`.
 
     Returns
@@ -207,14 +209,16 @@ def random_state(low, high, rng=None):
     return x_rand
 
 
-def random_input(t_range,
-                 t_step,
-                 low,
-                 high,
-                 cutoff,
-                 order=2,
-                 rng=None,
-                 output='function'):
+def random_input(
+    t_range,
+    t_step,
+    low,
+    high,
+    cutoff,
+    order=2,
+    rng=None,
+    output='function',
+):
     """Generate a smooth random input.
 
     Generates uniform random data between specified bounds, lowpass filters the
