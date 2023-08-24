@@ -6,5 +6,6 @@ pytest-regressions
 sphinx
 sphinx-rtd-theme
 types-Deprecated
+snakeviz
 
 mosek>=9.2.49
