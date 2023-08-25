@@ -3678,13 +3678,13 @@ def split_episodes(
     if episode_feature:
         X_ep = X[:, 0]
         X = X[:, 1:]
+        # Split X into list of episodes. Each episode is a tuple containing
+        # its index and its associated data matrix.
+        episodes = []
+        for i in _unique_episodes(X_ep):
+            episodes.append((i, X[X_ep == i, :]))
     else:
-        X_ep = np.zeros((X.shape[0], ))
-    # Split X into list of episodes. Each episode is a tuple containing
-    # its index and its associated data matrix.
-    episodes = []
-    for i in _unique_episodes(X_ep):
-        episodes.append((i, X[X_ep == i, :]))
+        episodes = [(0, X)]
     # Return list of episodes
     return episodes
 

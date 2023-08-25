@@ -1,4 +1,9 @@
-"""Benchmark :func:`pykoop.koopman_pipeline._unique_episodes()`."""
+"""Benchmark :func:`pykoop.koopman_pipeline._unique_episodes()`.
+
+It's very hard to do better than :func:`pandas.unique`, so I will stop messing
+with it. Another approach could be to store the unique episodes somewhere for
+reuse, but that could be convoluted.
+"""
 
 import timeit
 
