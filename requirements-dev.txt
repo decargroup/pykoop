@@ -7,6 +7,5 @@ sphinx
 sphinx-rtd-theme
 types-Deprecated
 snakeviz
-timeit
 
 mosek>=9.2.49
