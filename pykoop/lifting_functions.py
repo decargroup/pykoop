@@ -7,6 +7,7 @@ defined in :class:`KoopmanLiftingFn`.
 from typing import Callable, Optional, Tuple, Union
 
 import numpy as np
+import sklearn
 import sklearn.base
 import sklearn.kernel_approximation
 import sklearn.preprocessing
@@ -14,6 +15,8 @@ import sklearn.utils.validation
 from scipy import linalg
 
 from . import centers, kernel_approximation, koopman_pipeline
+
+from ._sklearn_config import config
 
 
 class SkLearnLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
@@ -249,7 +252,9 @@ class PolynomialLiftingFn(koopman_pipeline.EpisodeIndependentLiftingFn):
 
     def _transform_one_ep(self, X: np.ndarray) -> np.ndarray:
         # Transform states
-        Xt = self.transformer_.transform(X)
+        skip_validation = config.get_config()['skip_validation']
+        with sklearn.config_context(assume_finite=skip_validation):
+            Xt = self.transformer_.transform(X)
         # Reorder states
         return Xt[:, self.transform_order_]
 
