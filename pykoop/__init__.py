@@ -10,6 +10,7 @@ from .centers import (
     QmcCenters,
     UniformRandomCenters,
 )
+from ._sklearn_config.config import config_context, get_config, set_config
 from .kernel_approximation import (
     KernelApproximation,
     RandomBinningKernelApprox,
@@ -34,12 +35,12 @@ from .lifting_functions import (
     BilinearInputLiftingFn,
     ConstantLiftingFn,
     DelayLiftingFn,
+    KernelApproxLiftingFn,
     PolynomialLiftingFn,
     RbfLiftingFn,
-    KernelApproxLiftingFn,
     SkLearnLiftingFn,
 )
-from .regressors import Dmd, Dmdc, Edmd, EdmdMeta, DataRegressor
+from .regressors import DataRegressor, Dmd, Dmdc, Edmd, EdmdMeta
 from .tsvd import Tsvd
 from .util import (
     AnglePreprocessor,
