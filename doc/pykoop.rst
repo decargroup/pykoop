@@ -272,6 +272,20 @@ The following class and function implementations are located in
    pykoop.dynamic_models.Pendulum
 
 
+Configuration
+=============
+
+The following functions allow the user to interact with ``pykoop``'s global
+configuration.
+
+.. autosummary::
+   :toctree: _autosummary/
+
+   pykoop.get_config
+   pykoop.set_config
+   pykoop.config_context
+
+
 Extending ``pykoop``
 ====================
 
