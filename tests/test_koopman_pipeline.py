@@ -1429,21 +1429,17 @@ class TestSplitCombineEpisodes:
     """Test :func:`split_episodes` and :func:`combine_episodes`."""
 
     def test_split_episodes(self, X, episodes, episode_feature):
-        """Test :func:`split_episodes`.
-
-        .. todo:: Break up multiple asserts.
-        """
-        # Split episodes
-        episodes_actual = pykoop.split_episodes(
-            X,
-            episode_feature=episode_feature,
-        )
-        # Compare every episode
-        for actual, expected in zip(episodes_actual, episodes):
-            i_actual, X_actual = actual
-            i_expected, X_expected = expected
-            assert i_actual == i_expected
-            np.testing.assert_allclose(X_actual, X_expected)
+        """Test :func:`split_episodes`."""
+        if episode_feature:
+            X_ep = X[:, 0]
+            X = X[:, 1:]
+            for i_exp, X_i_exp in episodes:
+                X_actual = X[X_ep == i_exp]
+                np.testing.assert_allclose(X_actual, X_i_exp)
+        else:
+            assert len(episodes) == 1
+            X_exp = episodes[0][1]
+            np.testing.assert_allclose(X, X_exp)
 
     def test_combine_episodes(self, X, episodes, episode_feature):
         """Test :func:`combine_episodes`."""

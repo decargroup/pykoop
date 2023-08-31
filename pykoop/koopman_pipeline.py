@@ -3716,7 +3716,7 @@ def split_episodes(
         # Split X into list of episodes. Each episode is a tuple containing
         # its index and its associated data matrix.
         episodes = []
-        for i in _unique_episodes(X_ep):
+        for i in unique_episodes(X_ep):
             episodes.append((i, X[X_ep == i, :]))
     else:
         episodes = [(0, X)]
@@ -3752,6 +3752,31 @@ def combine_episodes(episodes: List[Tuple[float, np.ndarray]],
     # Concatenate the combined episodes
     Xc = np.vstack(combined_episodes)
     return Xc
+
+
+def unique_episodes(X_ep: np.ndarray) -> np.ndarray:
+    """Find all the unique episodes in an episode feature array.
+
+    Parameters
+    ----------
+    X_ep : np.ndarray
+        Episode feature (as would be passed to :func:`KoopmanPipeine.fit()`).
+
+    Returns
+    -------
+    np.ndarray
+        List of unique episode indices.
+
+    Raises
+    ------
+    ValueError
+        If episode feature contains negative or fractional numbers.
+    """
+    if not config.get_config()['skip_validation']:
+        if np.any((X_ep % 1) != 0) or np.any(X_ep < 0):
+            raise ValueError(
+                'Episode feature must contain only positive whole numbers.')
+    return np.flatnonzero(np.bincount(X_ep.astype(int)))
 
 
 def _weights_from_data_matrix(
@@ -3838,21 +3863,3 @@ def _extract_feature_names(
         return np.asarray(X.columns, dtype=object)
     else:
         return None
-
-
-def _unique_episodes(X_ep: np.ndarray) -> List[float]:
-    """Find all the unique episodes in an episode feature array.
-
-    Parameters
-    ----------
-    X_ep : np.ndarray
-        Episode feature (as would be passed to :func:`KoopmanPipeine.fit()`).
-
-    Returns
-    -------
-    List[float]
-        List of unique episode indices.
-    """
-    # ``pandas.unique`` is faster than ``np.unique`` and preserves order.
-    episodes = list(pandas.unique(X_ep))
-    return episodes

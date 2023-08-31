@@ -1,5 +1,6 @@
 """Koopman operator identification library in Python."""
 
+from ._sklearn_config.config import config_context, get_config, set_config
 from .centers import (
     Centers,
     ClusterCenters,
@@ -10,7 +11,6 @@ from .centers import (
     QmcCenters,
     UniformRandomCenters,
 )
-from ._sklearn_config.config import config_context, get_config, set_config
 from .kernel_approximation import (
     KernelApproximation,
     RandomBinningKernelApprox,
@@ -30,6 +30,7 @@ from .koopman_pipeline import (
     shift_episodes,
     split_episodes,
     strip_initial_conditions,
+    unique_episodes,
 )
 from .lifting_functions import (
     BilinearInputLiftingFn,

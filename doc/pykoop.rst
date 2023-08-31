@@ -26,7 +26,8 @@ The data matrices provided to :func:`fit` (as well as :func:`transform`
 and :func:`inverse_transform`) must obey the following format:
 
 1. If ``episode_feature`` is true, the first feature must indicate
-   which episode each timestep belongs to.
+   which episode each timestep belongs to. The episode feature must contain
+   positive integers only.
 2. The last ``n_inputs`` features must be exogenous inputs.
 3. The remaining features are considered to be states (input-independent).
 
@@ -83,6 +84,9 @@ State 0 State 1 State 2
 
 In the above case, each timestep is assumed to belong to the same
 episode.
+
+.. important::
+   The episode feature must contain positive integers only!
 
 Koopman regressors, which implement the interface defined in
 :class:`pykoop.KoopmanRegressor` are distinct from ``scikit-learn`` regressors
