@@ -10,7 +10,6 @@ import pykoop
 
 def main():
     """Benchmark :func:`pykoop.predict_trajectory()`."""
-
     pykoop.set_config(skip_validation=True)
 
     # Get example mass-spring-damper data
