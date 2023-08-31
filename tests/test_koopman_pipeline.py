@@ -1423,6 +1423,26 @@ class TestPrediction:
             ],
             True,
         ),
+        # Negative episode
+        (
+            np.array([
+                [0, 0, 0, -1, -1, -1],
+                [1, 2, 3, 4, 5, 6],
+                [6, 5, 4, 3, 2, 1],
+            ]).T,
+            'raise',
+            True,
+        ),
+        # Fractional episode
+        (
+            np.array([
+                [0, 0, 0, 1.1, 1.1, 1.1],
+                [1, 2, 3, 4, 5, 6],
+                [6, 5, 4, 3, 2, 1],
+            ]).T,
+            'raise',
+            True,
+        ),
     ],
 )
 class TestSplitCombineEpisodes:
@@ -1430,24 +1450,39 @@ class TestSplitCombineEpisodes:
 
     def test_split_episodes(self, X, episodes, episode_feature):
         """Test :func:`split_episodes`."""
-        if episode_feature:
-            X_ep = X[:, 0]
-            X = X[:, 1:]
-            for i_exp, X_i_exp in episodes:
-                X_actual = X[X_ep == i_exp]
-                np.testing.assert_allclose(X_actual, X_i_exp)
+        if episodes == 'raise':
+            with pytest.raises(ValueError):
+                pykoop.split_episodes(X, episode_feature=episode_feature)
         else:
-            assert len(episodes) == 1
-            X_exp = episodes[0][1]
-            np.testing.assert_allclose(X, X_exp)
+            episodes_actual = pykoop.split_episodes(
+                X, episode_feature=episode_feature)
+            episodes_expected = list(sorted(episodes))
+            zipped_episodes = zip(episodes_actual, episodes_expected)
+            if episode_feature:
+                X_ep = X[:, 0]
+                X = X[:, 1:]
+                for (i_act, X_i_act), (i_exp, X_i_exp) in zipped_episodes:
+                    assert i_act == i_exp
+                    np.testing.assert_allclose(X_i_act, X_i_exp)
+            else:
+                assert len(episodes) == 1
+                X_exp = episodes[0][1]
+                np.testing.assert_allclose(X, X_exp)
 
     def test_combine_episodes(self, X, episodes, episode_feature):
         """Test :func:`combine_episodes`."""
-        X_actual = pykoop.combine_episodes(
-            episodes,
-            episode_feature=episode_feature,
-        )
-        np.testing.assert_allclose(X_actual, X)
+        if episodes == 'raise':
+            with pytest.raises(ValueError):
+                pykoop.combine_episodes(
+                    episodes,
+                    episode_feature=episode_feature,
+                )
+        else:
+            X_actual = pykoop.combine_episodes(
+                episodes,
+                episode_feature=episode_feature,
+            )
+            np.testing.assert_allclose(X_actual, X)
 
 
 @pytest.mark.parametrize(
