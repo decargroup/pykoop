@@ -14,6 +14,7 @@ from deprecated import deprecated
 from matplotlib import pyplot as plt
 from scipy import linalg
 
+from ._sklearn_config import config
 from ._sklearn_metaestimators import metaestimators
 
 # Create logger
@@ -742,32 +743,40 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
 
     def transform(self, X: np.ndarray) -> np.ndarray:
         # noqa: D102
-        # Ensure fit has been done
-        sklearn.utils.validation.check_is_fitted(self)
-        # Check feature names
-        self._validate_feature_names(X)
-        # Validate data
-        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
-        # Check input shape
-        if X.shape[1] != self.n_features_in_:
-            raise ValueError(f'{self.__class__.__name__} `fit()` called '
-                             f'with {self.n_features_in_} features, but '
-                             f'`transform()` called with {X.shape[1]} '
-                             'features.')
+        if not config.get_config()['skip_validation']:
+            # Ensure fit has been done
+            sklearn.utils.validation.check_is_fitted(self)
+            # Check feature names
+            self._validate_feature_names(X)
+            # Validate data
+            X = sklearn.utils.validation.check_array(
+                X,
+                **self._check_array_params,
+            )
+            # Check input shape
+            if X.shape[1] != self.n_features_in_:
+                raise ValueError(f'{self.__class__.__name__} `fit()` called '
+                                 f'with {self.n_features_in_} features, but '
+                                 f'`transform()` called with {X.shape[1]} '
+                                 'features.')
         return self._apply_transform_or_inverse(X, 'transform')
 
     def inverse_transform(self, X: np.ndarray) -> np.ndarray:
         # noqa: D102
-        # Ensure fit has been done
-        sklearn.utils.validation.check_is_fitted(self)
-        # Validate data
-        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
-        # Check input shape
-        if X.shape[1] != self.n_features_out_:
-            raise ValueError(f'{self.__class__.__name__} `fit()` output '
-                             f'{self.n_features_out_} features, but '
-                             '`inverse_transform()` called with '
-                             f'{X.shape[1]} features.')
+        if not config.get_config()['skip_validation']:
+            # Ensure fit has been done
+            sklearn.utils.validation.check_is_fitted(self)
+            # Validate data
+            X = sklearn.utils.validation.check_array(
+                X,
+                **self._check_array_params,
+            )
+            # Check input shape
+            if X.shape[1] != self.n_features_out_:
+                raise ValueError(f'{self.__class__.__name__} `fit()` output '
+                                 f'{self.n_features_out_} features, but '
+                                 '`inverse_transform()` called with '
+                                 f'{X.shape[1]} features.')
         return self._apply_transform_or_inverse(X, 'inverse_transform')
 
     def n_samples_in(self, n_samples_out: int = 1) -> int:
@@ -979,32 +988,40 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
 
     def transform(self, X: np.ndarray) -> np.ndarray:
         # noqa: D102
-        # Ensure fit has been done
-        sklearn.utils.validation.check_is_fitted(self)
-        # Check feature names
-        self._validate_feature_names(X)
-        # Validate data
-        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
-        # Check input shape
-        if X.shape[1] != self.n_features_in_:
-            raise ValueError(f'{self.__class__.__name__} `fit()` called '
-                             f'with {self.n_features_in_} features, but '
-                             f'`transform()` called with {X.shape[1]} '
-                             'features.')
+        if not config.get_config()['skip_validation']:
+            # Ensure fit has been done
+            sklearn.utils.validation.check_is_fitted(self)
+            # Check feature names
+            self._validate_feature_names(X)
+            # Validate data
+            X = sklearn.utils.validation.check_array(
+                X,
+                **self._check_array_params,
+            )
+            # Check input shape
+            if X.shape[1] != self.n_features_in_:
+                raise ValueError(f'{self.__class__.__name__} `fit()` called '
+                                 f'with {self.n_features_in_} features, but '
+                                 f'`transform()` called with {X.shape[1]} '
+                                 'features.')
         return self._apply_transform_or_inverse(X, 'transform')
 
     def inverse_transform(self, X: np.ndarray) -> np.ndarray:
         # noqa: D102
-        # Ensure fit has been done
-        sklearn.utils.validation.check_is_fitted(self)
-        # Validate data
-        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
-        # Check input shape
-        if X.shape[1] != self.n_features_out_:
-            raise ValueError(f'{self.__class__.__name__} `fit()` output '
-                             f'{self.n_features_out_} features, but '
-                             '`inverse_transform()` called with '
-                             f'{X.shape[1]} features.')
+        if not config.get_config()['skip_validation']:
+            # Ensure fit has been done
+            sklearn.utils.validation.check_is_fitted(self)
+            # Validate data
+            X = sklearn.utils.validation.check_array(
+                X,
+                **self._check_array_params,
+            )
+            # Check input shape
+            if X.shape[1] != self.n_features_out_:
+                raise ValueError(f'{self.__class__.__name__} `fit()` output '
+                                 f'{self.n_features_out_} features, but '
+                                 '`inverse_transform()` called with '
+                                 f'{X.shape[1]} features.')
         return self._apply_transform_or_inverse(X, 'inverse_transform')
 
     def _apply_transform_or_inverse(self, X: np.ndarray,
@@ -1784,18 +1801,22 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
     def transform(self, X: np.ndarray) -> np.ndarray:
         # noqa: D102
-        # Check if fitted
-        sklearn.utils.validation.check_is_fitted(self)
-        # Check feature names
-        self._validate_feature_names(X)
-        # Validate input array
-        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
-        # Check input shape
-        if X.shape[1] != self.n_features_in_:
-            raise ValueError(f'{self.__class__.__name__} `fit()` called '
-                             f'with {self.n_features_in_} features, but '
-                             f'`transform()` called with {X.shape[1]} '
-                             'features.')
+        if not config.get_config()['skip_validation']:
+            # Check if fitted
+            sklearn.utils.validation.check_is_fitted(self)
+            # Check feature names
+            self._validate_feature_names(X)
+            # Validate input array
+            X = sklearn.utils.validation.check_array(
+                X,
+                **self._check_array_params,
+            )
+            # Check input shape
+            if X.shape[1] != self.n_features_in_:
+                raise ValueError(f'{self.__class__.__name__} `fit()` called '
+                                 f'with {self.n_features_in_} features, but '
+                                 f'`transform()` called with {X.shape[1]} '
+                                 'features.')
         # Split episodes
         episodes = split_episodes(X, episode_feature=self.episode_feature_)
         episodes_state = []
@@ -1847,14 +1868,16 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
 
     def inverse_transform(self, X: np.ndarray) -> np.ndarray:
         # noqa: D102
-        sklearn.utils.validation.check_is_fitted(self)
-        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
-        # Check input shape
-        if X.shape[1] != self.n_features_out_:
-            raise ValueError(f'{self.__class__.__name__} `fit()` output '
-                             f'{self.n_features_out_} features, but '
-                             '`inverse_transform()` called with '
-                             f'{X.shape[1]} features.')
+        if not config.get_config()['skip_validation']:
+            sklearn.utils.validation.check_is_fitted(self)
+            X = sklearn.utils.validation.check_array(
+                X, **self._check_array_params)
+            # Check input shape
+            if X.shape[1] != self.n_features_out_:
+                raise ValueError(f'{self.__class__.__name__} `fit()` output '
+                                 f'{self.n_features_out_} features, but '
+                                 '`inverse_transform()` called with '
+                                 f'{X.shape[1]} features.')
         # Split episodes
         episodes = split_episodes(X, episode_feature=self.episode_feature_)
         episodes_state = []
@@ -2244,18 +2267,22 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         np.ndarray
             Transformed data matrix.
         """
-        # Check if fitted
-        sklearn.utils.validation.check_is_fitted(self, 'transformers_fit_')
-        # Check feature names
-        self._validate_feature_names(X)
-        # Validate input array
-        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
-        # Check input shape
-        if X.shape[1] != self.n_features_in_:
-            raise ValueError(f'{self.__class__.__name__} `fit()` called '
-                             f'with {self.n_features_in_} features, but '
-                             f'`transform()` called with {X.shape[1]} '
-                             'features.')
+        if not config.get_config()['skip_validation']:
+            # Check if fitted
+            sklearn.utils.validation.check_is_fitted(self, 'transformers_fit_')
+            # Check feature names
+            self._validate_feature_names(X)
+            # Validate input array
+            X = sklearn.utils.validation.check_array(
+                X,
+                **self._check_array_params,
+            )
+            # Check input shape
+            if X.shape[1] != self.n_features_in_:
+                raise ValueError(f'{self.__class__.__name__} `fit()` called '
+                                 f'with {self.n_features_in_} features, but '
+                                 f'`transform()` called with {X.shape[1]} '
+                                 'features.')
         # Apply lifting functions
         X_out = X
         for _, lf in self.lifting_functions_:
@@ -2275,14 +2302,18 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         np.ndarray
             Inverted transformed data matrix.
         """
-        sklearn.utils.validation.check_is_fitted(self, 'transformers_fit_')
-        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
-        # Check input shape
-        if X.shape[1] != self.n_features_out_:
-            raise ValueError(f'{self.__class__.__name__} `fit()` output '
-                             f'{self.n_features_out_} features, but '
-                             '`inverse_transform()` called with '
-                             f'{X.shape[1]} features.')
+        if not config.get_config()['skip_validation']:
+            sklearn.utils.validation.check_is_fitted(self, 'transformers_fit_')
+            X = sklearn.utils.validation.check_array(
+                X,
+                **self._check_array_params,
+            )
+            # Check input shape
+            if X.shape[1] != self.n_features_out_:
+                raise ValueError(f'{self.__class__.__name__} `fit()` output '
+                                 f'{self.n_features_out_} features, but '
+                                 '`inverse_transform()` called with '
+                                 f'{X.shape[1]} features.')
         # Apply inverse lifting functions in reverse order
         X_out = X
         for _, lf in self.lifting_functions_[::-1]:
@@ -2318,12 +2349,16 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         np.ndarray
             Predicted data matrix.
         """
-        # Check if fitted
-        sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
-        # Check feature names
-        self._validate_feature_names(X)
-        # Validate input array
-        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
+        if not config.get_config()['skip_validation']:
+            # Check if fitted
+            sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
+            # Check feature names
+            self._validate_feature_names(X)
+            # Validate input array
+            X = sklearn.utils.validation.check_array(
+                X,
+                **self._check_array_params,
+            )
         # Lift data matrix
         X_trans = self.transform(X)
         # Predict in lifted space
@@ -3678,14 +3713,13 @@ def split_episodes(
     if episode_feature:
         X_ep = X[:, 0]
         X = X[:, 1:]
+        # Split X into list of episodes. Each episode is a tuple containing
+        # its index and its associated data matrix.
+        episodes = []
+        for i in unique_episodes(X_ep):
+            episodes.append((i, X[X_ep == i, :]))
     else:
-        X_ep = np.zeros((X.shape[0], ))
-    # Split X into list of episodes. Each episode is a tuple containing
-    # its index and its associated data matrix.
-    episodes = []
-    # ``pandas.unique`` is faster than ``np.unique`` and preserves order.
-    for i in pandas.unique(X_ep):
-        episodes.append((i, X[X_ep == i, :]))
+        episodes = [(0, X)]
     # Return list of episodes
     return episodes
 
@@ -3718,6 +3752,31 @@ def combine_episodes(episodes: List[Tuple[float, np.ndarray]],
     # Concatenate the combined episodes
     Xc = np.vstack(combined_episodes)
     return Xc
+
+
+def unique_episodes(X_ep: np.ndarray) -> np.ndarray:
+    """Find all the unique episodes in an episode feature array.
+
+    Parameters
+    ----------
+    X_ep : np.ndarray
+        Episode feature (as would be passed to :func:`KoopmanPipeine.fit()`).
+
+    Returns
+    -------
+    np.ndarray
+        List of unique episode indices.
+
+    Raises
+    ------
+    ValueError
+        If episode feature contains negative or fractional numbers.
+    """
+    if not config.get_config()['skip_validation']:
+        if np.any((X_ep % 1) != 0) or np.any(X_ep < 0):
+            raise ValueError(
+                'Episode feature must contain only positive whole numbers.')
+    return np.flatnonzero(np.bincount(X_ep.astype(int)))
 
 
 def _weights_from_data_matrix(

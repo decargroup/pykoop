@@ -27,7 +27,12 @@ setuptools.setup(
         'PyPI': 'https://pypi.org/project/pykoop/',
         'DOI': 'https://doi.org/10.5281/zenodo.5576490',
     },
-    packages=setuptools.find_packages(exclude=('tests', 'examples', 'doc')),
+    packages=setuptools.find_packages(exclude=(
+        'tests',
+        'examples',
+        'doc',
+        'benchmarks',
+    )),
     # Officially, Python 3.8 is the lowest supported version, but almost
     # everything works on Python 3.7.
     python_requires='>=3.7',

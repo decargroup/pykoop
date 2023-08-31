@@ -288,6 +288,7 @@ dmypy.json
 
 # profiling data
 .prof
+*.prof
 
 ### Vim ###
 # Swap

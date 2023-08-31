@@ -1,5 +1,6 @@
 """Koopman operator identification library in Python."""
 
+from ._sklearn_config.config import config_context, get_config, set_config
 from .centers import (
     Centers,
     ClusterCenters,
@@ -29,17 +30,18 @@ from .koopman_pipeline import (
     shift_episodes,
     split_episodes,
     strip_initial_conditions,
+    unique_episodes,
 )
 from .lifting_functions import (
     BilinearInputLiftingFn,
     ConstantLiftingFn,
     DelayLiftingFn,
+    KernelApproxLiftingFn,
     PolynomialLiftingFn,
     RbfLiftingFn,
-    KernelApproxLiftingFn,
     SkLearnLiftingFn,
 )
-from .regressors import Dmd, Dmdc, Edmd, EdmdMeta, DataRegressor
+from .regressors import DataRegressor, Dmd, Dmdc, Edmd, EdmdMeta
 from .tsvd import Tsvd
 from .util import (
     AnglePreprocessor,
