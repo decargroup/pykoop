@@ -173,8 +173,8 @@ you can use
 .. code-block:: sh
 
    $ cd .git/hooks/
-   $ ln -s ../../.githooks/pre-commit.sh .
-   $ chmod +x ./pre-commit.sh
+   $ ln -s ../../.githooks/pre-commit .
+   $ chmod +x ./pre-commit
 
 You will need ``yapf`` installed for this.
 
