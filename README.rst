@@ -221,7 +221,7 @@ If you use this software in your research, please cite it as below or see
         url={https://github.com/decargroup/pykoop},
         publisher={Zenodo},
         author={Steven Dahdah and James Richard Forbes},
-        version = {{v1.2.0}},
+        version = {{v1.2.1}},
         year={2022},
     }
 
