@@ -3854,10 +3854,15 @@ def _extract_feature_names(X: Any) -> Optional[np.ndarray]:
     if isinstance(X, np.ndarray):
         return None
     else:
-        for name in X.columns:
-            if not isinstance(name, str):
-                log.warning(
-                    'Feature names must all be strings. When ``scikit-learn`` '
-                    'v1.2 comes out this will be upgraded to an exception.')
-                return None
-        return np.asarray(X.columns, dtype=object)
+        try:
+            for name in X.columns:
+                if not isinstance(name, str):
+                    log.warning('Feature names must all be strings. When '
+                                '``scikit-learn`` v1.2 comes out this will be '
+                                'upgraded to an exception.')
+                    return None
+            return np.asarray(X.columns, dtype=object)
+        except AttributeError:
+            return None
+        except TypeError:
+            return None
