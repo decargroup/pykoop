@@ -6,7 +6,6 @@ import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
-import pandas
 import sklearn.base
 import sklearn.exceptions
 import sklearn.metrics
@@ -3834,14 +3833,13 @@ def _weights_from_data_matrix(
     return weights
 
 
-def _extract_feature_names(
-        X: Union[np.ndarray, pandas.DataFrame]) -> Optional[np.ndarray]:
+def _extract_feature_names(X: Any) -> Optional[np.ndarray]:
     """Extract feature names from input array.
 
     Parameters
     ----------
-    X : Union[np.ndarray, pandas.DataFrame]
-        Input array.
+    X : Any
+        Input array, either ``np.ndarray`` or ``pandas.DataFrame``.
 
     Returns
     -------
@@ -3853,13 +3851,18 @@ def _extract_feature_names(
     ValueError
         If feature names are not strings.
     """
-    if isinstance(X, pandas.DataFrame):
-        for name in X.columns:
-            if not isinstance(name, str):
-                log.warning(
-                    'Feature names must all be strings. When ``scikit-learn`` '
-                    'v1.2 comes out this will be upgraded to an exception.')
-                return None
-        return np.asarray(X.columns, dtype=object)
-    else:
+    if isinstance(X, np.ndarray):
         return None
+    else:
+        try:
+            for name in X.columns:
+                if not isinstance(name, str):
+                    log.warning('Feature names must all be strings. When '
+                                '``scikit-learn`` v1.2 comes out this will be '
+                                'upgraded to an exception.')
+                    return None
+            return np.asarray(X.columns, dtype=object)
+        except AttributeError:
+            return None
+        except TypeError:
+            return None
