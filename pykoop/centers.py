@@ -11,6 +11,7 @@ import sklearn.mixture
 from scipy import stats
 
 log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 
 class Centers(sklearn.base.BaseEstimator, metaclass=abc.ABCMeta):
