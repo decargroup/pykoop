@@ -191,7 +191,7 @@ class LmiEdmd(LmiRegressor):
         inv_method: str = 'svd',
         tsvd: Optional[tsvd.Tsvd] = None,
         square_norm: bool = False,
-        picos_eps: float = 0,
+        picos_eps: float = 1e-6,
         solver_params: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Instantiate :class:`LmiEdmd`.
@@ -494,7 +494,7 @@ class LmiDmdc(LmiRegressor):
         tsvd_shifted: Optional[tsvd.Tsvd] = None,
         reg_method: str = 'tikhonov',
         square_norm: bool = False,
-        picos_eps: float = 0,
+        picos_eps: float = 1e-6,
         solver_params: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Instantiate :class:`LmiDmdc`.
@@ -672,7 +672,7 @@ class LmiDmdc(LmiRegressor):
                     - big_constant.T * U_hat.T, U_hat * Q_bar_Sigma_tld
                 ],
                 [Q_bar_Sigma_tld.T * U_hat.T, m1],
-            ]) << picos_eps)
+            ]) << -1 * picos_eps)
         problem.set_objective('min', picos.trace(W_hat))
         return problem
 
@@ -736,7 +736,7 @@ class LmiEdmdSpectralRadiusConstr(LmiRegressor):
         alpha: float = 0,
         inv_method: str = 'svd',
         tsvd: Optional[tsvd.Tsvd] = None,
-        picos_eps: float = 0,
+        picos_eps: float = 1e-6,
         solver_params: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Instantiate :class:`LmiEdmdSpectralRadiusConstr`.
@@ -988,7 +988,7 @@ class LmiDmdcSpectralRadiusConstr(LmiRegressor):
         alpha: float = 0,
         tsvd_unshifted: Optional[tsvd.Tsvd] = None,
         tsvd_shifted: Optional[tsvd.Tsvd] = None,
-        picos_eps: float = 0,
+        picos_eps: float = 1e-6,
         solver_params: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Instantiate :class:`LmiDmdcSpectralRadiusConstr`.
@@ -1264,7 +1264,7 @@ class LmiEdmdHinfReg(LmiRegressor):
         inv_method: str = 'svd',
         tsvd: Optional[tsvd.Tsvd] = None,
         square_norm: bool = False,
-        picos_eps: float = 0,
+        picos_eps: float = 1e-6,
         solver_params: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Instantiate :class:`LmiEdmdHinfReg`.
@@ -1603,7 +1603,7 @@ class LmiDmdcHinfReg(LmiRegressor):
         tsvd_unshifted: Optional[tsvd.Tsvd] = None,
         tsvd_shifted: Optional[tsvd.Tsvd] = None,
         square_norm: bool = False,
-        picos_eps: float = 0,
+        picos_eps: float = 1e-6,
         solver_params: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Instantiate :class:`LmiDmdcHinfReg`.
@@ -1924,7 +1924,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         iter_rtol: float = 0,
         inv_method: str = 'svd',
         tsvd: Optional[tsvd.Tsvd] = None,
-        picos_eps: float = 0,
+        picos_eps: float = 1e-6,
         solver_params: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Instantiate :class:`LmiEdmdDissipativityConstr`.

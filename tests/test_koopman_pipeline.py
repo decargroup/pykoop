@@ -1103,6 +1103,95 @@ class TestEpisodeManipulation:
     'kp',
     [
         pykoop.KoopmanPipeline(
+            lifting_functions=None,
+            regressor=pykoop.Edmd(),
+        ),
+        pykoop.KoopmanPipeline(
+            lifting_functions=[
+                ('pl', pykoop.PolynomialLiftingFn(order=2)),
+            ],
+            regressor=pykoop.Edmd(),
+        ),
+        pykoop.KoopmanPipeline(
+            lifting_functions=[
+                ('dl',
+                 pykoop.DelayLiftingFn(
+                     n_delays_state=2,
+                     n_delays_input=2,
+                 )),
+            ],
+            regressor=pykoop.Edmd(),
+        ),
+        pykoop.KoopmanPipeline(
+            lifting_functions=[
+                ('sp',
+                 pykoop.SplitPipeline(
+                     lifting_functions_state=[
+                         ('pl', pykoop.PolynomialLiftingFn(order=2)),
+                     ],
+                     lifting_functions_input=None,
+                 ))
+            ],
+            regressor=pykoop.Edmd(),
+        ),
+    ],
+)
+class TestPredictionNoInput:
+    """Test fit Koopman pipeline prediction without input."""
+
+    def test_predict_trajectory_no_input(
+        self,
+        kp,
+        mass_spring_damper_no_input,
+    ):
+        """Test :func:`predict_trajectory` with no input."""
+        msg = 'Test only works when there is no episode feature.'
+        assert (not mass_spring_damper_no_input['episode_feature']), msg
+        # Fit estimator
+        kp.fit(
+            mass_spring_damper_no_input['X_train'],
+            n_inputs=mass_spring_damper_no_input['n_inputs'],
+            episode_feature=False,
+        )
+        # Extract initial conditions
+        x0 = pykoop.extract_initial_conditions(
+            mass_spring_damper_no_input['X_train'],
+            kp.min_samples_,
+            n_inputs=mass_spring_damper_no_input['n_inputs'],
+            episode_feature=False,
+        )
+        # Extract input
+        u = pykoop.extract_input(
+            mass_spring_damper_no_input['X_train'],
+            n_inputs=mass_spring_damper_no_input['n_inputs'],
+            episode_feature=False,
+        )
+        # Predict new states
+        X_sim = kp.predict_trajectory(
+            x0,
+            u,
+            episode_feature=False,
+            relift_state=True,
+        )
+        # Predict manually
+        X_sim_exp = np.zeros(X_sim.shape)
+        X_sim_exp[:kp.min_samples_, :] = x0
+        for k in range(kp.min_samples_, u.shape[0]):
+            X = np.hstack((
+                X_sim_exp[(k - kp.min_samples_):k, :],
+                u[(k - kp.min_samples_):k, :],
+            ))
+            Xp = kp.predict(X)
+            X_sim_exp[[k], :] = Xp[[-1], :]
+        np.testing.assert_allclose(X_sim, X_sim_exp)
+
+
+@pytest.mark.filterwarnings(
+    'ignore:Call to deprecated method predict_multistep')
+@pytest.mark.parametrize(
+    'kp',
+    [
+        pykoop.KoopmanPipeline(
             lifting_functions=[
                 ('dl', pykoop.DelayLiftingFn(n_delays_state=1,
                                              n_delays_input=1))
