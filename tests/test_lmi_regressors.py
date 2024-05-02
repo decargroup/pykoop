@@ -499,18 +499,38 @@ class TestSkLearn:
     """Test ``scikit-learn`` compatibility."""
 
     @sklearn.utils.estimator_checks.parametrize_with_checks([
-        pykoop.lmi_regressors.LmiEdmd(alpha=1e-3, ),
-        pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr(max_iter=1, ),
-        pykoop.lmi_regressors.LmiEdmdHinfReg(alpha=1, ratio=1, max_iter=1),
-        pykoop.lmi_regressors.LmiEdmdDissipativityConstr(max_iter=1, ),
-        pykoop.lmi_regressors.LmiDmdc(alpha=1e-3, ),
-        pykoop.lmi_regressors.LmiDmdcSpectralRadiusConstr(max_iter=1, ),
-        pykoop.lmi_regressors.LmiDmdcHinfReg(alpha=1, ratio=1, max_iter=1),
+        pykoop.lmi_regressors.LmiEdmd(alpha=1e-3, picos_eps=0),
+        pykoop.lmi_regressors.LmiEdmdSpectralRadiusConstr(
+            max_iter=1,
+            picos_eps=0,
+        ),
+        pykoop.lmi_regressors.LmiEdmdHinfReg(
+            alpha=1,
+            ratio=1,
+            max_iter=1,
+            picos_eps=0,
+        ),
+        pykoop.lmi_regressors.LmiEdmdDissipativityConstr(
+            max_iter=1,
+            picos_eps=0,
+        ),
+        pykoop.lmi_regressors.LmiDmdc(alpha=1e-3, picos_eps=0),
+        pykoop.lmi_regressors.LmiDmdcSpectralRadiusConstr(
+            max_iter=1,
+            picos_eps=0,
+        ),
+        pykoop.lmi_regressors.LmiDmdcHinfReg(
+            alpha=1,
+            ratio=1,
+            max_iter=1,
+            picos_eps=0,
+        ),
         pykoop.lmi_regressors.LmiHinfZpkMeta(
             pykoop.lmi_regressors.LmiEdmdHinfReg(
                 alpha=1,
                 ratio=1,
                 max_iter=1,
+                picos_eps=0,
             )),
     ])
     def test_compatible_estimator(self, estimator, check, mosek_solver_params):
