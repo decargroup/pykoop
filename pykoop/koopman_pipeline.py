@@ -9,7 +9,6 @@ import numpy as np
 import sklearn.base
 import sklearn.exceptions
 import sklearn.metrics
-from deprecated import deprecated
 from matplotlib import pyplot as plt
 from scipy import linalg
 
@@ -2409,88 +2408,6 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         scorer = KoopmanPipeline.make_scorer()
         score = scorer(self, X, None)
         return score
-
-    @deprecated('Use `predict_trajectory` instead')
-    def predict_multistep(self, X: np.ndarray) -> np.ndarray:
-        """Perform a multi-step prediction for the first state of each episode.
-
-        This function takes the first ``min_samples_`` states of the input,
-        along with all of its inputs, and predicts the next ``X.shape[0]``
-        states of the system. This action is performed on a per-episode basis.
-        The state features of ``X`` (other than the first ``min_samples_``
-        features) are not used at all.
-
-        If prediction fails numerically, missing predictions are filled with
-        ``np.nan``.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Data matrix.
-
-        Returns
-        -------
-        np.ndarray
-            Predicted data matrix.
-
-        Raises
-        ------
-        ValueError
-            If an episode is shorter than ``min_samples_``.
-
-        Warning
-        -------
-        Deprecated in favour of
-        :func:`pykoop.KoopmanPipeline.predict_trajectory`.
-
-        """
-        sklearn.utils.validation.check_is_fitted(self, 'regressor_fit_')
-        X = sklearn.utils.validation.check_array(X, **self._check_array_params)
-        # Split episodes
-        episodes = split_episodes(X, episode_feature=self.episode_feature_)
-        # Loop over episodes
-        predictions = []
-        for (i, X_i) in episodes:
-            # Check length of episode.
-            if X_i.shape[0] < self.min_samples_:
-                raise ValueError(f'Episode {i} has {X_i.shape[0]} samples but '
-                                 f'`min_samples_`={self.min_samples_} samples '
-                                 'are required.')
-            # Index where prediction blows up (if it does)
-            crash_index = None
-            # Extract initial state and input
-            x0 = X_i[:self.min_samples_, :self.n_states_in_]
-            u = X_i[:, self.n_states_in_:]
-            # Create array to hold predicted states
-            X_pred_i = np.zeros((X_i.shape[0], self.n_states_in_))
-            # Set the initial condition
-            X_pred_i[:self.min_samples_, :] = x0
-            # Predict all time steps
-            for k in range(self.min_samples_, X_i.shape[0]):
-                # Stack episode feature, previous predictions, and input
-                X_ik = combine_episodes(
-                    [(i,
-                      np.hstack((
-                          X_pred_i[(k - self.min_samples_):k, :],
-                          X_i[(k - self.min_samples_):k, self.n_states_in_:],
-                      )))],
-                    episode_feature=self.episode_feature_)
-                # Predict next step
-                try:
-                    X_pred_ik = self.predict(X_ik)[[-1], :]
-                except ValueError:
-                    crash_index = k
-                    break
-                # Extract data matrix from prediction
-                X_pred_i[[k], :] = split_episodes(
-                    X_pred_ik, episode_feature=self.episode_feature_)[0][1]
-            if crash_index is not None:
-                X_pred_i[crash_index:, :] = np.nan
-            predictions.append((i, X_pred_i))
-        # Combine episodes
-        X_p = combine_episodes(predictions,
-                               episode_feature=self.episode_feature_)
-        return X_p
 
     def predict_trajectory(
         self,
