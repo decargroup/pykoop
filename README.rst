@@ -215,14 +215,14 @@ If you use this software in your research, please cite it as below or see
 
 .. code-block:: bibtex
 
-    @software{dahdah_pykoop_2022,
+    @software{dahdah_pykoop_2024,
         title={{decargroup/pykoop}},
         doi={10.5281/zenodo.5576490},
         url={https://github.com/decargroup/pykoop},
         publisher={Zenodo},
         author={Steven Dahdah and James Richard Forbes},
-        version = {{v2.0.0}},
-        year={2022},
+        version = {{v2.0.1}},
+        year={2024},
     }
 
 
