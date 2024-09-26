@@ -402,6 +402,7 @@ class Dmd(koopman_pipeline.KoopmanRegressor):
         return {
             'multioutput': True,
             'multioutput_only': True,
+            'requires_y': False,
             '_xfail_checks': {
                 'check_estimators_dtypes': reason,
                 'check_fit_score_takes_y': reason,
@@ -504,6 +505,7 @@ class DataRegressor(koopman_pipeline.KoopmanRegressor):
         return {
             'multioutput': True,
             'multioutput_only': True,
+            'requires_y': False,
             # Allow a bad score since the ``coef_`` matrix will be filled with
             # zeros, and we just care to test ``scikit-learn`` API compliance.
             'poor_score': True,

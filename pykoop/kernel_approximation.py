@@ -16,8 +16,8 @@ log.addHandler(logging.NullHandler())
 
 
 class KernelApproximation(
-        sklearn.base.BaseEstimator,
         sklearn.base.TransformerMixin,
+        sklearn.base.BaseEstimator,
         metaclass=abc.ABCMeta,
 ):
     """Base class for all kernel approximations.
