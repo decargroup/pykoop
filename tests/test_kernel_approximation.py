@@ -11,7 +11,7 @@ import pykoop
 @pytest.mark.parametrize('est, kern, X', [
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='gaussian',
+            kernel_or_ft='gaussian',
             n_components=int(1e4),
             shape=1,
             method='weight_only',
@@ -25,7 +25,7 @@ import pykoop
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='gaussian',
+            kernel_or_ft='gaussian',
             n_components=int(1e4),
             shape=3,
             method='weight_only',
@@ -39,7 +39,7 @@ import pykoop
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='gaussian',
+            kernel_or_ft='gaussian',
             n_components=int(1e4),
             shape=1,
             method='weight_offset',
@@ -53,7 +53,7 @@ import pykoop
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='laplacian',
+            kernel_or_ft='laplacian',
             n_components=int(1e5),
             shape=1,
             method='weight_only',
@@ -67,7 +67,7 @@ import pykoop
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='laplacian',
+            kernel_or_ft='laplacian',
             n_components=int(1e5),
             shape=3,
             method='weight_only',
@@ -81,7 +81,7 @@ import pykoop
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='laplacian',
+            kernel_or_ft='laplacian',
             n_components=int(1e5),
             shape=1,
             method='weight_offset',
@@ -95,7 +95,7 @@ import pykoop
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='cauchy',
+            kernel_or_ft='cauchy',
             n_components=int(1e5),
             shape=1,
             method='weight_only',
@@ -109,7 +109,7 @@ import pykoop
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='cauchy',
+            kernel_or_ft='cauchy',
             n_components=int(1e5),
             shape=3,
             method='weight_only',
@@ -123,7 +123,7 @@ import pykoop
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='cauchy',
+            kernel_or_ft='cauchy',
             n_components=int(1e6),
             shape=1,
             method='weight_offset',
@@ -190,7 +190,7 @@ class TestKernelApproximation:
 @pytest.mark.parametrize('est, est_sk, X', [
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='gaussian',
+            kernel_or_ft='gaussian',
             n_components=int(1e4),
             shape=1,
             method='weight_only',
@@ -208,7 +208,7 @@ class TestKernelApproximation:
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='gaussian',
+            kernel_or_ft='gaussian',
             n_components=int(1e4),
             shape=1,
             method='weight_offset',
@@ -253,7 +253,7 @@ class TestKernelApproximationSklearn:
 @pytest.mark.parametrize('est, X', [
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='gaussian',
+            kernel_or_ft='gaussian',
             n_components=int(1e4),
             shape=1,
             method='weight_only',
@@ -266,7 +266,7 @@ class TestKernelApproximationSklearn:
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='gaussian',
+            kernel_or_ft='gaussian',
             n_components=int(1e4),
             shape=3,
             method='weight_only',
@@ -279,7 +279,7 @@ class TestKernelApproximationSklearn:
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='gaussian',
+            kernel_or_ft='gaussian',
             n_components=int(1e4),
             shape=1,
             method='weight_offset',
@@ -292,7 +292,7 @@ class TestKernelApproximationSklearn:
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='laplacian',
+            kernel_or_ft='laplacian',
             n_components=int(1e5),
             shape=1,
             method='weight_only',
@@ -305,7 +305,7 @@ class TestKernelApproximationSklearn:
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='laplacian',
+            kernel_or_ft='laplacian',
             n_components=int(1e5),
             shape=3,
             method='weight_only',
@@ -318,7 +318,7 @@ class TestKernelApproximationSklearn:
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='laplacian',
+            kernel_or_ft='laplacian',
             n_components=int(1e5),
             shape=1,
             method='weight_offset',
@@ -331,7 +331,7 @@ class TestKernelApproximationSklearn:
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='cauchy',
+            kernel_or_ft='cauchy',
             n_components=int(1e5),
             shape=1,
             method='weight_only',
@@ -344,7 +344,7 @@ class TestKernelApproximationSklearn:
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='cauchy',
+            kernel_or_ft='cauchy',
             n_components=int(1e5),
             shape=3,
             method='weight_only',
@@ -357,7 +357,7 @@ class TestKernelApproximationSklearn:
     ),
     (
         pykoop.RandomFourierKernelApprox(
-            kernel_or_ift='cauchy',
+            kernel_or_ft='cauchy',
             n_components=int(1e6),
             shape=1,
             method='weight_offset',
