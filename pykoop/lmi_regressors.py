@@ -103,6 +103,7 @@ class LmiRegressor(koopman_pipeline.KoopmanRegressor):
         return {
             'multioutput': True,
             'multioutput_only': True,
+            'requires_y': False,
             '_xfail_checks': {
                 'check_fit_idempotent': reason,
             }
@@ -2155,7 +2156,7 @@ class LmiEdmdDissipativityConstr(LmiRegressor):
         return problem_b
 
 
-class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
+class LmiHinfZpkMeta(sklearn.base.RegressorMixin, sklearn.base.BaseEstimator):
     """Meta-estimator where H-infinity weight is specified in ZPK format.
 
     H-infinity regularization weights must normally be specified in
@@ -2375,6 +2376,7 @@ class LmiHinfZpkMeta(sklearn.base.BaseEstimator, sklearn.base.RegressorMixin):
         return {
             'multioutput': True,
             'multioutput_only': True,
+            'requires_y': False,
         }
 
 

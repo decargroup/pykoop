@@ -22,8 +22,8 @@ log.addHandler(logging.NullHandler())
 
 
 class KoopmanLiftingFn(
-        sklearn.base.BaseEstimator,
         sklearn.base.TransformerMixin,
+        sklearn.base.BaseEstimator,
         metaclass=abc.ABCMeta,
 ):
     """Base class for Koopman lifting functions.
@@ -1138,9 +1138,11 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
         raise NotImplementedError()
 
 
-class KoopmanRegressor(sklearn.base.BaseEstimator,
-                       sklearn.base.RegressorMixin,
-                       metaclass=abc.ABCMeta):
+class KoopmanRegressor(
+        sklearn.base.RegressorMixin,
+        sklearn.base.BaseEstimator,
+        metaclass=abc.ABCMeta,
+):
     """Base class for Koopman regressors.
 
     All attributes with a trailing underscore are set by :func:`fit`.
@@ -1628,6 +1630,7 @@ class KoopmanRegressor(sklearn.base.BaseEstimator,
         return {
             'multioutput': True,
             'multioutput_only': True,
+            'requires_y': False,
         }
 
 
