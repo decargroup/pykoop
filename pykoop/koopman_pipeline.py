@@ -3425,7 +3425,7 @@ def score_trajectory(
     else:
         score = regression_metric(**regression_metric_args)
     # Return error score if score is not finite
-    if not np.isfinite(score):
+    if not np.all(np.isfinite(score)):
         if isinstance(error_score, str):
             raise ValueError(
                 'Prediction diverged or error occured while scoring.')
