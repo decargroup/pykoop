@@ -93,9 +93,8 @@ class RandomFourierKernelApprox(KernelApproximation):
     n_features_out_ : int
         Number of features output. This attribute is not available in
         estimators from :mod:`sklearn.kernel_approximation`.
-    ift_ : scipy.stats.rv_continuous
-        Probability distribution corresponding to inverse Fourier transform of
-        chosen kernel.
+    ft_ : scipy.stats.rv_continuous
+        Probability distribution corresponding to Fourier transform of chosen kernel.
     random_weights_ : np.ndarray, shape (n_features, n_components)
         Random weights to inner-product with features.
     random_offsets_ : np.ndarray, shape (n_features, )
@@ -106,7 +105,7 @@ class RandomFourierKernelApprox(KernelApproximation):
     Generate random Fourier features from a Gaussian kernel
 
     >>> ka = pykoop.RandomFourierKernelApprox(
-    ...     kernel_or_ift='gaussian',
+    ...     kernel_or_ft='gaussian',
     ...     n_components=10,
     ...     shape=1,
     ...     random_state=1234,
@@ -117,12 +116,12 @@ class RandomFourierKernelApprox(KernelApproximation):
     array([...])
     """
 
-    _ift_lookup = {
+    _ft_lookup = {
         'gaussian': scipy.stats.norm,
         'laplacian': scipy.stats.cauchy,
         'cauchy': scipy.stats.laplace,
     }
-    """Lookup table for inverse Fourier transform of kernel.
+    """Lookup table for Fourier transform of kernel.
 
     Laplacian and Cauchy being swapped is not a typo. They are Fourier
     transforms of each other.
@@ -130,7 +129,7 @@ class RandomFourierKernelApprox(KernelApproximation):
 
     def __init__(
         self,
-        kernel_or_ift: Union[str, scipy.stats.rv_continuous] = 'gaussian',
+        kernel_or_ft: Union[str, scipy.stats.rv_continuous] = 'gaussian',
         n_components: int = 100,
         shape: float = 1,
         method: str = 'weight_offset',
@@ -140,19 +139,19 @@ class RandomFourierKernelApprox(KernelApproximation):
 
         Parameters
         ----------
-        kernel_or_ift : Union[str, scipy.stats.rv_continuous]
+        kernel_or_ft : Union[str, scipy.stats.rv_continuous]
             Kernel to approximate. Possible options are
 
-                - ``'gaussian'`` -- Gaussian kernel, with inverse Fourier
-                  transform :class:`scipy.stats.norm` (default),
-                - ``'laplacian'`` -- Laplacian kernel, with inverse Fourier
-                  transform :class:`scipy.stats.cauchy`, or
-                - ``'cauchy'`` -- Cauchy kernel, with inverse Fourier transform
-                  :class:`scipy.stats.laplace`.
+                - ``'gaussian'`` -- Gaussian kernel, with Fourier transform
+                   :class:`scipy.stats.norm` (default),
+                - ``'laplacian'`` -- Laplacian kernel, with Fourier transform
+                   :class:`scipy.stats.cauchy`, or
+                - ``'cauchy'`` -- Cauchy kernel, with Fourier transform
+                   :class:`scipy.stats.laplace`.
 
             Alternatively, a positive, shift-invariant kernel can be implicitly
-            specified by providing its inverse Fourier transform as a
-            univariate probability distribution subclassing
+            specified by providing its Fourier transform as a univariate
+            probability distribution subclassing
             :class:`scipy.stats.rv_continuous`.
 
         n_components : int
@@ -179,7 +178,7 @@ class RandomFourierKernelApprox(KernelApproximation):
         random_state : Union[int, np.random.RandomState, None]
             Random seed.
         """
-        self.kernel_or_ift = kernel_or_ift
+        self.kernel_or_ft = kernel_or_ft
         self.n_components = n_components
         self.shape = shape
         self.method = method
@@ -210,11 +209,11 @@ class RandomFourierKernelApprox(KernelApproximation):
             If any of the constructor parameters are incorrect.
         """
         X = sklearn.utils.validation.check_array(X)
-        # Set inverse Fourier transform
-        if isinstance(self.kernel_or_ift, str):
-            self.ift_ = self._ift_lookup[self.kernel_or_ift]
+        # Set Fourier transform
+        if isinstance(self.kernel_or_ft, str):
+            self.ft_ = self._ft_lookup[self.kernel_or_ft]
         else:
-            self.ift_ = self.kernel_or_ift
+            self.ft_ = self.kernel_or_ft
         # Validate input
         if self.n_components <= 0:
             raise ValueError('`n_components` must be positive.')
@@ -230,7 +229,7 @@ class RandomFourierKernelApprox(KernelApproximation):
         else:
             self.n_features_out_ = self.n_components
         # Generate random weights
-        self.random_weights_ = self.ift_.rvs(
+        self.random_weights_ = self.ft_.rvs(
             scale=1,
             size=(self.n_features_in_, self.n_components),
             random_state=self.random_state,
@@ -249,7 +248,7 @@ class RandomFourierKernelApprox(KernelApproximation):
         # Easiest way to make sure distribution is univariate is to check the
         # dimension of the output.
         if self.random_weights_.ndim != 2:
-            raise ValueError('`kernel_or_ift` must specify a univariate '
+            raise ValueError('`kernel_or_ft` must specify a univariate '
                              'probability distribution.')
         return self
 
