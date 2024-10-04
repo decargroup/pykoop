@@ -39,9 +39,10 @@ the approximate Koopman model can be used for analysis, design, and optimal
 controller or observer synthesis for a wide range of systems using
 well-established linear tools. `pykoop`'s documentation, along with examples in
 script and notebook form, can be found at at
-https://pykoop.readthedocs.io/en/stable/. Its source code and issue tracker are
-available at https://github.com/decargroup/pykoop. Its releases are also
-archived on Zenodo [@pykoop].
+[pykoop.readthedocs.io/en/stable](https://pykoop.readthedocs.io/en/stable/).
+Its source code and issue tracker are available at
+[github.com/decargroup/pykoop](https://github.com/decargroup/pykoop).
+Its releases are also archived on Zenodo [@pykoop].
 
 # Statement of need
 
