@@ -7,7 +7,7 @@ with open('README.rst', 'r') as f:
 
 setuptools.setup(
     name='pykoop',
-    version='2.0.1',
+    version='2.0.2',
     description=('Koopman operator identification library in Python, '
                  'compatible with `scikit-learn`'),
     long_description=readme,

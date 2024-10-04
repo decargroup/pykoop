@@ -1,6 +1,7 @@
 # Requirements to install ``pykoop``, run all unit tests, and generate docs
 -r requirements.txt
 
+control
 pandas
 pytest
 pytest-regressions
