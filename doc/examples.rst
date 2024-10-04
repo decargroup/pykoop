@@ -70,3 +70,11 @@ For more details on how these features are generated, see [RR07]_.
 
 .. plot:: ../examples/7_example_rff_duffing.py
    :include-source:
+
+Control using the Koopman operator
+----------------------------------
+
+This example demonstrates Koopman LQR control using a Van der Pol oscillator.
+
+.. plot:: ../examples/8_control_vdp.py
+   :include-source:
