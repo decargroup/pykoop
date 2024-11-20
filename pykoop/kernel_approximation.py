@@ -479,6 +479,6 @@ class RandomBinningKernelApprox(KernelApproximation):
                 hash(tuple(coords[sample, :, component].astype(int)))
                 for component in range(coords.shape[2])
             ] for sample in range(coords.shape[0])],
-            dtype=int,
+            dtype=np.int64,
         )
         return coords_hashed
