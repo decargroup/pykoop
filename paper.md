@@ -40,8 +40,6 @@ controller or observer synthesis for a wide range of systems using
 well-established linear tools. `pykoop`'s documentation, along with examples in
 script and notebook form, can be found at at
 [pykoop.readthedocs.io/en/stable](https://pykoop.readthedocs.io/en/stable/).
-Its source code and issue tracker are available at
-[github.com/decargroup/pykoop](https://github.com/decargroup/pykoop).
 Its releases are also archived on Zenodo [@pykoop].
 
 # Statement of need
@@ -82,10 +80,10 @@ exogenous inputs are not.
 
 # Scholarly publications using `pykoop`
 
-The Koopman operator regression methods proposed in [@dahdah_system_2022] have
+The Koopman operator regression methods proposed in @dahdah_system_2022 have
 been implemented within `pykoop`, while the methods proposed in
-[@dahdah_2024_closed-loop], [@lortie_2024_forward-backward],
-[@lortie_2024_asymptotically], and [@dahdah_2024_uncertainty] are all based on
+@dahdah_2024_closed-loop, @lortie_2024_forward-backward,
+@lortie_2024_asymptotically, and @dahdah_2024_uncertainty are all based on
 `pykoop`, but are implemented in their own repositories.
 
 # Acknowledgements
