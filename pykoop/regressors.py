@@ -149,7 +149,7 @@ class EdmdMeta(koopman_pipeline.KoopmanRegressor):
         G = (Theta_p @ Psi.T) / q
         H = (Psi @ Psi.T) / q
         self.regressor_.fit(H.T, G.T)
-        coef = self.regressor_.coef_.T
+        coef = np.atleast_2d(self.regressor_.coef_).T
         return coef
 
     def _validate_parameters(self) -> None:
@@ -395,6 +395,17 @@ class Dmd(koopman_pipeline.KoopmanRegressor):
         if self.mode_type not in valid_mode_types:
             raise ValueError(f'`mode_type` must be one of {valid_mode_types}')
 
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.target_tags.required = False
+        tags.target_tags.single_output = False
+        tags.target_tags.multi_output = True
+        # The `dmd.Dmd` class requires X and y to have the samenumber of
+        # features. This test does not meet that requirement and must be
+        # skipped for now.
+        tags._skip_test = True
+        return tags
+
     def _more_tags(self):
         reason = ('The `dmd.Dmd` class requires X and y to have the same '
                   'number of features. This test does not meet that '
@@ -500,6 +511,16 @@ class DataRegressor(koopman_pipeline.KoopmanRegressor):
     def _validate_parameters(self) -> None:
         # No parameters to validate
         pass
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.target_tags.required = False
+        tags.target_tags.single_output = False
+        tags.target_tags.multi_output = True
+        # Allow a bad score since the ``coef_`` matrix will be filled with
+        # zeros, and we just care to test ``scikit-learn`` API compliance.
+        tags.regressor_tags.poor_score = True
+        return tags
 
     def _more_tags(self):
         return {

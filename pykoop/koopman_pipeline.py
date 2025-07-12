@@ -721,7 +721,7 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
         }
         # Validate data
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
-        # Set numbre of input features (including episode feature)
+        # Set number of input features (including episode feature)
         self.n_features_in_ = X.shape[1]
         # Extract episode feature
         if self.episode_feature_:
@@ -751,12 +751,11 @@ class EpisodeIndependentLiftingFn(KoopmanLiftingFn):
                 X,
                 **self._check_array_params,
             )
-            # Check input shape
+            # Check number of features
             if X.shape[1] != self.n_features_in_:
-                raise ValueError(f'{self.__class__.__name__} `fit()` called '
-                                 f'with {self.n_features_in_} features, but '
-                                 f'`transform()` called with {X.shape[1]} '
-                                 'features.')
+                raise ValueError(
+                    f"X has {X.shape[1]} features, but {self.__class__.__name__} "
+                    f"is expecting {self.n_features_in_} features as input.")
         return self._apply_transform_or_inverse(X, 'transform')
 
     def inverse_transform(self, X: np.ndarray) -> np.ndarray:
@@ -996,12 +995,11 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
                 X,
                 **self._check_array_params,
             )
-            # Check input shape
+            # Check number of features
             if X.shape[1] != self.n_features_in_:
-                raise ValueError(f'{self.__class__.__name__} `fit()` called '
-                                 f'with {self.n_features_in_} features, but '
-                                 f'`transform()` called with {X.shape[1]} '
-                                 'features.')
+                raise ValueError(
+                    f"X has {X.shape[1]} features, but {self.__class__.__name__} "
+                    f"is expecting {self.n_features_in_} features as input.")
         return self._apply_transform_or_inverse(X, 'transform')
 
     def inverse_transform(self, X: np.ndarray) -> np.ndarray:
@@ -1014,12 +1012,11 @@ class EpisodeDependentLiftingFn(KoopmanLiftingFn):
                 X,
                 **self._check_array_params,
             )
-            # Check input shape
+            # Check number of features
             if X.shape[1] != self.n_features_out_:
-                raise ValueError(f'{self.__class__.__name__} `fit()` output '
-                                 f'{self.n_features_out_} features, but '
-                                 '`inverse_transform()` called with '
-                                 f'{X.shape[1]} features.')
+                raise ValueError(
+                    f"X has {X.shape[1]} features, but {self.__class__.__name__} "
+                    f"is expecting {self.n_features_out_} features as input.")
         return self._apply_transform_or_inverse(X, 'inverse_transform')
 
     def _apply_transform_or_inverse(self, X: np.ndarray,
@@ -1270,6 +1267,11 @@ class KoopmanRegressor(
         self._validate_feature_names(X)
         # Validate array
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
+        # Check number of features
+        if X.shape[1] != self.n_features_in_:
+            raise ValueError(
+                f"X has {X.shape[1]} features, but {self.__class__.__name__} "
+                f"is expecting {self.n_features_in_} features as input.")
         # Split episodes
         episodes = split_episodes(X, episode_feature=self.episode_feature_)
         # Predict for each episode
@@ -1623,8 +1625,13 @@ class KoopmanRegressor(
         if not np.all(_extract_feature_names(X) == self.feature_names_in_):
             raise ValueError('Input features do not match fit features.')
 
-    # Extra estimator tags
-    # https://scikit-learn.org/stable/developers/develop.html#estimator-tags
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.target_tags.required = False
+        tags.target_tags.single_output = False
+        tags.target_tags.multi_output = True
+        return tags
+
     def _more_tags(self):
         return {
             'multioutput': True,
@@ -1812,12 +1819,11 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
                 X,
                 **self._check_array_params,
             )
-            # Check input shape
+            # Check number of features
             if X.shape[1] != self.n_features_in_:
-                raise ValueError(f'{self.__class__.__name__} `fit()` called '
-                                 f'with {self.n_features_in_} features, but '
-                                 f'`transform()` called with {X.shape[1]} '
-                                 'features.')
+                raise ValueError(
+                    f"X has {X.shape[1]} features, but {self.__class__.__name__} "
+                    f"is expecting {self.n_features_in_} features as input.")
         # Split episodes
         episodes = split_episodes(X, episode_feature=self.episode_feature_)
         episodes_state = []
@@ -1873,12 +1879,11 @@ class SplitPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
             sklearn.utils.validation.check_is_fitted(self)
             X = sklearn.utils.validation.check_array(
                 X, **self._check_array_params)
-            # Check input shape
+            # Check number of features
             if X.shape[1] != self.n_features_out_:
-                raise ValueError(f'{self.__class__.__name__} `fit()` output '
-                                 f'{self.n_features_out_} features, but '
-                                 '`inverse_transform()` called with '
-                                 f'{X.shape[1]} features.')
+                raise ValueError(
+                    f"X has {X.shape[1]} features, but {self.__class__.__name__} "
+                    f"is expecting {self.n_features_out_} features as input.")
         # Split episodes
         episodes = split_episodes(X, episode_feature=self.episode_feature_)
         episodes_state = []
@@ -2278,12 +2283,11 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
                 X,
                 **self._check_array_params,
             )
-            # Check input shape
+            # Check number of features
             if X.shape[1] != self.n_features_in_:
-                raise ValueError(f'{self.__class__.__name__} `fit()` called '
-                                 f'with {self.n_features_in_} features, but '
-                                 f'`transform()` called with {X.shape[1]} '
-                                 'features.')
+                raise ValueError(
+                    f"X has {X.shape[1]} features, but {self.__class__.__name__} "
+                    f"is expecting {self.n_features_in_} features as input.")
         # Apply lifting functions
         X_out = X
         for _, lf in self.lifting_functions_:
@@ -2309,12 +2313,11 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
                 X,
                 **self._check_array_params,
             )
-            # Check input shape
+            # Check number of features
             if X.shape[1] != self.n_features_out_:
-                raise ValueError(f'{self.__class__.__name__} `fit()` output '
-                                 f'{self.n_features_out_} features, but '
-                                 '`inverse_transform()` called with '
-                                 f'{X.shape[1]} features.')
+                raise ValueError(
+                    f"X has {X.shape[1]} features, but {self.__class__.__name__} "
+                    f"is expecting {self.n_features_out_} features as input.")
         # Apply inverse lifting functions in reverse order
         X_out = X
         for _, lf in self.lifting_functions_[::-1]:
@@ -2360,6 +2363,11 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
                 X,
                 **self._check_array_params,
             )
+            # Check number of features
+            if X.shape[1] != self.n_features_in_:
+                raise ValueError(
+                    f"X has {X.shape[1]} features, but {self.__class__.__name__} "
+                    f"is expecting {self.n_features_in_} features as input.")
         # Lift data matrix
         X_trans = self.transform(X)
         # Predict in lifted space
@@ -2405,6 +2413,11 @@ class KoopmanPipeline(metaestimators._BaseComposition, KoopmanLiftingFn):
         self._validate_feature_names(X)
         # Validate input array
         X = sklearn.utils.validation.check_array(X, **self._check_array_params)
+        # Check number of features
+        if X.shape[1] != self.n_features_in_:
+            raise ValueError(
+                f"X has {X.shape[1]} features, but {self.__class__.__name__} "
+                f"is expecting {self.n_features_in_} features as input.")
         scorer = KoopmanPipeline.make_scorer()
         score = scorer(self, X, None)
         return score

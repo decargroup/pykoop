@@ -78,7 +78,7 @@ class GridCenters(Centers):
     >>> grid.fit(X_msd[:, 1:])  # Remove episode feature
     GridCenters(n_points_per_feature=4)
     >>> grid.centers_
-    array([...])
+    array(...)
     """
 
     def __init__(
@@ -155,7 +155,7 @@ class UniformRandomCenters(Centers):
     >>> rand.fit(X_msd[:, 1:])  # Remove episode feature
     UniformRandomCenters(n_centers=10)
     >>> rand.centers_
-    array([...])
+    array(...)
     """
 
     def __init__(
@@ -235,7 +235,7 @@ class GaussianRandomCenters(Centers):
     >>> rand.fit(X_msd[:, 1:])  # Remove episode feature
     GaussianRandomCenters(n_centers=10)
     >>> rand.centers_
-    array([...])
+    array(...)
     """
 
     def __init__(
@@ -306,7 +306,7 @@ class QmcCenters(Centers):
     >>> qmc.fit(X_msd[:, 1:])  # Remove episode feature
     QmcCenters(n_centers=10)
     >>> qmc.centers_
-    array([...])
+    array(...)
 
     Generate centers using a Sobol sequence
 
@@ -314,7 +314,7 @@ class QmcCenters(Centers):
     >>> qmc.fit(X_msd[:, 1:])  # Remove episode feature
     QmcCenters(n_centers=8, qmc=<class 'scipy.stats._qmc.Sobol'>)
     >>> qmc.centers_
-    array([...])
+    array(...)
     """
 
     def __init__(
@@ -430,7 +430,7 @@ class ClusterCenters(Centers):
     >>> kmeans.fit(X_msd[:, 1:])  # Remove episode feature
     ClusterCenters(estimator=KMeans(n_clusters=3))
     >>> kmeans.centers_
-    array([...])
+    array(...)
     """
 
     def __init__(
@@ -507,7 +507,7 @@ class GaussianMixtureRandomCenters(Centers):
     >>> gmm.fit(X_msd[:, 1:])  # Remove episode feature
     GaussianMixtureRandomCenters(estimator=GaussianMixture(n_components=3))
     >>> gmm.centers_
-    array([...])
+    array(...)
     """
 
     def __init__(

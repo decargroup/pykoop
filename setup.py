@@ -39,7 +39,7 @@ setuptools.setup(
     install_requires=[
         'numpy>=1.21.0',
         'scipy>=1.7.0',
-        'scikit-learn>=1.0.0',
+        'scikit-learn>=1.2.0, <1.7.0',
         'picos>=2.4.0',
         'optht>=0.2.0',
         'Deprecated>=1.2.13',

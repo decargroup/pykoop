@@ -458,8 +458,8 @@ def example_data_pendulum() -> Dict[str, Any]:
     X_pend = np.vstack(X_pend_lst)
     valid_ep = [5, 25, 45]
     train_ep = list(set(range(n_ep)) - set(valid_ep))
-    valid_idx = np.where(np.in1d(X_pend[:, 0], valid_ep))[0]
-    train_idx = np.where(np.in1d(X_pend[:, 0], train_ep))[0]
+    valid_idx = np.where(np.isin(X_pend[:, 0], valid_ep))[0]
+    train_idx = np.where(np.isin(X_pend[:, 0], train_ep))[0]
     X_train = X_pend[train_idx, :]
     X_valid = X_pend[valid_idx, :]
     n_inputs = 0
@@ -536,8 +536,8 @@ def example_data_duffing() -> Dict[str, Any]:
     X_do = np.vstack(X_do_lst)
     valid_ep = [n_ep - 3, n_ep - 2, n_ep - 1]
     train_ep = list(set(range(n_ep)) - set(valid_ep))
-    valid_idx = np.where(np.in1d(X_do[:, 0], valid_ep))[0]
-    train_idx = np.where(np.in1d(X_do[:, 0], train_ep))[0]
+    valid_idx = np.where(np.isin(X_do[:, 0], valid_ep))[0]
+    train_idx = np.where(np.isin(X_do[:, 0], train_ep))[0]
     X_train = X_do[train_idx, :]
     X_valid = X_do[valid_idx, :]
     n_inputs = 1

@@ -113,7 +113,7 @@ class RandomFourierKernelApprox(KernelApproximation):
     >>> ka.fit(X_msd[:, 1:])  # Remove episode feature
     RandomFourierKernelApprox(n_components=10, random_state=1234)
     >>> ka.transform(X_msd[:, 1:])
-    array([...])
+    array(...)
     """
 
     _ft_lookup = {
@@ -267,6 +267,10 @@ class RandomFourierKernelApprox(KernelApproximation):
         """
         sklearn.utils.validation.check_is_fitted(self)
         X = sklearn.utils.validation.check_array(X)
+        if X.shape[1] != self.n_features_in_:
+            raise ValueError(
+                f"X has {X.shape[1]} features, but {self.__class__.__name__} "
+                f"is expecting {self.n_features_in_} features as input.")
         X_scaled = np.sqrt(2 * self.shape) * X
         products = X_scaled @ self.random_weights_  # (n_samples, n_components)
         if self.method == 'weight_only':
@@ -314,7 +318,7 @@ class RandomBinningKernelApprox(KernelApproximation):
     >>> ka.fit(X_msd[:, 1:])  # Remove episode feature
     RandomBinningKernelApprox(n_components=10, random_state=1234)
     >>> ka.transform(X_msd[:, 1:])
-    array([...])
+    array(...)
     """
 
     _ddot_lookup = {
@@ -451,6 +455,10 @@ class RandomBinningKernelApprox(KernelApproximation):
         """
         sklearn.utils.validation.check_is_fitted(self)
         X = sklearn.utils.validation.check_array(X)
+        if X.shape[1] != self.n_features_in_:
+            raise ValueError(
+                f"X has {X.shape[1]} features, but {self.__class__.__name__} "
+                f"is expecting {self.n_features_in_} features as input.")
         X_scaled = np.sqrt(2 * self.shape) * X
         X_hashed = self._hash_samples(X_scaled)
         Xt = self.encoder_.transform(X_hashed) / np.sqrt(self.n_components)
@@ -479,6 +487,6 @@ class RandomBinningKernelApprox(KernelApproximation):
                 hash(tuple(coords[sample, :, component].astype(int)))
                 for component in range(coords.shape[2])
             ] for sample in range(coords.shape[0])],
-            dtype=int,
+            dtype=np.int64,
         )
         return coords_hashed
