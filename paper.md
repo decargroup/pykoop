@@ -77,6 +77,18 @@ interface. The `kooplearn` library includes kernel and neural network approaches
 to learning Koopman models, but does not include other types of lifting
 functions. While multiple training episodes are handled by `kooplearn`,
 exogenous inputs are not.
+Note that `pykoop` allows users to import Koopman matrices identified using
+other libraries for comparison and evaluation, provided that the lifting
+functions used are supported.
+
+The main use cases for each Koopman operator approximation library are
+summarized below. Multiple training episodes are supported by `pykoop`,
+`DLKoopman`, and `kooplearn`. For use cases requiring neural network lifting
+functions, `PyKoopman`, `DLKoopman`, and `kooplearn` are all excellent options.
+The only package that currently supports continuous-time Koopman modelling is
+`PyKoopman`. For use cases that require composable lifting functions that can
+be optimized using standard hyperparameter selection tools, or for use cases
+that require control inputs, `pykoop` is the standout choice.
 
 # Scholarly publications using `pykoop`
 
